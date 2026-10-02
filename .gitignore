@@ -1,0 +1,11 @@
+node_modules/
+.env
+backend/.pgdata/
+backend/uploads/
+.claude/skills/impeccable/scripts/bin/
+.impeccable/hook.cache.json
+frontend/.impeccable/hook.cache.json
+dist/
+build/
+.DS_Store
+*.log

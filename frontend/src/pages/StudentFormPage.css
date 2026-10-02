@@ -1,0 +1,142 @@
+.student-form-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--space-5);
+  align-items: start;
+  max-width: 1040px;
+}
+
+@media (max-width: 860px) {
+  .student-form-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Multi-step progress indicator — a step's circle fills in once it's
+   behind the current one; clicking any step jumps straight to it (handy
+   on an edit, where every step is already filled in). */
+.form-steps {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+}
+.form-steps__item {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+.form-steps__item:last-child {
+  flex: 0 0 auto;
+}
+.form-steps__connector {
+  flex: 1;
+  height: 2px;
+  background: var(--color-border);
+  margin: 0 var(--space-3);
+}
+.form-steps__connector.is-done {
+  background: var(--color-primary);
+}
+.form-steps__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.form-steps__step:hover {
+  background: none;
+  color: var(--color-primary);
+}
+.form-steps__index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.form-steps__step.is-active {
+  color: var(--color-primary);
+}
+.form-steps__step.is-active .form-steps__index {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.form-steps__step.is-done .form-steps__index {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.form-step-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.student-form-review h3 {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-3);
+}
+.student-form-review section {
+  margin-bottom: var(--space-5);
+}
+.student-form-review section:last-child {
+  margin-bottom: 0;
+}
+
+/* Live preview of the student being created, stays visible alongside the
+   form on desktop (sticky, so it survives scrolling a long step). */
+.student-form-preview {
+  position: sticky;
+  top: var(--space-5);
+  text-align: center;
+}
+.student-form-preview__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--space-3);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));
+  color: var(--color-primary);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+.student-form-preview__name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-4);
+}
+.student-form-preview__name--placeholder {
+  color: var(--color-text-faint);
+  font-weight: 400;
+  font-style: italic;
+}
+.student-form-preview__grid.field-grid {
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+  text-align: left;
+}

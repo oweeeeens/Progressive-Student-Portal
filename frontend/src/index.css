@@ -1,0 +1,1474 @@
+/* =============================================================================
+   Design tokens
+   =============================================================================
+   Single source of truth for color/type/spacing, so every page reads as one
+   product instead of each page inventing its own look. Brand colors (navy +
+   gold) come from the school seal; risk-level colors are kept as a separate
+   set on purpose — they signal urgency (low/medium/high), not brand, and
+   must stay recognizable even where the brand palette changes.
+   ========================================================================== */
+:root {
+  /* Brand */
+  --color-primary: #1a3a6b;
+  --color-primary-hover: #15305a;
+  --color-primary-light: #eaf0f8; /* tinted backgrounds for active/selected states */
+  --color-primary-light-2: #dfe9f6; /* second stop for soft two-tone icon-badge gradients */
+  --color-accent: #f7c600; /* used sparingly: active-item indicator, small highlights only */
+  --color-accent-text: #8a6c00; /* readable text/icon color on the gold-tinted accent background */
+
+  /* The navy sidebar/login-panel gradient — same two stops in both themes
+     (it's deliberately dark chrome even in light mode), tokenized once so
+     Sidebar.css and LoginPage.css can't drift apart with two copies. */
+  --color-primary-gradient-start: #1f4278;
+  --color-primary-gradient-mid: #1a3a6b; /* same literal as --color-primary's light-mode value, but never overridden for dark — the gradient's middle stop must not shift when --color-primary does */
+  --color-primary-gradient-end: #142c52;
+
+  /* .btn-primary's own subtle gradient (distinct from the two above). */
+  --btn-primary-gradient-start: #214578;
+  --btn-primary-gradient-hover-start: #1a3966;
+
+  /* Surfaces */
+  --color-bg: #f7f8fa; /* page background — off-white, not a literal gray */
+  --color-surface: #ffffff; /* cards, sidebar content, table rows */
+  --color-border: #e2e5ea;
+  --color-border-strong: #c7ccd4;
+
+  /* Text */
+  --color-text: #1f2a3c;
+  --color-text-muted: #5b6472;
+  --color-text-faint: #8a93a3;
+  --color-text-on-primary: #ffffff;
+  --color-text-on-primary-muted: #aebcd6;
+
+  /* Semantic (non-risk) status */
+  --color-danger: #c0392b;
+  --color-danger-hover: #a5302a;
+  --color-danger-bg: #fdecea;
+  --color-danger-bg-2: #fbdcd8; /* gradient second-stop */
+  --color-success: #1e8449;
+  --color-success-bg: #e9f7ef;
+  --color-success-bg-2: #d9f0e1; /* gradient second-stop */
+  --color-warning: #8a6400; /* distinct token from risk-medium even though the hue is similar — never reused for risk */
+  --color-warning-bg: #fdf3da;
+  --color-warning-bg-2: #fbe8bd; /* gradient second-stop */
+  --color-neutral-bg: #eef0f3;
+
+  /* Risk levels — intentionally separate from the brand palette, see above */
+  --risk-low: #1e8449;
+  --risk-low-bg: #e9f7ef;
+  --risk-low-bg-2: #d9f0e1; /* gradient second-stop — own token, not shared with --color-success-bg-2 even though the hex coincides */
+  --risk-medium: #b07500;
+  --risk-medium-bg: #fdf3da;
+  --risk-medium-bg-2: #fbe8bd;
+  --risk-high: #c0392b;
+  --risk-high-bg: #fdecea;
+  --risk-high-bg-2: #fbdcd8;
+  --risk-none: #8a93a3;
+  --risk-none-bg: #f0f1f3;
+
+  /* A whole TABLE ROW tinted by risk level needs a much fainter wash than
+     the pill badge's own background — a pill is a small chip that can
+     carry a confident pastel fill; a full row of that same fill reads as
+     a solid color block and starts competing with the badge instead of
+     sitting quietly underneath it. Own tokens, not reused from -bg/-bg-2
+     above, specifically so the two jobs can be tuned independently. In
+     light mode the existing pale -bg tokens already read as "subtle" at
+     full strength, so these just reuse them; dark mode needs its own,
+     far lower-opacity values (see the dark block) since any saturated
+     fill reads as heavy against a dark surface. */
+  --risk-low-row: var(--risk-low-bg);
+  --risk-low-row-hover: #d8f0e2;
+  --risk-medium-row: var(--risk-medium-bg);
+  --risk-medium-row-hover: #fbe7b8;
+  --risk-high-row: var(--risk-high-bg);
+  --risk-high-row-hover: #fbdbd5;
+
+  /* Type */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-size-xs: 0.75rem; /* 12px — fine print */
+  --font-size-sm: 0.8125rem; /* 13px — table meta, secondary text */
+  --font-size-base: 0.9375rem; /* 15px — body text, inputs */
+  --font-size-md: 1rem; /* 16px */
+  --font-size-lg: 1.125rem; /* 18px — sub-section headers */
+  --font-size-xl: 1.375rem; /* 22px — page section headers */
+  --font-size-2xl: 1.75rem; /* 28px — page titles */
+
+  /* Spacing (4px base unit) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  --radius-xl: 14px; /* icon tiles (stat cards, avatars) — rounder than a card, not fully circular */
+
+  /* Tinted to the brand navy rather than neutral black, so elevation reads
+     as part of this product's palette instead of a generic UI-kit shadow. */
+  --shadow-sm: 0 1px 2px rgba(26, 58, 107, 0.08);
+  --shadow-md: 0 4px 16px rgba(26, 58, 107, 0.12);
+  --shadow-lg: 0 16px 40px rgba(26, 58, 107, 0.18);
+
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 64px;
+
+  /* Shared page-background wash — referenced by both `body` and
+     `.app-shell` (which otherwise paints over body with a flat fill), so
+     keep these as one token rather than two copies that can drift apart. */
+  --page-wash-start: #fbfcfe;
+  --page-bg-wash: radial-gradient(ellipse 1400px 800px at 50% -10%, var(--page-wash-start) 0%, var(--color-bg) 55%);
+
+  color-scheme: light;
+}
+
+/* =============================================================================
+   Dark theme
+   =============================================================================
+   A manual, user-controlled toggle (see components/TopBar.jsx), not an
+   automatic prefers-color-scheme flip — every token above gets a real
+   dark-mode value here, not just background/text inverted. The navy brand
+   gradient (--color-primary-gradient-*) and the white logo badges are
+   deliberately NOT overridden: the sidebar and login panel are already
+   dark chrome in light mode, so they stay exactly as they are. */
+:root[data-theme='dark'] {
+  /* Retuned for eye comfort (first dark-mode pass measured contrast against
+     the WCAG floor and maxed it out — e.g. body text hit 15.3:1 — but a
+     near-white-on-near-black pairing reads as glare over a long session,
+     not just "accessible." Backed off deliberately: background lifted off
+     near-black, body text dimmed off near-white, so the resting-state
+     contrast sits around 10-11:1 (still far past the 4.5:1 AA floor, just
+     not the maximum possible). Verified via the same composited-contrast
+     scripts as every other color pass this session — nothing below is a
+     guess.
+
+     --color-primary does double duty: readable TEXT on a dark surface, and
+     a filled BUTTON background with white text on top. A light, highly
+     legible blue (the obvious choice for the first role) is too pale for
+     the second — white-on-pale-blue fails contrast. Kept medium-dark and
+     saturated instead, which works for both; hover brightens, the normal
+     dark-mode interactive cue, without crossing into "too pale for white
+     text" territory (white-on-hover verified >= 3:1, the UI-component
+     floor, not just eyeballed — the previous hover value was already
+     razor-thin at 3.04:1). */
+  --color-primary: #5f8cd3;
+  --color-primary-hover: #6893d1;
+  --color-primary-light: #1c2e4a;
+  --color-primary-light-2: #243a5c;
+  --color-accent-text: #e0b84d;
+
+  --btn-primary-gradient-start: #2c4f80;
+  --btn-primary-gradient-hover-start: #35609a;
+
+  /* Background/surface lifted off near-black (#11161f/#1a212e before) —
+     still clearly a dark theme, just not a pitch-black one, which is the
+     other half of the glare problem alongside near-white text below. */
+  --color-bg: #161b23;
+  --color-surface: #1e2530;
+  --color-border: #2c3546;
+  --color-border-strong: #606f84;
+
+  /* Dimmed off near-white (#e8ecf2 before, 15.3:1 against the old bg) —
+     comfortable reading dark themes (GitHub, VS Code) deliberately avoid
+     pure-white body text for exactly this reason. Still 11.5:1/10.2:1 on
+     bg/surface here, well past the 4.5:1 floor. */
+  --color-text: #ccd3dd;
+  --color-text-muted: #99a4b6;
+  --color-text-faint: #828da3;
+  /* --color-text-on-primary(-muted) intentionally not overridden — same
+     reasoning as the gradient tokens above: they sit on the sidebar/button
+     navy, which doesn't change between themes, so neither should they. */
+
+  --color-danger: #e2685a;
+  --color-danger-hover: #ec8276;
+  --color-danger-bg: #3a2024;
+  --color-danger-bg-2: #46262b;
+  --color-success: #4caf72;
+  --color-success-bg: #1c3326;
+  --color-success-bg-2: #223d2d;
+  --color-warning: #e0b84d;
+  --color-warning-bg: #3a3320;
+  --color-warning-bg-2: #453d26;
+  --color-neutral-bg: #2a3140;
+
+  --risk-low: #4caf72;
+  --risk-low-bg: #1c3326;
+  --risk-low-bg-2: #223d2d;
+  --risk-medium: #d9a23b;
+  --risk-medium-bg: #3a3320;
+  --risk-medium-bg-2: #453d26;
+  --risk-high: #e2685a;
+  --risk-high-bg: #3a2024;
+  --risk-high-bg-2: #46262b;
+  --risk-none: #76829a;
+  --risk-none-bg: #242b38;
+
+  /* A translucent wash of the risk color over the dark surface, not a
+     solid fill — the same opaque pastel approach light mode uses would
+     read as a heavy, saturated block on a dark background (verified:
+     composited text contrast stays 6.0-12.3 either way, so this is a
+     pure "look," not a readability tradeoff). Hover deepens the alpha,
+     not the hue. */
+  --risk-low-row: rgba(76, 175, 114, 0.08);
+  --risk-low-row-hover: rgba(76, 175, 114, 0.14);
+  --risk-medium-row: rgba(217, 162, 59, 0.08);
+  --risk-medium-row-hover: rgba(217, 162, 59, 0.14);
+  --risk-high-row: rgba(226, 104, 90, 0.08);
+  --risk-high-row-hover: rgba(226, 104, 90, 0.14);
+
+  /* Black-based now, not navy-tinted — a navy-tinted shadow has nothing to
+     contrast against once the surface it sits on is already dark. Alpha
+     eased down slightly from the first pass (0.3/0.4/0.55) — full-strength
+     black shadows against an already-dark surface read as harsh voids
+     rather than soft elevation. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+
+  --page-wash-start: #1b222c;
+
+  color-scheme: dark;
+}
+
+/* =============================================================================
+   Reset + base elements
+   ========================================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  color: var(--color-text);
+  /* A faint navy-tinted wash rather than a flat fill — reads as "white" at
+     a glance but keeps the page from feeling like an empty gray box. */
+  background: var(--page-bg-wash);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-family);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 var(--space-4);
+}
+
+h1 {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+}
+
+h2 {
+  font-size: var(--font-size-xl);
+  color: var(--color-text);
+}
+
+h3 {
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+}
+
+p {
+  margin: 0 0 var(--space-3);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-1);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Bare <button> default: a neutral, professional secondary button. Pages
+   that need a primary (navy-filled) action opt in with .btn-primary — not
+   every button is "primary," so this must not default to the brand fill. */
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+button:hover:not(:disabled) {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* Destructive action, idle state: text-only red so it reads as available
+   but not alarming until the user actually commits to it. */
+.btn-danger-subtle {
+  color: var(--color-danger);
+}
+.btn-danger-subtle:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger);
+}
+
+/* Destructive action, confirm step only — the one place a solid red fill
+   is earned, since it only appears after a deliberate first click. */
+.btn-danger {
+  color: var(--color-text-on-primary);
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
+.btn-danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+}
+
+/* Self-sufficient (not just a color override on top of the bare <button>
+   reset) so it works identically on a <button> or a <Link>/<a> styled as a
+   primary action. */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--color-text-on-primary);
+  background: linear-gradient(180deg, var(--btn-primary-gradient-start), var(--color-primary));
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--btn-primary-gradient-hover-start), var(--color-primary-hover));
+  border-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th,
+td {
+  text-align: left;
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-base);
+}
+th {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+/* =============================================================================
+   Shared record-page primitives
+   =============================================================================
+   Built out properly on the Student Records pass, reused by every later
+   per-module pass (Attendance, Enrollment, Grades, Risk, Interventions) so
+   list/detail pages read as one product instead of each inventing its own
+   header/table/status treatment.
+   ========================================================================== */
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+  flex-wrap: wrap;
+}
+.page-header h1 {
+  margin-bottom: 0;
+}
+.page-header__actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+/* A filter label in this horizontal toolbar, not a stacked form field — the
+   base <label> rule's block layout and bottom margin are for the latter and
+   would misalign it against its row-mates (e.g. the search field). */
+.page-header__actions label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.page-header__actions label select,
+.page-header__actions label input {
+  margin-top: 0;
+}
+
+/* A bordered, unshadowed container for a table — deliberately flat (no
+   drop shadow) so it doesn't compete with record-section dividers below;
+   see frontend-design skill notes on not boxing every section in an
+   identical shadowed card regardless of hierarchy. */
+.table-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.table-card table {
+  margin: 0;
+}
+.table-card th {
+  background: var(--color-bg);
+}
+.table-card tbody tr:hover {
+  background: var(--color-primary-light);
+}
+.table-card tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* A row that does something on click — opens an inline detail panel (see
+   InterventionDetailPanel) or navigates to a detail page (the Students
+   list) — same hover tint as every other row, plus a pointer cursor and a
+   focus ring since it's keyboard-operable too. */
+.table-card tbody tr.is-clickable-row {
+  cursor: pointer;
+}
+.table-card tbody tr.is-clickable-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+/* The expanded panel itself isn't a row to click — cancel the hover tint
+   and give it a touch of separation from the data rows above it. */
+.table-card tbody tr.detail-row:hover {
+  background: var(--color-bg);
+}
+.table-card tbody tr.detail-row td {
+  background: var(--color-bg);
+  padding: var(--space-5);
+  cursor: default;
+}
+
+/* A labeled search field with a leading icon, used on every list page. */
+.search-field {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.search-field svg {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-faint);
+  pointer-events: none;
+}
+.search-field input {
+  padding-left: calc(var(--space-3) * 2 + 16px);
+  margin-top: 0;
+  width: 260px;
+  max-width: 100%;
+}
+
+/* Categorical state (enrollment status, document status, etc.) — muted
+   register-style tones, distinct from both the brand palette and the
+   separate risk-level colors. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.15rem var(--space-3);
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pill--neutral {
+  background: var(--color-neutral-bg);
+  color: var(--color-text-muted);
+}
+.pill--positive {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.pill--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+.pill--negative {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.pill--info {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+/* Risk levels use the separate risk palette (see tokens above), not the
+   brand-adjacent variants — kept visually distinct on purpose. */
+.pill--risk-low {
+  background: var(--risk-low-bg);
+  color: var(--risk-low);
+}
+.pill--risk-medium {
+  background: var(--risk-medium-bg);
+  color: var(--risk-medium);
+}
+.pill--risk-high {
+  background: var(--risk-high-bg);
+  color: var(--risk-high);
+}
+
+/* A minimal risk indicator for dense contexts (next to a name in a table
+   row) where a full pill would be too heavy — a plain colored dot, no
+   text, no background box, so it reads as a different kind of signal from
+   the pill-shaped status badges rather than competing with them. Omitted
+   entirely (not a neutral/gray dot) when a student has no risk assessment
+   yet, so "no dot" means "not calculated", never "calculated as nothing". */
+.risk-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.risk-dot--low {
+  background: var(--risk-low);
+}
+.risk-dot--medium {
+  background: var(--risk-medium);
+}
+.risk-dot--high {
+  background: var(--risk-high);
+}
+
+/* A clickable table-header label for sortable columns — reset to look
+   exactly like the plain <th> text next to it, not like a button. */
+.sortable-header {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+}
+.sortable-header:hover {
+  background: none;
+  color: var(--color-primary);
+}
+.sortable-header svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* The Risk Dashboard's table specifically — roomier rows than the default
+   table-card, since "Triggered Factors" often wraps to multiple lines and
+   felt cramped at the standard cell padding. */
+.risk-table td {
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
+  line-height: 1.55;
+}
+
+/* A whole row tinted to match its own risk-level badge — the *-row tokens
+   (see :root) are a deliberately much fainter wash than the badge's own
+   background, so the badge stays the primary signal and the row reads as
+   a quiet, secondary cue underneath it, not a second competing block of
+   color. Hover deepens the same wash rather than snapping to the generic
+   navy row-hover, which would look muddy layered on red/green. */
+.risk-table tbody tr.risk-row--low {
+  background: var(--risk-low-row);
+}
+.risk-table tbody tr.risk-row--low:hover {
+  background: var(--risk-low-row-hover);
+}
+.risk-table tbody tr.risk-row--medium {
+  background: var(--risk-medium-row);
+}
+.risk-table tbody tr.risk-row--medium:hover {
+  background: var(--risk-medium-row-hover);
+}
+.risk-table tbody tr.risk-row--high {
+  background: var(--risk-high-row);
+}
+.risk-table tbody tr.risk-row--high:hover {
+  background: var(--risk-high-row-hover);
+}
+
+/* A student whose risk hasn't been calculated yet has nothing to show —
+   recede it slightly so rows with real, actionable data stand out by
+   comparison. 0.85, not lower: opacity compounds with already-muted text
+   (verified — 0.65 dropped several text/background pairs below WCAG's
+   3:1 UI-component floor in both themes), and this row is de-emphasized,
+   not meant to become illegible. */
+.risk-table tbody tr.is-uncalculated {
+  opacity: 0.85;
+}
+
+/* The "soft" secondary action a dense data row can carry without
+   outweighing the risk data itself — smaller than a normal button, text
+   only until hovered. */
+.btn-subtle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-primary);
+  background: none;
+  border: 1px solid transparent;
+}
+.btn-subtle:hover:not(:disabled) {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.trend-icon {
+  display: inline-flex;
+  vertical-align: -2px;
+  margin-left: var(--space-1);
+}
+.trend-icon--up {
+  color: var(--color-success);
+}
+.trend-icon--down {
+  color: var(--color-danger);
+}
+.trend-icon--flat {
+  color: var(--color-text-faint);
+}
+
+.risk-info-icon {
+  color: var(--color-text-faint);
+  vertical-align: -2px;
+  margin-left: var(--space-1);
+  cursor: help;
+}
+
+/* Tabs (see components/Tabs.jsx) — an underline style, not boxed pills, so
+   it reads as "one page, several views of it" rather than separate cards. */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-5);
+  overflow-x: auto;
+}
+.tabs__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tabs__item:hover {
+  background: none;
+  color: var(--color-primary);
+}
+.tabs__item.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+.tabs__item svg {
+  flex-shrink: 0;
+}
+
+/* A record's own larger identity avatar (vs. the 36px chip in TopBar) —
+   same gradient treatment, just sized for a page header. */
+.profile-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));
+  color: var(--color-primary);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+}
+
+/* A field-grid value that's genuinely empty — styled as a quiet, legible
+   fact ("not provided") rather than a bare dash, without reading as an
+   error or a status in its own right. */
+.field-grid dd.is-empty {
+  color: var(--color-text-faint);
+  font-style: italic;
+}
+
+/* Monthly attendance calendar (see components/AttendanceCalendar.jsx).
+   Status colors reuse the app's general success/danger/warning/neutral
+   tokens, not the separate risk palette — CLAUDE.md reserves risk colors
+   for actual risk indicators even where a hue looks similar. */
+.attendance-calendar__header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.attendance-calendar__header button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.attendance-calendar__header strong {
+  min-width: 11ch;
+  text-align: center;
+  font-size: var(--font-size-base);
+}
+.attendance-calendar__weekdays,
+.attendance-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+}
+.attendance-calendar__weekdays {
+  margin-bottom: var(--space-2);
+}
+.attendance-calendar__weekdays span {
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-faint);
+}
+.attendance-calendar__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+}
+.attendance-calendar__cell--empty {
+  background: none;
+}
+.attendance-calendar__cell.is-present {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  font-weight: 600;
+}
+.attendance-calendar__cell.is-absent {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.attendance-calendar__cell.is-late {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  font-weight: 600;
+}
+.attendance-calendar__cell.is-excused {
+  background: var(--color-neutral-bg);
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+.attendance-calendar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.attendance-calendar__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.attendance-calendar__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.attendance-calendar__dot.is-present {
+  background: var(--color-success);
+}
+.attendance-calendar__dot.is-absent {
+  background: var(--color-danger);
+}
+.attendance-calendar__dot.is-late {
+  background: var(--color-warning);
+}
+.attendance-calendar__dot.is-excused {
+  background: var(--color-text-muted);
+}
+
+/* Grade trend sparkline (see components/GradeSparkline.jsx) — the line
+   stays in a muted de-emphasis hue; only the current period's point picks
+   up the brand accent. Status (improving/declining) is carried by the
+   trend arrow + label next to it, not by coloring this line red/green —
+   a single series shouldn't also double as a status encoding. */
+.grade-sparkline__line {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.grade-sparkline__point {
+  fill: var(--color-border-strong);
+  stroke: var(--color-surface);
+  stroke-width: 2;
+}
+.grade-sparkline__point--current {
+  fill: var(--color-primary);
+}
+.grade-sparkline-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.grade-sparkline-wrap__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Student Detail's profile header — sits above the tabs, stays visible
+   regardless of which tab is active. */
+.profile-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.profile-header__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.profile-header__identity h1 {
+  margin-bottom: var(--space-1);
+}
+.profile-header__subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+.profile-header__badges {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* A risk-level badge with a disclosed "why" — the pill itself plus a
+   small toggle; expands into the same triggered-factors list the Risk
+   Dashboard shows, so the two surfaces never tell a different story. */
+.risk-badge__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.risk-badge__toggle:hover {
+  background: none;
+}
+.risk-badge__why {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.risk-badge__factors {
+  position: absolute;
+  z-index: 5;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3) var(--space-4);
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  max-width: 320px;
+}
+.risk-badge__factors li {
+  padding: var(--space-1) 0;
+}
+.risk-badge {
+  position: relative;
+}
+
+/* An explicit 2-column variant of .field-grid (which is otherwise
+   auto-fill/responsive) for the Overview tab's basic-info card — a
+   modifier, not a change to .field-grid itself, since that class is
+   shared with InterventionDetailPanel elsewhere. */
+.field-grid--two-col {
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (max-width: 560px) {
+  .field-grid--two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A section heading paired with a control (e.g. the attendance
+   calendar/list toggle) on the same line. */
+.record-section__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.record-section__header-row h2 {
+  margin-bottom: 0;
+}
+
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: none;
+  border-radius: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+.view-toggle button:hover {
+  background: var(--color-primary-light);
+}
+.view-toggle button.is-active {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.view-toggle button + button {
+  border-left: 1px solid var(--color-border-strong);
+}
+
+/* The "log a new intervention" form, promoted from a cramped inline row
+   into its own labeled card. */
+.intervention-log-form {
+  margin-bottom: var(--space-5);
+}
+.intervention-log-form h3 {
+  font-size: var(--font-size-md);
+  margin-bottom: var(--space-4);
+}
+.intervention-log-form__fields {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  align-items: start;
+}
+@media (max-width: 560px) {
+  .intervention-log-form__fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A standalone callout block — e.g. a one-time generated temp password
+   after creating/resetting an account. Was previously hand-rolled as inline
+   styles on three separate pages; consolidated here so they can't drift. */
+.alert {
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.alert > p:first-child {
+  margin-top: 0;
+}
+.alert > p:last-child {
+  margin-bottom: 0;
+}
+.alert--success {
+  background: var(--color-success-bg);
+  border: 1px solid var(--color-success);
+}
+.alert__code {
+  display: inline-block;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-md);
+  letter-spacing: 0.05em;
+}
+
+/* A record's own field grid — label above value, register-card style,
+   rather than a plain two-column table. */
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4) var(--space-6);
+}
+.field-grid dt {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+.field-grid dd {
+  margin: 0;
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+
+/* A required-field marker. Place directly in markup next to the label
+   text, not as a label::after — a label's <input> is also its child
+   (after the text), so ::after lands after the input instead of the text
+   it's meant to mark (hit this exact bug once already on the login form). */
+.required-mark {
+  color: var(--color-danger);
+}
+
+/* A labeled field with a leading icon plus live validation feedback below
+   the input — richer than a bare <label>, for forms where inline
+   per-field validation earns its keep (the student form; reusable by any
+   future form that wants the same treatment). */
+.form-field {
+  margin-bottom: var(--space-4);
+}
+.form-field__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.form-field__label svg {
+  color: var(--color-text-faint);
+  flex-shrink: 0;
+}
+.form-field input,
+.form-field select {
+  width: 100%;
+  margin-top: 0;
+}
+.form-field__feedback {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+}
+.form-field__feedback--error {
+  color: var(--color-danger);
+}
+.form-field__feedback--success {
+  color: var(--color-success);
+}
+
+.intervention-detail__status-field {
+  display: inline-block;
+  margin: var(--space-4) 0 0;
+  max-width: 220px;
+}
+.intervention-detail__status-field select {
+  width: 100%;
+}
+
+/* Stacked related-record panels (grades, attendance, documents,
+   interventions on a student's page) — divided by a hairline rule with
+   consistent rhythm, not individually boxed/shadowed cards. */
+.record-section {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+.record-section > h2 {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-3);
+}
+
+/* A bordered, shadowed, padded content box — for a block of content that
+   isn't a table (.table-card) and isn't one of several stacked record
+   sections on a detail page (.record-section), e.g. the dashboard's
+   announcements feed, activity feed, and sidebar widgets. Without this,
+   those blocks sat directly on the page background with nothing marking
+   where they began or ended. */
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+.panel > h2:first-child {
+  font-size: var(--font-size-md);
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-7) var(--space-4);
+  color: var(--color-text-muted);
+}
+.empty-state p {
+  margin: 0;
+}
+.empty-state p:first-child {
+  color: var(--color-text);
+  font-weight: 500;
+  margin-bottom: var(--space-1);
+}
+
+.pagination {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.pagination button {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+}
+
+/* Numbered pagination (see components/Pagination.jsx) — a page-number row
+   with the current page highlighted, used where that's more useful than
+   .pagination's plain "Page X of Y" text (e.g. a long announcements feed). */
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-4);
+}
+.pagination-nav__page,
+.pagination-nav__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+}
+.pagination-nav__page:hover:not(.is-active):not(:disabled),
+.pagination-nav__arrow:hover:not(:disabled) {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.pagination-nav__page.is-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+  cursor: default;
+}
+.pagination-nav__ellipsis {
+  padding: 0 var(--space-1);
+  color: var(--color-text-faint);
+}
+
+/* Breadcrumbs — Home / Section / Subpage, on every page. The last crumb is
+   the current page and is not a link. */
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+.breadcrumbs__separator {
+  color: var(--color-text-faint);
+}
+.breadcrumbs__current {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+/* Role-specific shortcut buttons near the top of a page — not a submit
+   action, so visually distinct from .btn-primary (card-shaped, not filled). */
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.quick-actions__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.quick-actions__item:hover {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.quick-actions__item svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* Stat cards — a summary row at the top of list/dashboard pages. These ARE
+   boxed (unlike feed items and record sections) because each one is a
+   discrete figure meant to be scanned independently, not a continuation of
+   the content below it. */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-strong);
+}
+.stat-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-xl);
+  flex-shrink: 0;
+  /* Defaults to the brand navy; variants below override for semantic figures.
+     A soft two-tone gradient within each hue rather than a flat tint. */
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));
+  color: var(--color-primary);
+}
+.stat-card__value {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.stat-card__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.stat-card--positive .stat-card__icon {
+  background: linear-gradient(135deg, var(--color-success-bg), var(--color-success-bg-2));
+  color: var(--color-success);
+}
+.stat-card--warning .stat-card__icon {
+  background: linear-gradient(135deg, var(--color-warning-bg), var(--color-warning-bg-2));
+  color: var(--color-warning);
+}
+.stat-card--negative .stat-card__icon {
+  background: linear-gradient(135deg, var(--color-danger-bg), var(--color-danger-bg-2));
+  color: var(--color-danger);
+}
+.stat-card--risk-low .stat-card__icon {
+  background: linear-gradient(135deg, var(--risk-low-bg), var(--risk-low-bg-2));
+  color: var(--risk-low);
+}
+.stat-card--risk-medium .stat-card__icon {
+  background: linear-gradient(135deg, var(--risk-medium-bg), var(--risk-medium-bg-2));
+  color: var(--risk-medium);
+}
+.stat-card--risk-high .stat-card__icon {
+  background: linear-gradient(135deg, var(--risk-high-bg), var(--risk-high-bg-2));
+  color: var(--risk-high);
+}
+/* Matches .pill--info's colors — the "being watched, not yet resolved"
+   register (e.g. Monitoring) wasn't previously needed on a stat card. */
+.stat-card--info .stat-card__icon {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));
+  color: var(--color-primary);
+}
+/* The one place gold earns a spot in content: a single highlighted figure
+   worth drawing the eye to, used sparingly and never more than once a row. */
+.stat-card--accent .stat-card__icon {
+  background: linear-gradient(135deg, rgba(247, 198, 0, 0.18), rgba(247, 198, 0, 0.3));
+  color: var(--color-accent-text);
+}
+
+/* A feed entry (announcements) — hairline-divided like .record-section
+   rather than individually boxed/shadowed, consistent with that choice. */
+.feed-item {
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.feed-item:first-child {
+  padding-top: 0;
+}
+.feed-item__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.feed-item__title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0;
+}
+.feed-item__byline {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-3);
+}
+.feed-item__body {
+  white-space: pre-wrap;
+  margin: 0 0 var(--space-3);
+}
+.feed-item__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Loading placeholder shape, used while a list's data hasn't resolved yet —
+   keeps the page's reserved layout close to the real content so nothing
+   jumps once it arrives. */
+.skeleton {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    opacity: 0.75;
+  }
+}

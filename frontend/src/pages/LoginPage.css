@@ -1,0 +1,156 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--page-bg-wash);
+  padding: var(--space-4);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* Brand panel: the same navy gradient the sidebar already commits to
+   everywhere else in the app — the login page is the one screen that
+   previously opted out of it. */
+.login-card__brand {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: linear-gradient(
+    160deg,
+    var(--color-primary-gradient-start) 0%,
+    var(--color-primary-gradient-mid) 55%,
+    var(--color-primary-gradient-end) 100%
+  );
+  color: var(--color-text-on-primary);
+  padding: var(--space-6) var(--space-5);
+}
+
+.login-card__logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-4);
+}
+
+.login-card__title {
+  color: var(--color-text-on-primary);
+  margin: 0;
+}
+
+.login-card__subtitle {
+  color: var(--color-text-on-primary-muted);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+/* Same gold accent-bar motif as the sidebar's active-link indicator,
+   reused here as the brand panel's one deliberate highlight. */
+.login-card__accent-rule {
+  display: block;
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  margin: var(--space-4) 0;
+}
+
+.login-card__tagline {
+  color: var(--color-text-on-primary-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 22ch;
+}
+
+.login-card__form-panel {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--space-6) var(--space-5);
+}
+
+.login-card__form-heading {
+  margin-bottom: var(--space-4);
+}
+
+.login-card__form {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.login-card__form input {
+  width: 100%;
+  background: var(--color-primary-light);
+  border-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.login-card__form input:focus {
+  background: var(--color-surface);
+}
+
+.login-card__form button {
+  margin-top: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+}
+
+.login-card__error {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-3);
+}
+
+.login-card__success {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-3);
+}
+
+.login-card__footer-link {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+/* Brand panel becomes a compact top banner on narrow screens so the form
+   — the actual task — stays the priority instead of competing for space. */
+@media (max-width: 640px) {
+  .login-card {
+    flex-direction: column;
+  }
+  .login-card__brand {
+    padding: var(--space-5) var(--space-5) var(--space-4);
+  }
+  .login-card__logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: var(--space-3);
+  }
+  .login-card__tagline {
+    display: none;
+  }
+}

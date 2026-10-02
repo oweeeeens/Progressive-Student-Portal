@@ -1,0 +1,19 @@
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  /* This wrapper sits on top of body and would otherwise paint over it with
+     a flat fill, making body's wash a no-op — reuse the same token. */
+  background: var(--page-bg-wash);
+}
+
+.app-shell__content {
+  flex: 1;
+  min-width: 0; /* let tables/content scroll within, not push the shell wider */
+  padding: var(--space-6) var(--space-6);
+}
+
+@media (max-width: 720px) {
+  .app-shell__content {
+    padding: var(--space-5) var(--space-4);
+  }
+}

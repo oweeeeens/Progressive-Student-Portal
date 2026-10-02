@@ -1,0 +1,30 @@
+/* Border/padding/shadow come from the shared .panel class (see index.css) —
+   this file only has what's specific to this card's own content. */
+.profile-card {
+  align-self: start;
+}
+
+.profile-card__grid.field-grid {
+  grid-template-columns: 1fr;
+  gap: var(--space-3);
+}
+
+.profile-card__role {
+  text-transform: capitalize;
+}
+
+.profile-card__task {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+.profile-card__task svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}

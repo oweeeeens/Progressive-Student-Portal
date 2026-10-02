@@ -1,0 +1,42 @@
+/* The one page-specific "hero" heading in the app — bigger than the shared
+   h1 scale on purpose, since this is the single welcome moment every role
+   lands on, not a repeatable page-title pattern other pages should copy. */
+.dashboard-greeting {
+  font-size: 2rem;
+  margin-bottom: var(--space-1);
+}
+
+.dashboard-greeting__subtitle {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.dashboard-main {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .dashboard-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* The left grid column's own stack — Announcements above Recent Activity —
+   so Recent Activity sits beside .dashboard-side (next to Students Needing
+   Attention) instead of spanning the full page width below everything. */
+.dashboard-primary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
