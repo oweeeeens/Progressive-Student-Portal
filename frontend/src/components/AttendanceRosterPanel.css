@@ -1,0 +1,139 @@
+/* Previous/Today/Next day controls, grouped visually with the date input
+   itself rather than scattered page-header buttons. */
+.attendance-date-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.attendance-date-nav input[type='date'] {
+  margin-top: 0;
+}
+.attendance-date-nav__arrow {
+  padding: var(--space-2);
+}
+
+.attendance-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.attendance-toolbar__bulk {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* One tap per status change — four always-visible options, not a dropdown.
+   Idle options read as plain secondary buttons; the selected one fills with
+   that status's own color (the same green/red/amber/gray already used by
+   the attendance calendar elsewhere), so the whole row is scannable by
+   color without reading the letter. */
+.status-segmented {
+  display: inline-flex;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.status-segmented__option {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.status-segmented__option + .status-segmented__option {
+  border-left: 1px solid var(--color-border-strong);
+}
+.status-segmented__option:hover:not(.is-selected) {
+  background: var(--color-bg);
+}
+/* The fill alone (background: var(--color-*-bg)) isn't reliably visible —
+   several of these "-bg" tokens are pale enough to read as barely
+   different from the idle white/surface background once four options sit
+   directly side by side (verified: Late's selected fill computed to
+   #fdf3da against a #ffffff idle neighbor — a real but easy-to-miss
+   difference). An inset ring in the status's own saturated color backs up
+   the fill so the selected option is unambiguous at a glance regardless of
+   how pale that status's background tint happens to be. */
+.status-segmented__option--present.is-selected {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  box-shadow: inset 0 0 0 1.5px var(--color-success);
+}
+.status-segmented__option--absent.is-selected {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  box-shadow: inset 0 0 0 1.5px var(--color-danger);
+}
+.status-segmented__option--late.is-selected {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  box-shadow: inset 0 0 0 1.5px var(--color-warning);
+}
+.status-segmented__option--excused.is-selected {
+  background: var(--color-neutral-bg);
+  color: var(--color-text-muted);
+  box-shadow: inset 0 0 0 1.5px var(--color-text-muted);
+}
+
+/* Keyboard focus lands on the row itself (not each segmented button — see
+   AttendanceRosterPanel.jsx's tabIndex choices), so the row needs its own
+   visible focus ring to show which one P/A/L/E will act on. */
+.attendance-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.attendance-notes-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.attendance-notes-toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-faint);
+  background: none;
+  border: 1px solid transparent;
+}
+.attendance-notes-toggle:hover {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+/* A small dot marking "this row already has a note," visible even while the
+   input itself is collapsed (present + manually-hidden state). */
+.attendance-notes-toggle.has-note::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 1px solid var(--color-surface);
+}
+.attendance-notes-input {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}

@@ -51,22 +51,99 @@
 
 .sidebar__nav {
   flex: 1;
+  min-height: 0; /* let this flex child actually shrink and scroll instead of stretching the sidebar taller than its parent */
   overflow-y: auto;
   padding: var(--space-4) var(--space-3);
+  /* Scrolling to the end of this list shouldn't hand off to whatever's
+     behind the sidebar — keeps this scroll area independent of the main
+     content area's, and of the page itself (which never scrolls at all;
+     see Layout.css). */
+  overscroll-behavior: contain;
+
+  /* Thin, subtle scrollbar that matches this panel's own always-dark navy
+     chrome (the sidebar doesn't change between light/dark app theme, so
+     neither does this) — barely-there at rest, only reading as a clear
+     scrollbar once the user's actually interacting with this area.
+     Firefox: */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+/* WebKit/Blink (Chrome, Edge, Safari) — no hover-only API for Firefox's
+   scrollbar-color, but its thin auto-styled scrollbar is unobtrusive by
+   default, so the idle/hover contrast below is this engine's own. */
+.sidebar__nav::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar__nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar__nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+.sidebar__nav:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .sidebar__section {
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-2);
 }
 
+/* The section label is now also the collapse/expand trigger — reset to
+   look like the plain label it used to be, not a button, with the chevron
+   as the only added affordance. */
+.sidebar__section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-2);
+  cursor: pointer;
+  font-family: inherit;
+}
+.sidebar__section-toggle:hover {
+  background: none;
+}
 .sidebar__section-label {
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--color-text-on-primary-muted);
-  padding: 0 var(--space-3);
-  margin-bottom: var(--space-2);
   white-space: nowrap;
   overflow: hidden;
+}
+.sidebar__section-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-on-primary-muted);
+  transition: transform 0.15s ease;
+}
+.sidebar__section-chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+/* The animated collapse/expand itself: a grid-rows trick (0fr <-> 1fr)
+   rather than animating height directly — animating height/max-height is
+   layout-thrashing and was flagged by the design system's own perf check
+   (see .impeccable/config.json's layout-transition exception, which is
+   for an unrelated, much rarer width transition — this one animates on
+   every click, so it gets the non-thrashing treatment on principle). The
+   inner wrapper needs min-height: 0 so the grid row can actually shrink
+   past its content's natural height instead of a 1fr track being treated
+   as "at least this tall". */
+.sidebar__section-items {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.18s ease;
+}
+.sidebar__section-items--collapsed {
+  grid-template-rows: 0fr;
+}
+.sidebar__section-items > div {
+  overflow: hidden;
+  min-height: 0;
 }
 
 .sidebar__link {
@@ -167,6 +244,7 @@
   }
   .sidebar__brand-text,
   .sidebar__section-label,
+  .sidebar__section-chevron,
   .sidebar__link-label,
   .sidebar__user {
     display: none;
@@ -178,5 +256,17 @@
   }
   .sidebar__link--active::before {
     left: 0;
+  }
+  /* No room for a label or chevron to click, so collapsing doesn't make
+     sense here — every section stays fully expanded (icons only, same as
+     before this feature existed) regardless of what was toggled at a
+     wider width. */
+  .sidebar__section-toggle {
+    cursor: default;
+    padding: 0;
+  }
+  .sidebar__section-items,
+  .sidebar__section-items--collapsed {
+    grid-template-rows: 1fr;
   }
 }

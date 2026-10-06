@@ -14,7 +14,10 @@ async function assertCanWriteSection(req, res, sectionId) {
     res.status(400).json({ error: 'sectionId does not refer to an existing section.' });
     return null;
   }
-  if (req.user.role === 'adviser' && section.adviser_id !== req.user.id) {
+  // admin/registrar have blanket write access by role; everyone else must
+  // actually be this section's adviser_id regardless of their role label —
+  // see gradeController's matching comments for the full reasoning.
+  if (!['admin', 'registrar'].includes(req.user.role) && section.adviser_id !== req.user.id) {
     res.status(403).json({ error: 'You can only record attendance for your own advisory section.' });
     return null;
   }
@@ -79,8 +82,8 @@ async function getRosterForDate(req, res) {
   const { role, id: userId } = req.user;
   const allowed =
     ['admin', 'registrar', 'guidance_counselor'].includes(role) ||
-    (role === 'adviser' && section.adviser_id === userId) ||
-    (role === 'subject_teacher' && (await classOfferingModel.teacherTeachesSection(userId, section.id)));
+    section.adviser_id === userId ||
+    (await classOfferingModel.teacherTeachesSection(userId, section.id));
   if (!allowed) {
     return res.status(403).json({ error: 'You do not have permission to view this section.' });
   }

@@ -2,15 +2,25 @@
 // throws a plain Error with the server's message so callers can just try/catch.
 const TOKEN_STORAGE_KEY = 'studentPortal.token';
 
+// "Remember me" is which storage the token lands in, not a separate flag:
+// localStorage survives closing the browser (the "remembered" case, and the
+// default — matches this app's behavior before the checkbox existed, so
+// anyone who doesn't touch it sees no change), sessionStorage clears the
+// moment the tab/browser closes (unchecked — "don't keep me signed in on
+// this device"). Checking both on read means an already-remembered session
+// from before this feature existed still works.
 export function getToken() {
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
+  return localStorage.getItem(TOKEN_STORAGE_KEY) || sessionStorage.getItem(TOKEN_STORAGE_KEY);
 }
 
-export function setToken(token) {
+export function setToken(token, remember = true) {
   if (token) {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    const [store, other] = remember ? [localStorage, sessionStorage] : [sessionStorage, localStorage];
+    store.setItem(TOKEN_STORAGE_KEY, token);
+    other.removeItem(TOKEN_STORAGE_KEY); // never leave a stale copy in the other store
   } else {
     localStorage.removeItem(TOKEN_STORAGE_KEY);
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY);
   }
 }
 
@@ -78,6 +88,7 @@ async function downloadFile(path, filename) {
 export const api = {
   get: (path) => request(path),
   post: (path, body) => request(path, { method: 'POST', body }),
+  put: (path, body) => request(path, { method: 'PUT', body }),
   patch: (path, body) => request(path, { method: 'PATCH', body }),
   delete: (path) => request(path, { method: 'DELETE' }),
   upload,

@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { Link } from 'react-router-dom'
+import { confirmLeave } from '../utils/unsavedChangesGuard'
 
 // items: [{ label, to }] — the last item is the current page and renders as
 // plain text rather than a link, so the trail never links to where you are.
@@ -16,7 +17,14 @@ export function Breadcrumbs({ items }) {
                 {item.label}
               </span>
             ) : (
-              <Link to={item.to}>{item.label}</Link>
+              <Link
+                to={item.to}
+                onClick={(e) => {
+                  if (!confirmLeave()) e.preventDefault()
+                }}
+              >
+                {item.label}
+              </Link>
             )}
           </Fragment>
         )

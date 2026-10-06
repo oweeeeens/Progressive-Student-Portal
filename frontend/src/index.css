@@ -83,6 +83,11 @@
   --risk-high-row: var(--risk-high-bg);
   --risk-high-row-hover: #fbdbd5;
 
+  /* A row with no grade entered yet (Enter Grades) — same "fainter than a
+     badge's own fill" reasoning as the risk-row tokens above, reused here
+     rather than duplicated. */
+  --grade-missing-row: var(--color-warning-bg);
+
   /* Type */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-size-xs: 0.75rem; /* 12px — fine print */
@@ -219,6 +224,9 @@
   --risk-high-row: rgba(226, 104, 90, 0.08);
   --risk-high-row-hover: rgba(226, 104, 90, 0.14);
 
+  /* Same translucent-wash reasoning as the risk rows above. */
+  --grade-missing-row: rgba(224, 184, 77, 0.08);
+
   /* Black-based now, not navy-tinted — a navy-tinted shadow has nothing to
      contrast against once the surface it sits on is already dark. Alpha
      eased down slightly from the first pass (0.3/0.4/0.55) — full-strength
@@ -242,10 +250,19 @@
   box-sizing: border-box;
 }
 
+/* 100dvh, not 100%/100vh — 100% just inherits whatever the parent resolves
+   to (fine here since html/body/#root form an unbroken chain), but dvh is
+   what keeps this exact on mobile browsers whose UI chrome shows/hides as
+   the page scrolls, shrinking the *actual* visible viewport. No overflow
+   rule here deliberately: login/change-password/etc. render outside the
+   app shell and still rely on the page itself being able to grow/scroll.
+   The "no page-level scroll, everything scrolls internally instead" rule
+   is scoped to .app-shell alone (Layout.css), which is the one thing that
+   needs it. */
 html,
 body,
 #root {
-  height: 100%;
+  height: 100dvh;
 }
 
 body {
@@ -1270,6 +1287,58 @@ th {
 .pagination-nav__ellipsis {
   padding: 0 var(--space-1);
   color: var(--color-text-faint);
+}
+
+/* A quick-glance live count (e.g. "32 entered · 3 missing") — not a
+   stat-card row, this updates on every click/keystroke and sits right
+   above the table it describes, not at the top of the page like a
+   dashboard summary. Shared by the attendance and grade roster pages — each
+   page supplies its own labeled counts as children, this just owns the
+   type/spacing. */
+.live-summary-bar {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3);
+}
+
+/* A bottom-pinned action bar for pages with a roster table above it — the
+   attendance and grade roster pages' Save/Verify/Finalize buttons, so the
+   primary action is always reachable without scrolling back up, with an
+   optional dirty-state indicator alongside it. Relies on .app-shell__content
+   being its own scroll container (see Layout.css) for position: sticky to
+   actually pin instead of just scrolling away with the page. The negative
+   margin breaks it out of that container's own padding so it sits flush at
+   the true bottom edge; the matching padding re-adds visual breathing room. */
+.sticky-action-bar {
+  position: sticky;
+  bottom: calc(var(--space-6) * -1);
+  margin: var(--space-5) calc(var(--space-6) * -1) calc(var(--space-6) * -1);
+  padding: var(--space-4) var(--space-6);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -4px 12px rgba(26, 58, 107, 0.08);
+}
+:root[data-theme='dark'] .sticky-action-bar {
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+}
+.sticky-action-bar__status {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.sticky-action-bar__status.is-dirty {
+  color: var(--color-warning);
+  font-weight: 500;
+}
+@media (max-width: 720px) {
+  .sticky-action-bar {
+    margin: var(--space-5) calc(var(--space-4) * -1) calc(var(--space-5) * -1);
+    padding: var(--space-3) var(--space-4);
+  }
 }
 
 /* Breadcrumbs — Home / Section / Subpage, on every page. The last crumb is

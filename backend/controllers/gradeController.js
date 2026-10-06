@@ -1,6 +1,7 @@
-// Handlers for grade entry (subject teacher) and finalization (adviser).
-// Finalizing is the trigger point for risk recalculation — see riskEngine.js
-// and CLAUDE.md's "recalculated whenever new grades/attendance are entered."
+// Handlers for the full grade approval chain: subject teacher submits ->
+// principal verifies or rejects -> adviser finalizes. Finalizing is the
+// trigger point for risk recalculation — see riskEngine.js and CLAUDE.md's
+// "recalculated whenever new grades/attendance are entered."
 const gradeModel = require('../models/gradeModel');
 const classOfferingModel = require('../models/classOfferingModel');
 const sectionModel = require('../models/sectionModel');
@@ -21,7 +22,9 @@ async function recordGrades(req, res) {
   if (!offering) {
     return res.status(400).json({ error: 'classOfferingId does not refer to an existing class.' });
   }
-  if (req.user.role === 'subject_teacher' && offering.teacher_id !== req.user.id) {
+  // Ownership by assignment (teacher_id), not by role label — see
+  // classOfferingController.getRoster's matching comment.
+  if (req.user.role !== 'admin' && offering.teacher_id !== req.user.id) {
     return res.status(403).json({ error: 'You can only record grades for classes you teach.' });
   }
 
@@ -32,7 +35,7 @@ async function recordGrades(req, res) {
     return res.status(400).json({ error: `Student ${unknownStudent.studentId} is not currently in this class.` });
   }
 
-  const saved = await gradeModel.upsertDraftGrades({
+  const saved = await gradeModel.upsertSubmittedGrades({
     classOfferingId,
     gradingPeriodId,
     recordedBy: req.user.id,
@@ -41,7 +44,63 @@ async function recordGrades(req, res) {
   res.status(201).json({ grades: saved });
 }
 
-async function listDraftsForSection(req, res) {
+// Lets the entry page reopen a class+period it already submitted: prefill
+// existing values and surface the current status (and rejection note, if
+// any) per student, instead of always starting from a blank sheet.
+async function getSubmissionsForOffering(req, res) {
+  const { classOfferingId, gradingPeriodId } = req.query;
+  if (!classOfferingId || !gradingPeriodId) {
+    return res.status(400).json({ error: 'classOfferingId and gradingPeriodId query params are required.' });
+  }
+
+  const offering = await classOfferingModel.getById(Number(classOfferingId));
+  if (!offering) return res.status(404).json({ error: 'Class not found.' });
+  if (req.user.role !== 'admin' && offering.teacher_id !== req.user.id) {
+    return res.status(403).json({ error: 'You can only view grades for classes you teach.' });
+  }
+
+  const submissions = await gradeModel.getSubmissionsForOffering(Number(classOfferingId), Number(gradingPeriodId));
+  res.json({ submissions });
+}
+
+// The principal's review queue — school-wide, not scoped to one section,
+// since there is only one principal for the whole school.
+async function listSubmittedGrades(req, res) {
+  const { gradingPeriodId, sectionId, page, pageSize } = req.query;
+  if (!gradingPeriodId) {
+    return res.status(400).json({ error: 'gradingPeriodId query param is required.' });
+  }
+  const result = await gradeModel.listSubmittedGrades({
+    gradingPeriodId: Number(gradingPeriodId),
+    sectionId: sectionId ? Number(sectionId) : null,
+    page: page ? Number(page) : 1,
+    pageSize: pageSize ? Number(pageSize) : 20,
+  });
+  res.json(result);
+}
+
+async function verifyGrades(req, res) {
+  const { gradeIds } = req.body;
+  if (!Array.isArray(gradeIds) || gradeIds.length === 0) {
+    return res.status(400).json({ error: 'gradeIds must be a non-empty array.' });
+  }
+  const verifiedIds = await gradeModel.verifyGrades(gradeIds, req.user.id);
+  res.json({ verifiedCount: verifiedIds.length, gradeIds: verifiedIds });
+}
+
+async function rejectGrades(req, res) {
+  const { gradeIds, note } = req.body;
+  if (!Array.isArray(gradeIds) || gradeIds.length === 0) {
+    return res.status(400).json({ error: 'gradeIds must be a non-empty array.' });
+  }
+  if (!note || !note.trim()) {
+    return res.status(400).json({ error: 'A rejection note is required so the subject teacher knows what to fix.' });
+  }
+  const rejectedIds = await gradeModel.rejectGrades(gradeIds, req.user.id, note.trim());
+  res.json({ rejectedCount: rejectedIds.length, gradeIds: rejectedIds });
+}
+
+async function listPrincipalVerifiedForSection(req, res) {
   const { sectionId, gradingPeriodId } = req.query;
   if (!sectionId || !gradingPeriodId) {
     return res.status(400).json({ error: 'sectionId and gradingPeriodId query params are required.' });
@@ -49,12 +108,15 @@ async function listDraftsForSection(req, res) {
 
   const section = await sectionModel.getSectionById(Number(sectionId));
   if (!section) return res.status(404).json({ error: 'Section not found.' });
-  if (req.user.role === 'adviser' && section.adviser_id !== req.user.id) {
+  // Ownership by assignment (adviser_id), not by role label — an adviser
+  // can also be assigned to teach a class, and someone whose role isn't
+  // literally 'adviser' can still be set as a section's adviser_id.
+  if (req.user.role !== 'admin' && section.adviser_id !== req.user.id) {
     return res.status(403).json({ error: 'You can only review grades for your own advisory section.' });
   }
 
-  const drafts = await gradeModel.listDraftsForSection(Number(sectionId), Number(gradingPeriodId));
-  res.json({ drafts });
+  const verified = await gradeModel.listPrincipalVerifiedForSection(Number(sectionId), Number(gradingPeriodId));
+  res.json({ verified });
 }
 
 async function finalizeGrades(req, res) {
@@ -65,7 +127,7 @@ async function finalizeGrades(req, res) {
 
   const section = await sectionModel.getSectionById(sectionId);
   if (!section) return res.status(400).json({ error: 'sectionId does not refer to an existing section.' });
-  if (req.user.role === 'adviser' && section.adviser_id !== req.user.id) {
+  if (req.user.role !== 'admin' && section.adviser_id !== req.user.id) {
     return res.status(403).json({ error: 'You can only finalize grades for your own advisory section.' });
   }
 
@@ -89,4 +151,13 @@ async function getHistoryForStudent(req, res) {
   res.json({ grades, periodAverages });
 }
 
-module.exports = { recordGrades, listDraftsForSection, finalizeGrades, getHistoryForStudent };
+module.exports = {
+  recordGrades,
+  getSubmissionsForOffering,
+  listSubmittedGrades,
+  verifyGrades,
+  rejectGrades,
+  listPrincipalVerifiedForSection,
+  finalizeGrades,
+  getHistoryForStudent,
+};

@@ -1,41 +1,80 @@
 import { useEffect, useState } from 'react'
+import { CheckCircle2 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
+import { StatCard, StatRow } from '../components/StatCard'
+import './GradesShared.css'
 
-// The adviser's review step: see every draft grade (any subject) for their
-// advisory section in one period, then approve the whole batch at once.
-// Finalizing is what makes these grades count toward risk scoring.
+// The final stage of CLAUDE.md's 3-stage grade approval chain, done by
+// whoever actually advises the section (sections.adviser_id, not whoever's
+// role is literally 'adviser'): see every principal-verified grade (any
+// subject) for that section in one period, then finalize the whole batch
+// at once. Finalizing is what makes these grades count toward risk scoring.
+//
+// Unlike Verify Grades, there is no per-grade finalize here: the backend
+// endpoint (gradeModel.finalizeSectionGrades) finalizes every
+// principal-verified grade for a section+period in one statement — there's
+// no per-grade-id variant, and adding one is out of scope for a layout/UX
+// pass (per-grade verify/reject stays exactly as it was). The checkboxes
+// below are deliberately framed as a review aid, not a selection that
+// narrows what gets finalized — a button that looked row-scoped but
+// silently finalized everyone would be actively misleading.
 export function GradeFinalizationPage() {
   const { user } = useAuth()
   const [sections, setSections] = useState([])
   const [periods, setPeriods] = useState([])
   const [sectionId, setSectionId] = useState('')
   const [gradingPeriodId, setGradingPeriodId] = useState('')
-  const [drafts, setDrafts] = useState([])
+  const [verifiedGrades, setVerifiedGrades] = useState([])
+  const [reviewedIds, setReviewedIds] = useState(new Set())
   const [error, setError] = useState(null)
   const [message, setMessage] = useState(null)
+  const [loading, setLoading] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
 
+  // admin has blanket finalize access by role (the only role that bypasses
+  // the adviser_id ownership check — see gradeController.finalizeGrades),
+  // so admin gets every section to choose from; everyone else is scoped to
+  // sections they actually advise, not just whoever is literally labeled
+  // 'adviser' — that column doesn't have to match the role column.
   useEffect(() => {
-    const path = user.role === 'adviser' ? '/sections/mine' : '/sections'
+    const path = user.role === 'admin' ? '/sections' : '/sections/mine'
     api.get(path).then((data) => setSections(data.sections))
     api.get('/grading-periods').then((data) => setPeriods(data.gradingPeriods))
   }, [user.role])
 
-  function loadDrafts() {
+  function loadVerifiedGrades() {
     if (!sectionId || !gradingPeriodId) {
-      setDrafts([])
+      setVerifiedGrades([])
       return
     }
     setError(null)
+    setLoading(true)
     api
       .get(`/grades/pending?sectionId=${sectionId}&gradingPeriodId=${gradingPeriodId}`)
-      .then((data) => setDrafts(data.drafts))
+      .then((data) => {
+        setVerifiedGrades(data.verified)
+        setReviewedIds(new Set())
+      })
       .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
   }
 
-  useEffect(loadDrafts, [sectionId, gradingPeriodId])
+  useEffect(loadVerifiedGrades, [sectionId, gradingPeriodId])
+
+  function toggleRow(id) {
+    setReviewedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll() {
+    setReviewedIds((prev) => (prev.size === verifiedGrades.length ? new Set() : new Set(verifiedGrades.map((g) => g.id))))
+  }
 
   async function handleFinalize() {
     setError(null)
@@ -47,13 +86,15 @@ export function GradeFinalizationPage() {
         gradingPeriodId: Number(gradingPeriodId),
       })
       setMessage(`Finalized grades for ${result.finalizedCount} entries. Risk scores have been recalculated.`)
-      loadDrafts()
+      loadVerifiedGrades()
     } catch (err) {
       setError(err.message)
     } finally {
       setFinalizing(false)
     }
   }
+
+  const ready = Boolean(sectionId && gradingPeriodId)
 
   return (
     <div>
@@ -87,52 +128,87 @@ export function GradeFinalizationPage() {
         </div>
       </div>
 
+      <StatRow>
+        <StatCard icon={CheckCircle2} value={verifiedGrades.length} label="Ready to finalize" variant="info" />
+      </StatRow>
+
       {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
       {message && <p style={{ color: 'var(--color-success)' }}>{message}</p>}
 
-      {!sectionId || !gradingPeriodId ? (
+      {!ready ? (
         <div className="empty-state">
-          <p>Select a section and grading period to review draft grades.</p>
+          <p>Select a section and grading period to review verified grades ready to finalize.</p>
         </div>
-      ) : drafts.length === 0 ? (
+      ) : loading ? (
+        <p>Loading…</p>
+      ) : verifiedGrades.length === 0 ? (
         <div className="empty-state">
-          <p>No draft grades awaiting review for this section/period.</p>
+          <p>No principal-verified grades awaiting finalization for this section/period.</p>
         </div>
       ) : (
         <>
+          <p className="live-summary-bar">
+            <span style={{ color: 'var(--color-text)' }}>{verifiedGrades.length} ready to finalize</span>
+            {' · '}
+            <span style={{ color: 'var(--color-success)' }}>{reviewedIds.size} reviewed</span>
+          </p>
+          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-faint)', margin: '0 0 var(--space-3)' }}>
+            Checking a row marks it reviewed — finalizing always applies to every grade below at once.
+          </p>
+
           <div className="table-card">
-            <table>
+            <table className="grade-review-table">
               <thead>
                 <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={reviewedIds.size === verifiedGrades.length}
+                      onChange={toggleAll}
+                      aria-label="Mark all reviewed"
+                      title="Mark all reviewed"
+                    />
+                  </th>
                   <th>Student</th>
                   <th>Subject</th>
                   <th>Grade</th>
                   <th>Recorded by</th>
+                  <th>Verified by</th>
                 </tr>
               </thead>
               <tbody>
-                {drafts.map((d) => (
-                  <tr key={d.id}>
+                {verifiedGrades.map((g) => (
+                  <tr key={g.id}>
                     <td>
-                      {d.last_name}, {d.first_name}
+                      <input
+                        type="checkbox"
+                        checked={reviewedIds.has(g.id)}
+                        onChange={() => toggleRow(g.id)}
+                        aria-label={`Mark ${g.first_name} ${g.last_name} - ${g.subject_name} reviewed`}
+                        title="Mark reviewed"
+                      />
                     </td>
-                    <td>{d.subject_name}</td>
-                    <td>{d.grade_value}</td>
-                    <td>{d.recorded_by_name}</td>
+                    <td>
+                      {g.last_name}, {g.first_name}
+                    </td>
+                    <td>{g.subject_name}</td>
+                    <td>{g.grade_value}</td>
+                    <td>{g.recorded_by_name}</td>
+                    <td>{g.verified_by_name}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleFinalize}
-            disabled={finalizing}
-            style={{ marginTop: 'var(--space-4)' }}
-          >
-            {finalizing ? 'Finalizing…' : `Finalize all ${drafts.length} grade(s)`}
-          </button>
+
+          <div className="sticky-action-bar">
+            <span className="sticky-action-bar__status">
+              {reviewedIds.size} of {verifiedGrades.length} reviewed
+            </span>
+            <button type="button" className="btn-primary" onClick={handleFinalize} disabled={finalizing}>
+              {finalizing ? 'Finalizing…' : `Finalize all ${verifiedGrades.length} grade(s)`}
+            </button>
+          </div>
         </>
       )}
     </div>

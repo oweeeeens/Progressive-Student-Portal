@@ -106,7 +106,60 @@
   background: var(--color-surface);
 }
 
-.login-card__form button {
+/* The eye-toggle button sits inside the field's own box, not beside it, so
+   the password input keeps the full-width treatment every other field on
+   this form has. */
+.login-card__password-field {
+  position: relative;
+}
+.login-card__password-field input {
+  padding-right: calc(var(--space-3) * 2 + 16px);
+}
+.login-card__password-toggle {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--color-text-faint);
+  background: none;
+  border: none;
+}
+.login-card__password-toggle:hover {
+  background: none;
+  color: var(--color-primary);
+}
+
+/* A checkbox row reads wrong under the base <label> rule (block layout,
+   bottom margin meant for a stacked field-above-input pair) — this is one
+   inline row instead, normal weight so it doesn't look like a field name. */
+.login-card__remember {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: calc(var(--space-2) * -1) 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.login-card__remember input {
+  width: auto;
+  margin-top: 0;
+}
+
+/* Direct child only — this is meant for the submit button alone. As a plain
+   descendant selector it was also catching the password-field's nested
+   eye-toggle button (higher specificity than .login-card__password-toggle's
+   single class, since this one combines a class with the `button` element),
+   stretching that toggle to the full field width and pushing its icon to
+   the visual center instead of the right edge. */
+.login-card__form > button {
   margin-top: var(--space-2);
   width: 100%;
   padding: var(--space-3) var(--space-4);

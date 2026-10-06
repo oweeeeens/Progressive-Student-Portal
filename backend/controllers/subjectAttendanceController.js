@@ -12,7 +12,9 @@ async function assertCanWriteOffering(req, res, classOfferingId) {
     res.status(400).json({ error: 'classOfferingId does not refer to an existing class.' });
     return null;
   }
-  if (req.user.role === 'subject_teacher' && offering.teacher_id !== req.user.id) {
+  // Ownership by assignment (teacher_id), not by role label — see
+  // gradeController's matching comments for the full reasoning.
+  if (req.user.role !== 'admin' && offering.teacher_id !== req.user.id) {
     res.status(403).json({ error: 'You can only record attendance for classes you teach.' });
     return null;
   }
@@ -65,8 +67,7 @@ async function getRosterForDate(req, res) {
   if (!offering) return res.status(404).json({ error: 'Class not found.' });
 
   const { role, id: userId } = req.user;
-  const allowed =
-    ['admin', 'registrar', 'guidance_counselor'].includes(role) || (role === 'subject_teacher' && offering.teacher_id === userId);
+  const allowed = ['admin', 'registrar', 'guidance_counselor'].includes(role) || offering.teacher_id === userId;
   if (!allowed) {
     return res.status(403).json({ error: 'You do not have permission to view this class.' });
   }

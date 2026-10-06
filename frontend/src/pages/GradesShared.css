@@ -1,0 +1,65 @@
+/* Shared by GradeEntryPage, VerifyGradesPage, and GradeFinalizationPage —
+   the three stages of the grade approval chain, redesigned together to
+   read as one consistent pattern (same roster-table/summary-bar/
+   sticky-action-bar shape as the attendance pages). */
+
+/* Enter Grades: a student with nothing entered yet shouldn't be easy to
+   miss in a long roster — a faint row wash (same "fainter than a badge"
+   reasoning as the risk-row and grade-missing tokens in index.css) plus an
+   explicit text badge, not color alone. */
+.grade-row--missing {
+  background: var(--grade-missing-row);
+}
+.grade-missing-badge {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0.1rem var(--space-2);
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-warning);
+  background: var(--color-warning-bg);
+}
+.grade-input--missing {
+  border-color: var(--color-warning);
+}
+
+/* Verify Grades / Finalize Grades: the checkbox-select table header and
+   rows — same shape on both pages. */
+.grade-review-table thead th:first-child,
+.grade-review-table tbody td:first-child {
+  width: 36px;
+}
+
+/* The inline per-row reject form (Verify Grades only) — a compact note
+   field that opens directly under the row it applies to, not a modal,
+   since rejecting one submission among many shouldn't interrupt the whole
+   page. */
+.grade-reject-form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  background: var(--color-danger-bg);
+  border-top: 1px solid var(--color-border);
+}
+.grade-reject-form textarea {
+  flex: 1;
+  margin-top: 0;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+}
+.grade-reject-form__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* A rejection note already on file for a row the principal is looking at
+   again (e.g. scrolled past once, resubmitted since) — shown inline, not
+   hidden behind a tooltip. */
+.grade-rejection-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

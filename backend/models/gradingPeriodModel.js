@@ -1,6 +1,10 @@
-// Attendance (and later grades) are tagged with a grading period, but
-// callers shouldn't have to know period IDs — they just pick a date, and we
-// resolve which quarter it falls into.
+// Attendance and grades are tagged with a grading period. findByDate/
+// findCurrentWithSchoolYear/getById/listForCurrentSchoolYear are the
+// original read-only helpers other modules rely on (callers just pick a
+// date or use "the current school year's periods" rather than knowing
+// period ids directly). Everything below is the admin CRUD surface for the
+// Academic Setup > School Years & Grading Periods page. No deactivate here
+// — see the is-active migration's comment for why.
 const { pool } = require('../config/db');
 
 async function findByDate(date) {
@@ -52,4 +56,43 @@ async function listForCurrentSchoolYear() {
   return result.rows;
 }
 
-module.exports = { findByDate, findCurrentWithSchoolYear, getById, listForCurrentSchoolYear };
+// Admin list for a specific school year — the Academic Setup page shows one
+// school year's periods at a time.
+async function listBySchoolYear(schoolYearId) {
+  const result = await pool.query(
+    `SELECT id, school_year_id, name, sequence_number, start_date, end_date
+     FROM grading_periods WHERE school_year_id = $1 ORDER BY sequence_number`,
+    [schoolYearId]
+  );
+  return result.rows;
+}
+
+async function createGradingPeriod({ schoolYearId, name, sequenceNumber, startDate, endDate }) {
+  const result = await pool.query(
+    `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, school_year_id, name, sequence_number, start_date, end_date`,
+    [schoolYearId, name, sequenceNumber, startDate, endDate]
+  );
+  return result.rows[0];
+}
+
+async function updateGradingPeriod(id, { name, sequenceNumber, startDate, endDate }) {
+  const result = await pool.query(
+    `UPDATE grading_periods SET name = $2, sequence_number = $3, start_date = $4, end_date = $5
+     WHERE id = $1
+     RETURNING id, school_year_id, name, sequence_number, start_date, end_date`,
+    [id, name, sequenceNumber, startDate, endDate]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = {
+  findByDate,
+  findCurrentWithSchoolYear,
+  getById,
+  listForCurrentSchoolYear,
+  listBySchoolYear,
+  createGradingPeriod,
+  updateGradingPeriod,
+};

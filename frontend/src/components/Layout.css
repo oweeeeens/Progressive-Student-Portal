@@ -1,6 +1,14 @@
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  /* Exactly viewport height, not min-height — min-height let this grow
+     taller than the viewport to fit tall content, which is exactly what
+     broke independent scrolling: a flex child's overflow:auto only clips
+     and scrolls if the parent itself has a bounded height. overflow:
+     hidden backs that up so nothing here ever triggers a page-level
+     scrollbar; the sidebar nav and the content area below are each their
+     own scroll container instead (see Sidebar.css / .app-shell__content). */
+  height: 100dvh;
+  overflow: hidden;
   /* This wrapper sits on top of body and would otherwise paint over it with
      a flat fill, making body's wash a no-op — reuse the same token. */
   background: var(--page-bg-wash);
@@ -9,6 +17,14 @@
 .app-shell__content {
   flex: 1;
   min-width: 0; /* let tables/content scroll within, not push the shell wider */
+  height: 100%;
+  overflow-y: auto;
+  /* Without this, scrolling past this container's own end (e.g. an
+     over-scroll bounce/rubber-band, or a wheel event that keeps going)
+     would hand off to whatever's behind it — here, the sidebar — making
+     the two feel like one connected scroll area instead of independent
+     ones. */
+  overscroll-behavior: contain;
   padding: var(--space-6) var(--space-6);
 }
 

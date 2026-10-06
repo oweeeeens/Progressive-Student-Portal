@@ -26,6 +26,10 @@ async function seed() {
   const adviser2Id = await upsertUser('adviser2@studentportal.local', 'Test adviser 2', 'adviser');
   const teacherId = await upsertUser('subject_teacher@studentportal.local', 'Test subject_teacher', 'subject_teacher');
   const studentUserId = await upsertUser('student@studentportal.local', 'Test student', 'student');
+  // The principal's review step sits between subject-teacher submission and
+  // adviser finalization (see gradeController.js) — one account for the
+  // whole school, not per-subject or per-section.
+  await upsertUser('principal@studentportal.local', 'Test principal', 'principal');
 
   // Covers "now" in this dev environment (PH school year runs June-March).
   const schoolYear = await pool.query(

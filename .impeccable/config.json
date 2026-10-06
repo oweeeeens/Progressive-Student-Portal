@@ -17,6 +17,15 @@
         ],
         "createdAt": "2026-10-01T13:00:39.511Z",
         "reason": "Sidebar collapse transition: width is the actual state being animated (collapsed/expanded), fires only on rare viewport-breakpoint crossing (not hover/scroll), negligible reflow cost on this single element"
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "src/components/Sidebar.css"
+        ],
+        "createdAt": "2026-10-06T03:31:17.442Z",
+        "reason": "Same sanctioned exception as the frontend/-prefixed entry above, re-scoped without that prefix — the hook resolves this file's path relative to frontend/ as its root, so the original entry wasn't matching. Sidebar collapse transition: width is the actual state being animated (collapsed/expanded), fires only on rare viewport-breakpoint crossing, negligible reflow cost on this single element."
       }
     ]
   }

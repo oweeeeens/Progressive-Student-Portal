@@ -12,12 +12,17 @@ import { DailyAttendancePage } from './pages/DailyAttendancePage'
 import { SubjectAttendancePage } from './pages/SubjectAttendancePage'
 import { EnrollmentQueuePage } from './pages/EnrollmentQueuePage'
 import { GradeEntryPage } from './pages/GradeEntryPage'
+import { VerifyGradesPage } from './pages/VerifyGradesPage'
 import { GradeFinalizationPage } from './pages/GradeFinalizationPage'
 import { RiskDashboardPage } from './pages/RiskDashboardPage'
 import { InterventionsPage } from './pages/InterventionsPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { CreateStaffAccountPage } from './pages/CreateStaffAccountPage'
 import { StaffAccountsPage } from './pages/StaffAccountsPage'
+import { SchoolYearsPage } from './pages/SchoolYearsPage'
+import { SectionsPage } from './pages/SectionsPage'
+import { SubjectsPage } from './pages/SubjectsPage'
+import { ClassOfferingsPage } from './pages/ClassOfferingsPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 
@@ -56,9 +61,14 @@ function App() {
               <Route path="/attendance/subject" element={<SubjectAttendancePage />} />
               <Route path="/enrollment" element={<EnrollmentQueuePage />} />
               <Route path="/grades/entry" element={<GradeEntryPage />} />
+              <Route path="/grades/verify" element={<VerifyGradesPage />} />
               <Route path="/grades/finalize" element={<GradeFinalizationPage />} />
               <Route path="/risk-dashboard" element={<RiskDashboardPage />} />
               <Route path="/interventions" element={<InterventionsPage />} />
+              <Route path="/academic-setup/school-years" element={<SchoolYearsPage />} />
+              <Route path="/academic-setup/sections" element={<SectionsPage />} />
+              <Route path="/academic-setup/subjects" element={<SubjectsPage />} />
+              <Route path="/academic-setup/class-offerings" element={<ClassOfferingsPage />} />
             </Route>
           </Routes>
         </Router>
