@@ -1,12 +1,13 @@
-// Handles login, staff account creation, password changes, and "who am I".
-// Staff accounts are provisioned by admin/registrar (see register below)
-// rather than self-signup, since anyone self-registering as e.g. "registrar"
-// would be a privilege-escalation hole. Student accounts are never created
-// here at all — see services/accountProvisioning.js, triggered when a
-// student's enrollment_status reaches 'enrolled'.
+// Handles login, account creation (staff AND student), password changes,
+// and "who am I". Accounts are provisioned by admin/registrar (see register
+// below) rather than self-signup, since anyone self-registering as e.g.
+// "registrar" would be a privilege-escalation hole. A student account is
+// linked to an existing Student Record rather than collecting a fresh
+// name/email — see the role === 'student' branch below.
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET, JWT_EXPIRES_IN, CREATABLE_STAFF_ROLES } = require('../config/auth');
+const { JWT_SECRET, JWT_EXPIRES_IN, CREATABLE_ROLES } = require('../config/auth');
 const userModel = require('../models/userModel');
+const studentModel = require('../models/studentModel');
 const { verifyPassword, generateTempPassword } = require('../utils/password');
 const passwordReset = require('../services/passwordReset');
 
@@ -52,23 +53,69 @@ async function login(req, res) {
   res.json({ token, user: toPublicUser(user) });
 }
 
-// Creates a staff account with a system-generated temporary password and
-// forces a change on first login (enforced in authMiddleware.js). The
-// temp password is returned exactly once, in this response — it is never
-// stored in plaintext and cannot be retrieved again, so the admin/registrar
-// must relay it to the new user right now (there's no email-sending
+// Creates an account with a system-generated temporary password and forces
+// a change on first login (enforced in authMiddleware.js). The temp
+// password is returned exactly once, in this response — it is never stored
+// in plaintext and cannot be retrieved again, so the admin/registrar must
+// relay it to the new user right now (there's no email-sending
 // infrastructure in this system to do it automatically).
+//
+// Two shapes, by role:
+// - Staff (adviser/subject_teacher/guidance_counselor/registrar/principal/
+//   ict_faculty): { email, fullName, role } — a fresh account, same as always.
+// - Student: { role: 'student', studentId } — no email/fullName from the
+//   client; both are derived from the existing Student Record so the
+//   account can never drift from what's on file. studentId must point at a
+//   student with a personal email already on record (collected when the
+//   registrar added them to Student Records) and no account yet.
 async function register(req, res) {
-  const { email, fullName, role } = req.body;
+  const { role } = req.body;
 
-  if (!email || !fullName || !role) {
-    return res.status(400).json({ error: 'email, fullName, and role are all required.' });
+  if (!role || !CREATABLE_ROLES.includes(role)) {
+    return res.status(400).json({ error: `role must be one of: ${CREATABLE_ROLES.join(', ')}` });
+  }
+
+  if (role === 'student') {
+    const { studentId } = req.body;
+    if (!studentId) {
+      return res.status(400).json({ error: 'studentId is required to create a student account.' });
+    }
+    const student = await studentModel.findByIdUnscoped(Number(studentId));
+    if (!student) {
+      return res.status(400).json({ error: 'studentId does not refer to an existing student record.' });
+    }
+    if (student.user_id) {
+      return res.status(409).json({ error: 'This student already has a portal account.' });
+    }
+    if (!student.email) {
+      return res
+        .status(400)
+        .json({ error: "This student has no personal email on file — add one to their Student Record first." });
+    }
+
+    const existingByEmail = await userModel.findByEmail(student.email);
+    if (existingByEmail) {
+      return res.status(409).json({ error: 'An account with that email already exists.' });
+    }
+
+    const tempPassword = generateTempPassword();
+    const user = await userModel.createUser({
+      email: student.email,
+      password: tempPassword,
+      fullName: `${student.first_name} ${student.last_name}`,
+      role: 'student',
+      mustChangePassword: true,
+    });
+    await studentModel.linkUserAccount(student.id, user.id);
+    return res.status(201).json({ user: toPublicUser(user), tempPassword });
+  }
+
+  const { email, fullName } = req.body;
+  if (!email || !fullName) {
+    return res.status(400).json({ error: 'email and fullName are required.' });
   }
   if (!EMAIL_PATTERN.test(email)) {
     return res.status(400).json({ error: 'That email address does not look valid.' });
-  }
-  if (!CREATABLE_STAFF_ROLES.includes(role)) {
-    return res.status(400).json({ error: `role must be one of: ${CREATABLE_STAFF_ROLES.join(', ')}` });
   }
 
   const existing = await userModel.findByEmail(email);

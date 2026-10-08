@@ -33,7 +33,12 @@ const EMPTY_FORM = {
   guardianName: '',
   guardianContactNumber: '',
   currentSectionId: '',
-  enrollmentStatus: 'pending',
+  // 'enrolled', not 'pending' — enrollment now happens on paper before a
+  // record is added here (see CLAUDE.md's "REMOVED: Enrollment Management"),
+  // so a new student added through this form has, by definition, already
+  // enrolled. 'pending' is still a selectable option for the rare case a
+  // record is entered ahead of paperwork being finalized.
+  enrollmentStatus: 'enrolled',
 }
 
 // snake_case (API response) -> camelCase (form state), for edit mode.

@@ -7,7 +7,7 @@ const { pool } = require('../config/db');
 const LIST_COLUMNS = `
   s.id, s.lrn, s.first_name, s.middle_name, s.last_name, s.sex, s.date_of_birth,
   s.address, s.email, s.guardian_name, s.guardian_contact_number, s.enrollment_status,
-  s.is_active, s.current_section_id, sec.name AS section_name, sec.grade_level,
+  s.is_active, s.user_id, s.current_section_id, sec.name AS section_name, sec.grade_level,
   sec.strand, s.created_at, s.updated_at
 `;
 
@@ -156,7 +156,13 @@ async function createStudent(data) {
       data.guardianName || null,
       data.guardianContactNumber || null,
       data.currentSectionId || null,
-      data.enrollmentStatus || 'pending',
+      // 'enrolled', not 'pending' — enrollment now happens on paper before a
+      // student's record is ever added here (see CLAUDE.md's "REMOVED:
+      // Enrollment Management"), so by the time a registrar is creating this
+      // record the student has already enrolled. 'pending' stays a valid,
+      // selectable status for the rare case it's still genuinely needed
+      // (e.g. a record entered ahead of paperwork being finalized).
+      data.enrollmentStatus || 'enrolled',
     ]
   );
   return result.rows[0].id;
@@ -210,21 +216,6 @@ async function setActive(studentId, isActive) {
     [isActive, studentId]
   );
   return result.rows[0] || null;
-}
-
-// Advances a student from 'pending' to 'enrolled' once their required
-// enrollment documents are all verified (see enrollmentDocumentController).
-// The WHERE guard means this is a no-op if the student is already enrolled
-// or in some other state (dropped/transferred/graduated) — a document
-// getting verified should never silently overwrite a more specific status.
-async function markEnrolledIfPending(studentId) {
-  const result = await pool.query(
-    `UPDATE students SET enrollment_status = 'enrolled', updated_at = now()
-     WHERE id = $1 AND enrollment_status = 'pending'
-     RETURNING id`,
-    [studentId]
-  );
-  return result.rowCount > 0;
 }
 
 // Unscoped lookup for internal use right after a write (we already know the
@@ -283,7 +274,6 @@ module.exports = {
   createStudent,
   updateStudent,
   setActive,
-  markEnrolledIfPending,
   getAccountProvisioningInfo,
   linkUserAccount,
   countsByEnrollmentStatus,

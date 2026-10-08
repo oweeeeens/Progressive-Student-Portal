@@ -41,11 +41,6 @@ async function countAtRiskStudents(user, gradingPeriodId) {
   return result.rows[0].count;
 }
 
-async function countPendingDocuments() {
-  const result = await pool.query("SELECT COUNT(*)::int AS count FROM enrollment_documents WHERE status = 'pending'");
-  return result.rows[0].count;
-}
-
 async function countOpenInterventions(user) {
   const clauses = ['s.is_active = TRUE', "i.status IN ('open', 'monitoring')"];
   const params = [];
@@ -77,11 +72,6 @@ async function getStats(user) {
   if (seesRisk) {
     stats.atRiskStudents = await countAtRiskStudents(user, currentPeriod?.id);
     stats.openInterventions = await countOpenInterventions(user);
-  }
-
-  const seesEnrollment = ['admin', 'registrar'].includes(user.role);
-  if (seesEnrollment) {
-    stats.pendingDocuments = await countPendingDocuments();
   }
 
   return stats;

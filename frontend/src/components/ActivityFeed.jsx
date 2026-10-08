@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { GraduationCap, FileUp, HeartHandshake, CalendarCheck } from 'lucide-react'
+import { GraduationCap, HeartHandshake, CalendarCheck } from 'lucide-react'
 import { api } from '../api/client'
 import './ActivityFeed.css'
 
 const TYPE_ICON = {
   grade_finalized: GraduationCap,
-  document_uploaded: FileUp,
   intervention_status_changed: HeartHandshake,
   attendance_submitted: CalendarCheck,
 }
@@ -23,8 +22,8 @@ function formatWhen(isoString) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-// A merged, read-only timeline across grades/documents/interventions/
-// attendance — see backend/models/activityModel.js for the per-type role
+// A merged, read-only timeline across grades/interventions/attendance —
+// see backend/models/activityModel.js for the per-type role
 // gating (an empty list here just means this role has nothing eligible to
 // see, which is a legitimate, silent outcome, not an error).
 export function ActivityFeed() {

@@ -189,6 +189,24 @@ async function getHistoryForStudent(studentId) {
   return result.rows;
 }
 
+// Subject-by-period detail of a student's FINALIZED grades only — the
+// report card's source data (official grades only, never a still-pending
+// submission). Same shape as getHistoryForStudent, just pre-filtered,
+// since the report card has no use for a grade that isn't official yet.
+async function getFinalizedHistoryForStudent(studentId) {
+  const result = await pool.query(
+    `SELECT g.grade_value, subj.name AS subject_name, gp.name AS grading_period_name, gp.sequence_number
+     FROM grades g
+     JOIN class_offerings co ON co.id = g.class_offering_id
+     JOIN subjects subj ON subj.id = co.subject_id
+     JOIN grading_periods gp ON gp.id = g.grading_period_id
+     WHERE g.student_id = $1 AND g.status = 'finalized'
+     ORDER BY gp.sequence_number, subj.name`,
+    [studentId]
+  );
+  return result.rows;
+}
+
 // Per-grading-period average of a student's FINALIZED grades only (across
 // all their subjects), ordered oldest-to-newest by the period's
 // sequence_number. This is the series the risk engine's trend calculation
@@ -216,5 +234,6 @@ module.exports = {
   listPrincipalVerifiedForSection,
   finalizeSectionGrades,
   getHistoryForStudent,
+  getFinalizedHistoryForStudent,
   getFinalizedAveragesByPeriod,
 };

@@ -12,8 +12,12 @@
 //   - enrollment_status is 'enrolled'
 //   - the student has a personal email on file
 //   - no portal account exists yet (students.user_id is still null)
-// Call sites: studentController (create/update) and
-// enrollmentDocumentController (a review that auto-advances enrollment_status).
+// Call sites: studentController (create/update) — a registrar setting
+// enrollmentStatus to 'enrolled' with an email on file provisions the
+// account right then. authController.register's studentId path (admin/
+// registrar explicitly creating a student account from Student Records) is
+// the other way one gets created; the two don't conflict since this one no-ops
+// once an account already exists.
 const studentModel = require('../models/studentModel');
 const userModel = require('../models/userModel');
 const { generateTempPassword } = require('../utils/password');

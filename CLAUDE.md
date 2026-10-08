@@ -16,10 +16,17 @@ The system replaces manual, paper-based record keeping with a centralized digita
 2. **Attendance Tracking** — two levels, both manually input (no QR/RFID/biometric scanning):
    - **Daily/homeroom attendance** — logged by the adviser (the official DepEd SF2 record); this is the authoritative record used for the risk formula's attendance rate
    - **Subject-level attendance** — logged separately by each subject teacher, per subject/period; supplementary, not used in risk scoring
-3. **Enrollment Management** — digital document upload only:
-   - Required docs: report card, birth certificate, **SF10** (not Form 137/138)
-   - **No payment/fee collection or verification** — public school, no enrollment fees
-4. **Trend-Based Academic Risk & Intervention Tracking Dashboard** (the innovation — see below)
+3. **Trend-Based Academic Risk & Intervention Tracking Dashboard** (the innovation — see below)
+
+## REMOVED: Enrollment Management (as of 2026-10-08)
+The client requested removing digital enrollment entirely — they want to keep their existing **paper/hard-copy** enrollment process (report card, birth certificate, SF10 submitted physically), not digitized through the portal.
+
+**Remove from the system:**
+- Enrollment document upload/review feature, Enrollment Queue page, enrollment-related stat cards on the Dashboard, the Enrollment sidebar section
+
+**Important dependency to fix:** student portal accounts were previously **auto-created** when `enrollment_status` flipped to `enrolled` via the Enrollment module. That trigger no longer exists. Student accounts now follow the same path as staff accounts: **registrar/admin manually creates the student's account** (using the account-creation flow already built for staff) after the student's record is added to Student Records, once the student has enrolled on paper.
+
+**For the thesis manuscript:** this is a legitimate, documentable scope reduction — frame it in Chapter 1/Methodology as: the system initially scoped digital enrollment management, but the client opted to retain their existing paper-based enrollment process, so scope was narrowed to records, attendance, grades, and risk/intervention monitoring. The system now assumes a student has already been enrolled on paper before their record is added to the portal.
 
 ## User Roles & Access
 - **Admin** — manages accounts (registration is admin-only, no public self-signup)
@@ -27,7 +34,7 @@ The system replaces manual, paper-based record keeping with a centralized digita
 - **Advisers** — see only students in their own advisory section; finalize grades into the official record (final step of the approval workflow)
 - **Subject teachers** — submit initial grades and input attendance for the classes they actually teach (scoped by class/subject, not by advisory section — a teacher may teach students across multiple sections)
 - **Guidance counselors** — view flagged/at-risk students, log interventions
-- **Registrar staff** — manage enrollment submissions and records
+- **Registrar staff** — manage student records; create student/staff portal accounts once a student has enrolled on paper (see REMOVED: Enrollment Management above)
 - **Students / Parents** — view own records only (no separate parent role yet — out of scope for Phase 1, students role covers this access level)
 
 ## Grade Approval Workflow (confirmed with client)
@@ -77,7 +84,7 @@ When a student is flagged, the adviser/guidance counselor logs an intervention:
 - Keep data access scoped per role as described above
 
 ## Development Notes
-- Build order: **Auth → Student Records → Attendance → Enrollment → Risk Dashboard → Intervention Tracking**
+- Build order: **Auth → Student Records → Attendance → Grades → Risk Dashboard → Intervention Tracking** (Enrollment was removed from scope — see above)
 - The risk dashboard depends on grades/attendance data existing — don't build it first
 - Keep the risk formula weights/thresholds in a single config file, not hardcoded throughout — the client or adviser may want to adjust them later
 - No Google Classroom integration — out of scope, mentioned only as future work in the thesis
@@ -105,10 +112,10 @@ Registration stays admin-only (no public self-signup) — but here's how each ro
 - Force a password change on first login
 
 **Students:**
-- No school-issued email exists — students use personal email (already captured during enrollment)
-- Account is auto-created using the student's personal email at the moment `enrollment_status` flips to `enrolled` (ties into the existing auto-enrollment feature)
+- No school-issued email exists — students use personal email, collected directly when the registrar adds their record to Student Records (enrollment now happens on paper, not through the portal — see REMOVED: Enrollment Management above)
+- Registrar/admin manually creates the student's portal account after adding their Student Record, using the same account-creation form/flow as staff
 - Temporary password generated, forced password change on first login
-- No separate self-registration flow for students — avoids reopening the open-registration security risk already ruled out in the Auth module
+- No self-registration flow for students — avoids reopening the open-registration security risk already ruled out in the Auth module
 
 ## Forgot Password / Reset Flow
 - "Forgot Password" link on login page → user enters email → system sends a time-limited reset link (expires in ~1 hour) via email
@@ -126,7 +133,7 @@ Registration stays admin-only (no public self-signup) — but here's how each ro
 
 ## System-Wide UI Standards (applies to every page, not just one module)
 Based on a reference college portal design the team liked — apply these patterns consistently app-wide:
-1. **Stat card rows** at the top of list/dashboard pages — icon + number + label summarizing the page's data (e.g. Enrollment Queue: pending/approved/rejected counts; Risk Dashboard: low/medium/high counts; Interventions: open/monitoring/resolved/escalated counts)
+1. **Stat card rows** at the top of list/dashboard pages — icon + number + label summarizing the page's data (e.g. Risk Dashboard: low/medium/high counts; Interventions: open/monitoring/resolved/escalated counts)
 2. **Breadcrumb navigation** at the top of every page (Home / Section / Subpage)
 3. **Status badges** — all status values (enrollment status, risk level, intervention status, document review status) render as colored pill badges, not plain text. Risk levels keep their own green/amber/red; other statuses use visually distinct colors so they're never confused with risk indicators
 4. **Consistent card/panel containers** for content blocks — avoid bare unstyled tables

@@ -5,13 +5,14 @@ import {
   Pencil,
   UserCheck,
   UserX,
+  UserPlus,
   ChevronDown,
   ChevronUp,
   User,
   GraduationCap,
   CalendarCheck,
-  FileCheck2,
   HeartHandshake,
+  FileDown,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -20,16 +21,22 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Tabs } from '../components/Tabs'
 import { AttendanceHistory } from '../components/AttendanceHistory'
 import { GradeHistory } from '../components/GradeHistory'
-import { EnrollmentDocuments } from '../components/EnrollmentDocuments'
 import { InterventionHistory } from '../components/InterventionHistory'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
-const canSeeEnrollment = (role) => ['student', 'admin', 'registrar'].includes(role)
 // Same audience as the Risk Dashboard and Interventions — risk standing is
 // more sensitive than a roster entry, so this is narrower than "can view
 // this student's profile at all".
 const canSeeRisk = (role) => ['admin', 'adviser', 'guidance_counselor'].includes(role)
 const canSeeInterventions = canSeeRisk
+// The backend is the real gate here (admin, registrar, or whoever actually
+// advises this student's section — by assignment, not role label; see
+// reportCardController.js). Shown to any non-student role rather than just
+// 'adviser'/'registrar' literally, so a person who holds the adviser
+// assignment under a different role label still sees the button instead of
+// it silently not appearing for them — the backend 403s if they turn out
+// not to actually be this section's adviser.
+const canSeeReportCard = (role) => role && role !== 'student'
 
 const STATUS_VARIANTS = { enrolled: 'positive', pending: 'warning', dropped: 'negative', transferred: 'neutral', graduated: 'info' }
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
@@ -90,6 +97,8 @@ export function StudentDetailPage() {
   const [resetResult, setResetResult] = useState(null)
   const [resetting, setResetting] = useState(false)
   const [risk, setRisk] = useState(null)
+  const [reportCardError, setReportCardError] = useState(null)
+  const [downloadingReportCard, setDownloadingReportCard] = useState(false)
 
   function load() {
     api
@@ -128,6 +137,18 @@ export function StudentDetailPage() {
     }
   }
 
+  async function handleDownloadReportCard() {
+    setReportCardError(null)
+    setDownloadingReportCard(true)
+    try {
+      await api.downloadFile(`/students/${id}/report-card`, `${student.last_name}_${student.first_name}_ReportCard.pdf`)
+    } catch (err) {
+      setReportCardError(err.message)
+    } finally {
+      setDownloadingReportCard(false)
+    }
+  }
+
   if (loading) return <p>Loading…</p>
   if (error) return <p style={{ color: 'var(--color-danger)' }}>{error}</p>
   if (!student) return null
@@ -159,10 +180,20 @@ export function StudentDetailPage() {
             {student.is_active ? <UserX size={16} strokeWidth={1.75} /> : <UserCheck size={16} strokeWidth={1.75} />}
             {student.is_active ? 'Deactivate Student' : 'Reactivate Student'}
           </button>
-          <button type="button" onClick={handleResetPassword} disabled={resetting}>
-            <KeyRound size={16} strokeWidth={1.75} />
-            {resetting ? 'Resetting…' : 'Reset Password'}
-          </button>
+          {student.user_id ? (
+            <button type="button" onClick={handleResetPassword} disabled={resetting}>
+              <KeyRound size={16} strokeWidth={1.75} />
+              {resetting ? 'Resetting…' : 'Reset Password'}
+            </button>
+          ) : (
+            // Enrollment is paper-based now — no event auto-creates this
+            // student's portal account anymore, so this is how a
+            // registrar/admin sets one up, already linked to this record
+            // (see CreateStaffAccountPage.jsx's studentId handling).
+            <button type="button" onClick={() => navigate(`/staff/new?studentId=${id}`)}>
+              <UserPlus size={16} strokeWidth={1.75} /> Create Portal Account
+            </button>
+          )}
         </div>
       )}
 
@@ -194,14 +225,6 @@ export function StudentDetailPage() {
       ),
     },
   ]
-  if (canSeeEnrollment(user?.role)) {
-    tabs.push({
-      key: 'enrollment',
-      label: 'Enrollment Documents',
-      icon: FileCheck2,
-      content: <EnrollmentDocuments studentId={id} onStudentUpdated={load} />,
-    })
-  }
   if (canSeeInterventions(user?.role)) {
     tabs.push({
       key: 'interventions',
@@ -237,8 +260,16 @@ export function StudentDetailPage() {
           <StatusPill label={student.enrollment_status} variant={STATUS_VARIANTS[student.enrollment_status]} />
           {!student.is_active && <StatusPill label="inactive" variant="neutral" />}
           {risk && <RiskBadge risk={risk} />}
+          {canSeeReportCard(user?.role) && (
+            <button type="button" onClick={handleDownloadReportCard} disabled={downloadingReportCard}>
+              <FileDown size={16} strokeWidth={1.75} />
+              {downloadingReportCard ? 'Generating…' : 'Download Report Card'}
+            </button>
+          )}
         </div>
       </div>
+
+      {reportCardError && <p style={{ color: 'var(--color-danger)' }}>{reportCardError}</p>}
 
       <Tabs tabs={tabs} />
     </div>

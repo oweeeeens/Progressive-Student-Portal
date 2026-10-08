@@ -7,11 +7,11 @@ import {
   Users,
   AlertTriangle,
   ClipboardList,
-  FileCheck2,
   CheckCircle2,
   CalendarCheck,
   PenLine,
   UserCog,
+  UserPlus,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -41,7 +41,13 @@ function getQuickActions(role, onPostAnnouncement) {
         { label: 'Mark Subject Attendance', to: '/attendance/subject', icon: ClipboardList },
       ]
     case 'registrar':
-      return [{ label: 'Review Enrollment Documents', to: '/enrollment', icon: FileCheck2 }]
+      // Enrollment is paper-based now (see CLAUDE.md) — a registrar's main
+      // portal-side job once a student has enrolled off-system is adding
+      // their Student Record and, from there, creating their portal account.
+      return [
+        { label: 'New Student', to: '/students/new', icon: UserPlus },
+        { label: 'Create Account', to: '/staff/new', icon: UserCog },
+      ]
     case 'guidance_counselor':
       return [{ label: 'View Flagged Students', to: '/risk-dashboard', icon: AlertTriangle }]
     case 'admin':
@@ -239,14 +245,6 @@ export function DashboardPage() {
           )}
           {stats.openInterventions !== undefined && (
             <StatCard icon={ClipboardList} value={stats.openInterventions} label="Open interventions" variant="accent" />
-          )}
-          {stats.pendingDocuments !== undefined && (
-            <StatCard
-              icon={FileCheck2}
-              value={stats.pendingDocuments}
-              label="Documents awaiting review"
-              variant="positive"
-            />
           )}
         </StatRow>
       )}

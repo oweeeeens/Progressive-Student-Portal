@@ -91,18 +91,18 @@ async function seed() {
   const stemBOfferingId = await insertOffering(stemBId);
   // Deliberately no offering for ABM A.
 
-  // enrollment_status starts 'pending' (the schema default) rather than
-  // hardcoded 'enrolled', so the seed data actually exercises the real
-  // enrollment-document review flow instead of skipping past it. Personal
-  // emails are included so account auto-provisioning (see
-  // services/accountProvisioning.js) can be exercised by flipping
-  // enrollment_status to 'enrolled' on any of these without extra setup —
-  // except Carlo, who's deliberately left without one to also cover the
-  // "no email on file yet" path.
+  // enrollment_status is set to 'enrolled' explicitly — enrollment happens
+  // on paper now (see CLAUDE.md's "REMOVED: Enrollment Management"), so
+  // every seeded student is already past that point, same as any real
+  // record a registrar would add. Personal emails are included so the
+  // account-creation flow (see authController.register's studentId
+  // handling) has something to work with — except Carlo, who's
+  // deliberately left without one to also cover the "no email on file yet"
+  // path (account creation should refuse him with a clear error).
   async function insertStudent(lrn, firstName, lastName, sectionId, userId = null, email = null) {
     const result = await pool.query(
-      `INSERT INTO students (lrn, first_name, last_name, sex, date_of_birth, current_section_id, user_id, email)
-       VALUES ($1, $2, $3, 'F', '2009-05-01', $4, $5, $6)
+      `INSERT INTO students (lrn, first_name, last_name, sex, date_of_birth, current_section_id, user_id, email, enrollment_status)
+       VALUES ($1, $2, $3, 'F', '2009-05-01', $4, $5, $6, 'enrolled')
        RETURNING id`,
       [lrn, firstName, lastName, sectionId, userId, email]
     );

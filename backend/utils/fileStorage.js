@@ -1,7 +1,6 @@
 // Generic "where/how do uploaded files for this module land on disk" —
-// originally built just for enrollment documents, generalized so
-// announcements (and any future module with attachments) reuse the same
-// path-traversal-safe logic instead of duplicating it. The stored filename
+// shared so announcements (and any future module with attachments) reuse
+// the same path-traversal-safe logic instead of duplicating it. The stored filename
 // is always generated (never the client-supplied name) — originalFilename
 // is kept separately in each module's own DB table purely for display.
 const fs = require('fs');

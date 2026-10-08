@@ -2,11 +2,11 @@
 // Visibility is narrower than general Student Records: only admin,
 // guidance_counselor (unrestricted), and the student's own adviser — not
 // subject_teacher, registrar, or the student themselves. Counseling/
-// intervention notes are sensitive in the same way enrollment documents are,
-// so this reuses studentModel.findById purely for its scoping rule (adviser
-// -> own section only, admin/guidance_counselor -> unrestricted), gated by
-// route-level requireRole so subject_teacher/student never reach it even
-// though that function would also allow them through for other purposes.
+// intervention notes are sensitive, so this reuses studentModel.findById
+// purely for its scoping rule (adviser -> own section only, admin/
+// guidance_counselor -> unrestricted), gated by route-level requireRole so
+// subject_teacher/student never reach it even though that function would
+// also allow them through for other purposes.
 const interventionModel = require('../models/interventionModel');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
 const studentModel = require('../models/studentModel');

@@ -10,7 +10,6 @@ import { StudentDetailPage } from './pages/StudentDetailPage'
 import { StudentFormPage } from './pages/StudentFormPage'
 import { DailyAttendancePage } from './pages/DailyAttendancePage'
 import { SubjectAttendancePage } from './pages/SubjectAttendancePage'
-import { EnrollmentQueuePage } from './pages/EnrollmentQueuePage'
 import { GradeEntryPage } from './pages/GradeEntryPage'
 import { VerifyGradesPage } from './pages/VerifyGradesPage'
 import { GradeFinalizationPage } from './pages/GradeFinalizationPage'
@@ -59,7 +58,6 @@ function App() {
               <Route path="/students/:id/edit" element={<StudentFormPage />} />
               <Route path="/attendance/daily" element={<DailyAttendancePage />} />
               <Route path="/attendance/subject" element={<SubjectAttendancePage />} />
-              <Route path="/enrollment" element={<EnrollmentQueuePage />} />
               <Route path="/grades/entry" element={<GradeEntryPage />} />
               <Route path="/grades/verify" element={<VerifyGradesPage />} />
               <Route path="/grades/finalize" element={<GradeFinalizationPage />} />

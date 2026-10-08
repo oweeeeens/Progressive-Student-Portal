@@ -1,33 +1,21 @@
 // Powers the Dashboard's "Recent Activity" feed — a merged, chronological
-// view across four existing, already-timestamped tables (grades,
-// enrollment_documents, interventions, daily_attendance_records). No new
-// table: each event type is just a differently-shaped read of data that
-// already exists for its own module.
+// view across three existing, already-timestamped tables (grades,
+// interventions, daily_attendance_records). No new table: each event type
+// is just a differently-shaped read of data that already exists for its
+// own module.
 //
 // Visibility is two-layered, deliberately stricter than the general
 // student-roster rule:
 //   1. Which event TYPES a role can see at all (ROLES_BY_TYPE below) —
 //      mirrors the route-level requireRole(...) gate each underlying
-//      feature already uses elsewhere (e.g. enrollment documents are
-//      admin/registrar-only everywhere in this app, so they're
-//      admin/registrar-only here too — an adviser must never learn a
-//      document was uploaded for a student in their own section just
-//      because this feed also shows grade/attendance events for them).
+//      feature already uses elsewhere.
 //   2. Within an eligible type, the same appendScopeClause rule every
 //      other student-scoped query in this app already uses.
 const { pool } = require('../config/db');
 const { appendScopeClause, BASE_FROM } = require('./studentModel');
 
-const DOCUMENT_TYPE_LABELS = {
-  report_card: 'Report card',
-  birth_certificate: 'Birth certificate',
-  sf10: 'SF10',
-  other: 'Document',
-};
-
 const ROLES_BY_TYPE = {
   grade: ['admin', 'adviser', 'subject_teacher', 'guidance_counselor'],
-  document: ['admin', 'registrar'],
   intervention: ['admin', 'adviser', 'guidance_counselor'],
   attendance: ['admin', 'adviser', 'registrar'],
 };
@@ -55,30 +43,6 @@ async function recentGradeFinalizations(user, limit) {
     at: r.at,
     actorName: r.actor_name,
     description: `Finalized ${r.grade_count} grade${r.grade_count === 1 ? '' : 's'} for ${r.period_name}`,
-  }));
-}
-
-async function recentDocumentUploads(user, limit) {
-  const clauses = ['s.is_active = TRUE'];
-  const params = [];
-  appendScopeClause(user, clauses, params);
-  params.push(limit);
-
-  const result = await pool.query(
-    `SELECT ed.uploaded_at AS at, ed.document_type, s.first_name, s.last_name, u.full_name AS actor_name
-     ${BASE_FROM}
-     JOIN enrollment_documents ed ON ed.student_id = s.id
-     JOIN users u ON u.id = ed.uploaded_by
-     WHERE ${clauses.join(' AND ')}
-     ORDER BY ed.uploaded_at DESC
-     LIMIT $${params.length}`,
-    params
-  );
-  return result.rows.map((r) => ({
-    type: 'document_uploaded',
-    at: r.at,
-    actorName: r.actor_name,
-    description: `${DOCUMENT_TYPE_LABELS[r.document_type] || 'Document'} uploaded for ${r.last_name}, ${r.first_name}`,
   }));
 }
 
@@ -147,7 +111,6 @@ async function recentAttendanceSubmissions(user, limit) {
 async function getRecentActivity(user, limit = 10) {
   const tasks = [];
   if (ROLES_BY_TYPE.grade.includes(user.role)) tasks.push(recentGradeFinalizations(user, limit));
-  if (ROLES_BY_TYPE.document.includes(user.role)) tasks.push(recentDocumentUploads(user, limit));
   if (ROLES_BY_TYPE.intervention.includes(user.role)) tasks.push(recentInterventionEvents(user, limit));
   if (ROLES_BY_TYPE.attendance.includes(user.role)) tasks.push(recentAttendanceSubmissions(user, limit));
 

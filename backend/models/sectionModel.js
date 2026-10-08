@@ -19,10 +19,26 @@ async function listSections() {
 }
 
 // Used by the attendance module to check "does this adviser actually own
-// this section" before letting them submit daily attendance for it.
+// this section" before letting them submit daily attendance for it, and by
+// the report card feature for the same ownership check (who may generate
+// one for a student in this section).
 async function getSectionById(id) {
   const result = await pool.query('SELECT id, adviser_id, name, grade_level FROM sections WHERE id = $1', [id]);
   return result.rows[0] || null;
+}
+
+// For the report card's "Prepared by" line — the student's current
+// section's own adviser, by name rather than id. Nothing else in this
+// model needs the adviser's name (getSectionById only needs their id, for
+// the ownership checks above), so this is its own small query rather than
+// widening getSectionById's columns for one caller.
+async function getAdviserName(sectionId) {
+  if (!sectionId) return null;
+  const result = await pool.query(
+    `SELECT u.full_name FROM sections sec JOIN users u ON u.id = sec.adviser_id WHERE sec.id = $1`,
+    [sectionId]
+  );
+  return result.rows[0]?.full_name || null;
 }
 
 // Every section a given adviser advises — used to list "my sections" when
@@ -134,6 +150,7 @@ async function setSectionActive(id, isActive) {
 module.exports = {
   listSections,
   getSectionById,
+  getAdviserName,
   listSectionsByAdviser,
   listSectionsForAdmin,
   createSection,

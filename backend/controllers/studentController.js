@@ -133,9 +133,9 @@ async function updateStudent(req, res) {
       return res.status(404).json({ error: 'Student not found.' });
     }
     const student = await studentModel.findByIdUnscoped(updated.id);
-    // Covers both paths that can reach 'enrolled': this direct edit, and the
-    // auto-advance from enrollment document verification (see
-    // enrollmentDocumentController.js) — self-checking no-op otherwise.
+    // Covers a registrar flipping enrollmentStatus to 'enrolled' via this
+    // edit — self-checking no-op otherwise (already enrolled, no email on
+    // file yet, or already provisioned).
     const provisioned = await provisionStudentAccountIfReady(updated.id);
     res.json({ student, accountProvisioned: provisioned });
   } catch (error) {

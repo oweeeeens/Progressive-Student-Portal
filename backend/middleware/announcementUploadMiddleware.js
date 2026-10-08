@@ -1,6 +1,6 @@
-// Mirrors middleware/uploadMiddleware.js's pattern for enrollment documents,
-// pointed at announcements' own upload directory. The attachment is
-// optional on an announcement, so unlike enrollment documents this doesn't
+// Multer config for announcement attachments, pointed at announcements'
+// own upload directory (see utils/fileStorage.js for the shared disk-storage
+// helper). The attachment is optional on an announcement, so this doesn't
 // 400 when no file is present — that's left to the controller to decide.
 const multer = require('multer');
 const { MAX_FILE_SIZE_BYTES, ALLOWED_MIME_TYPES, UPLOAD_DIR } = require('../config/announcements');

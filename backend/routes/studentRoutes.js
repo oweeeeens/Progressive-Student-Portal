@@ -16,6 +16,7 @@ const {
   reactivateStudent,
   resetPassword,
 } = require('../controllers/studentController');
+const { generateReportCard } = require('../controllers/reportCardController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
 
@@ -29,6 +30,9 @@ router.get('/', listStudents);
 router.get('/stats', getStats);
 router.get('/:id', getStudent);
 router.get('/:id/risk', requireRole('admin', 'adviser', 'guidance_counselor'), getRisk);
+// No role gate — admin/registrar/actual-adviser-of-the-section is checked
+// by assignment inside the controller itself (see reportCardController.js).
+router.get('/:id/report-card', generateReportCard);
 router.post('/', canWrite, createStudent);
 router.patch('/:id', canWrite, updateStudent);
 router.delete('/:id', canWrite, deactivateStudent);

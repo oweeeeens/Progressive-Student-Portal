@@ -23,18 +23,24 @@ const USER_ROLES = [
   'ict_faculty',
 ];
 
-// Roles creatable through the staff-account-creation form
-// (POST /api/auth/register, admin/registrar only). Deliberately excludes
-// 'admin' (not a role you hand out through a web form) and 'student'
-// (students get their account auto-provisioned at enrollment instead — see
-// services/accountProvisioning.js, not this endpoint).
-const CREATABLE_STAFF_ROLES = [
+// Roles creatable through the account-creation form (POST /api/auth/register,
+// admin/registrar only). Deliberately excludes 'admin' (not a role you hand
+// out through a web form). 'student' IS included — enrollment used to
+// auto-provision a student's account when their enrollment_status flipped
+// to 'enrolled' (see the now-removed Enrollment module), but now that
+// enrollment happens on paper before a student's record is even added,
+// there's no event left to trigger that automatically. A student account is
+// created through this same form instead, linked to an existing Student
+// Record (see authController.register's studentId handling) rather than
+// collecting a fresh name/email the way a staff account does.
+const CREATABLE_ROLES = [
   'adviser',
   'subject_teacher',
   'guidance_counselor',
   'registrar',
   'principal',
   'ict_faculty',
+  'student',
 ];
 
 // Who can post an announcement — admin, registrar, guidance_counselor, or
@@ -47,6 +53,6 @@ module.exports = {
   JWT_EXPIRES_IN,
   BCRYPT_SALT_ROUNDS,
   USER_ROLES,
-  CREATABLE_STAFF_ROLES,
+  CREATABLE_ROLES,
   ANNOUNCEMENT_AUTHOR_ROLES,
 };

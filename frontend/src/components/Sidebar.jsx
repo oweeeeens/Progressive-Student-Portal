@@ -9,7 +9,6 @@ import {
   PenLine,
   ShieldCheck,
   CheckCircle2,
-  FileCheck2,
   AlertTriangle,
   HeartHandshake,
   UserCog,
@@ -38,7 +37,6 @@ const canWrite = (role) => role === 'admin' || role === 'registrar'
 const isStaffRole = (role) => role && role !== 'student'
 const canMarkDaily = isStaffRole
 const canMarkSubject = isStaffRole
-const canReviewEnrollment = (role) => role === 'admin' || role === 'registrar'
 const canEnterGrades = isStaffRole
 const canFinalizeGrades = isStaffRole
 // Verify Grades stays role-based on purpose: there's no "principal
@@ -75,10 +73,6 @@ function getNavSections(role) {
         { to: '/grades/verify', label: 'Verify Grades', icon: ShieldCheck, show: canVerifyGrades(role) },
         { to: '/grades/finalize', label: 'Finalize Grades', icon: CheckCircle2, show: canFinalizeGrades(role) },
       ],
-    },
-    {
-      label: 'Enrollment',
-      items: [{ to: '/enrollment', label: 'Enrollment Review', icon: FileCheck2, show: canReviewEnrollment(role) }],
     },
     {
       label: 'Risk & Interventions',
