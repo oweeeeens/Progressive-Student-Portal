@@ -12,6 +12,7 @@
     "seed:admin": "node scripts/seedAdmin.js",
     "seed:sample": "node scripts/seedSampleData.js",
     "test:risk-calculator": "node scripts/testRiskCalculator.js",
+    "test:integration": "node --test test/integration/gradeApproval.test.js test/integration/riskRecalculation.test.js test/integration/interventionAutoResolve.test.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
