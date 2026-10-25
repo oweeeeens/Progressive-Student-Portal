@@ -156,7 +156,8 @@ which deletes every section, student, grade and attendance record. Left in
 the pre-deploy command, it would wipe the school on every future deploy.
 
 **Step 2 — academic records (grades through the full approval chain, plus
-attendance).** Run this from your own machine, pointed at the deployment:
+attendance, interventions and announcements).** Run this from your own
+machine, pointed at the deployment:
 
 ```bash
 cd backend
@@ -172,25 +173,61 @@ $env:SEED_BASE_URL="https://your-app.up.railway.app"; npm run seed:demo-data
 
 It drives the real API — submit, principal-verify, adviser-finalize, then
 attendance — so every risk assessment is calculated exactly as live use
-would calculate it. No database credentials needed; it signs in as the test
-accounts over HTTPS.
+would calculate it. No database credentials and no admin password needed; it
+signs in as the staff accounts step 1 created, over HTTPS. It takes a few
+minutes against a deployment, and prints each class as it goes.
 
 ### What this gives you
 
-Six students across three sections, two graded quarters, daily and
-per-subject attendance, and one student (Carlo Santos) deliberately at High
-Risk so the Academic Progress Tracking and intervention views have something
-to show.
+School year 2026-2027, three Grade 11 sections (STEM A, STEM B, ABM A) with
+**36 students**, eight subjects across 21 class offerings, and three subject
+teachers who each teach across sections.
+
+| Module | What it will show |
+| --- | --- |
+| Students | 36 records: mixed enrollment statuses, two with no email on file, a few flagged PWD / 4Ps / ALS, most without a portal account yet |
+| Daily Attendance | 20 school days already recorded (10 per quarter) per section |
+| Subject Attendance | six meetings per quarter for Mathematics, Oral Communication and Earth & Life Science — deliberately sparser than the homeroom record |
+| Enter Grades | Q1 and Q2 are in; **ABM A · Business Mathematics has no Q2 grades at all**, so a sheet can be filled in live |
+| Verify Grades | **12 grades waiting** (STEM A · General Mathematics), with Verify and Reject on each row |
+| Finalize Grades | **22 verified grades waiting** for STEM B (Earth & Life Science, PE and Health) — pick the section and Q2 |
+| Rejected work | STEM A · Oral Communication was rejected with a note, so the teacher's resubmit path is visible |
+| Academic Progress Tracking | all three bands populated: **12 At Risk, 9 Average/Steady, 13 Performing Well**, and all three risk levels (4 Low, 3 Medium, 5 High) |
+| Interventions | six, one in each of Open, Monitoring, Resolved and Escalated |
+| Analytics | two quarters of finalized grades and attendance, so every tab has a trend rather than a single point |
+| Announcements | three, the first with a PDF attachment (which is also how you confirm the volume works) |
+| User Management | one deactivated account and one that has never signed in, so both states are visible |
+
+The unfinished work above sits in **the quarter that contains today**, because
+Verify Grades opens on the current grading period — work parked in a later
+quarter would look like an empty queue.
 
 Test logins, all with the password `Password123!`:
 
-| Account | Role |
-| --- | --- |
-| `principal@studentportal.local` | Principal |
-| `adviser@studentportal.local` | Adviser (STEM A) |
-| `adviser2@studentportal.local` | Adviser (STEM B, ABM A) |
-| `subject_teacher@studentportal.local` | Subject teacher |
-| `student@studentportal.local` | Student (Carlo Santos) |
+| Account | Role | Worth opening for |
+| --- | --- | --- |
+| `principal@studentportal.local` | Principal | Verify Grades, Analytics |
+| `registrar@studentportal.local` | Registrar | Students, Bulk Import, User Management |
+| `guidance@studentportal.local` | Guidance counselor | Interventions, Academic Progress |
+| `ict@studentportal.local` | ICT faculty | Announcements |
+| `adviser@studentportal.local` | Adviser — STEM A | Daily Attendance, own section only |
+| `adviser2@studentportal.local` | Adviser — STEM B | **Finalize Grades** (22 waiting) |
+| `adviser3@studentportal.local` | Adviser — ABM A | Daily Attendance |
+| `subject_teacher@studentportal.local` | Subject teacher | Mathematics, Personal Development |
+| `teacher2@studentportal.local` | Subject teacher | **Enter Grades for ABM A · Business Mathematics** (blank) |
+| `teacher3@studentportal.local` | Subject teacher | Science, UCSP, Chemistry |
+| `student@studentportal.local` | Student — Carlo Santos | **High Risk**: all four factors triggered |
+| `ana.reyes@example.com` | Student — Ana Reyes | Performing Well, 95 average |
+| `gabriel.carpio@example.com` | Student — Gabriel Carpio | Performing Well on an improving trend, not a 90+ average |
+| `katrina.yabut@example.com` | Student — Katrina Yabut | Average / Steady |
+| `hannah.duran@example.com` | Student — Hannah Duran | Performing Well |
+| `former.teacher@studentportal.local` | Subject teacher | **deactivated** — cannot sign in, by design |
+| `new.teacher@studentportal.local` | Subject teacher | has never signed in — forced password change on first login |
+
+Both seeds are safe to re-run: step 1 truncates the academic tables and
+upserts the accounts by email, so logins stay stable, and step 2 then
+rebuilds the records. Run them in that order — step 2 on its own would add a
+second copy of each grade.
 
 ### Before the school uses this for real
 
