@@ -14,9 +14,16 @@
 // same rows with the same values.
 //
 // Usage: npm run seed:demo-data (after npm run seed:sample)
+//
+// Against a DEPLOYED instance, set SEED_BASE_URL to its public URL and run
+// this from your own machine:
+//   SEED_BASE_URL=https://your-app.up.railway.app npm run seed:demo-data
+// It drives the same public endpoints a browser would, so it needs no
+// database credentials — but it DOES need the five test accounts to exist
+// already, which is what seed:sample creates.
 require('dotenv').config();
 
-const BASE_URL = `http://localhost:${process.env.PORT || 5000}`;
+const BASE_URL = (process.env.SEED_BASE_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/$/, '');
 
 async function login(email, password) {
   const res = await fetch(`${BASE_URL}/api/auth/login`, {

@@ -136,9 +136,74 @@ small database realistically lands around $5–10 a month if left running
 continuously. **Stopped services cost nothing**, so for a capstone you can keep
 the project stopped and start it for the defense and for your panel's testing.
 
-**Never run the demo seeds against the deployment.** `npm run seed:sample` and
-`npm run seed:demo-data` insert fictional students, sections and grades. They
-are development fixtures only.
+## Demo data (for a defence or a walkthrough)
+
+A fresh deployment has nothing in it but the admin account, which makes it
+hard to show anything. Two scripts populate a complete, realistic school.
+**Only do this on a demo deployment** — see the warnings below.
+
+**Step 1 — structure (accounts, sections, subjects, students).** Temporarily
+set the pre-deploy command to:
+
+```
+npm run migrate:up && npm run seed:sample
+```
+
+Deploy, wait for it to finish, then **change the pre-deploy command straight
+back** to `npm run migrate:up && npm run seed:admin`. This matters:
+`seed:sample` begins with `TRUNCATE school_years RESTART IDENTITY CASCADE`,
+which deletes every section, student, grade and attendance record. Left in
+the pre-deploy command, it would wipe the school on every future deploy.
+
+**Step 2 — academic records (grades through the full approval chain, plus
+attendance).** Run this from your own machine, pointed at the deployment:
+
+```bash
+cd backend
+SEED_BASE_URL=https://your-app.up.railway.app npm run seed:demo-data
+```
+
+On Windows PowerShell:
+
+```powershell
+cd backend
+$env:SEED_BASE_URL="https://your-app.up.railway.app"; npm run seed:demo-data
+```
+
+It drives the real API — submit, principal-verify, adviser-finalize, then
+attendance — so every risk assessment is calculated exactly as live use
+would calculate it. No database credentials needed; it signs in as the test
+accounts over HTTPS.
+
+### What this gives you
+
+Six students across three sections, two graded quarters, daily and
+per-subject attendance, and one student (Carlo Santos) deliberately at High
+Risk so the Academic Progress Tracking and intervention views have something
+to show.
+
+Test logins, all with the password `Password123!`:
+
+| Account | Role |
+| --- | --- |
+| `principal@studentportal.local` | Principal |
+| `adviser@studentportal.local` | Adviser (STEM A) |
+| `adviser2@studentportal.local` | Adviser (STEM B, ABM A) |
+| `subject_teacher@studentportal.local` | Subject teacher |
+| `student@studentportal.local` | Student (Carlo Santos) |
+
+### Before the school uses this for real
+
+- **Those passwords are published in this repository.** While the demo
+  accounts exist on a public URL, anyone who finds the link can sign in as a
+  teacher. Keep the service stopped except when demonstrating, or change the
+  passwords from User Management.
+- **The records are fictional.** Deactivate the demo accounts in User
+  Management and re-run `seed:sample` once (which truncates the academic
+  tables) before entering a single real student, so no invented grade is ever
+  mistaken for a real one.
+- Never run either script against a deployment that already holds real
+  data.
 
 **Email.** `RESEND_API_KEY` is what makes "Forgot password" work. Without it
 the page says reset by email isn't set up and tells the user to ask their
