@@ -9,6 +9,7 @@ const { JWT_SECRET, JWT_EXPIRES_IN, CREATABLE_ROLES } = require('../config/auth'
 const userModel = require('../models/userModel');
 const { verifyPassword, generateTempPassword } = require('../utils/password');
 const passwordReset = require('../services/passwordReset');
+const { canSendEmail } = require('../services/emailService');
 const { createStudentAccount } = require('../services/accountCreation');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -135,10 +136,30 @@ async function changePassword(req, res) {
 // Always responds with the same generic message whether or not an account
 // exists for the email — otherwise this endpoint could be used to find out
 // which emails have accounts (same reasoning as login's shared error).
+// Whether "Forgot password" can do anything at all on this deployment.
+// Public and deliberately account-independent: it reports a property of the
+// SYSTEM (is email configured), never of any user, so it tells an attacker
+// nothing about who has an account. The login page asks this before
+// offering the flow.
+function passwordResetAvailability(req, res) {
+  res.json({ selfService: canSendEmail() });
+}
+
 async function forgotPassword(req, res) {
   const { email } = req.body;
   if (!email) {
     return res.status(400).json({ error: 'email is required.' });
+  }
+
+  // Checked here too, not just in the UI: a request that cannot possibly
+  // result in an email must not be answered with "a reset link has been
+  // sent." 503 rather than 400 — the request is fine, the capability is
+  // missing.
+  if (!canSendEmail()) {
+    return res.status(503).json({
+      error:
+        'Password reset by email is not set up for this school. Ask your adviser, the registrar, or the school ICT staff to reset your password for you.',
+    });
   }
 
   await passwordReset.requestSelfServiceReset(email);
@@ -166,4 +187,12 @@ async function me(req, res) {
   res.json({ user: toPublicUser(req.user) });
 }
 
-module.exports = { login, register, changePassword, forgotPassword, resetPassword, me };
+module.exports = {
+  login,
+  register,
+  changePassword,
+  passwordResetAvailability,
+  forgotPassword,
+  resetPassword,
+  me,
+};

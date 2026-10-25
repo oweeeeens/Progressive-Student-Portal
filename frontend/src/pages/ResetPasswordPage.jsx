@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
+import { Alert } from '../components/Alert'
 import { AuthCard } from '../components/AuthCard'
 
 export function ResetPasswordPage() {
@@ -36,9 +37,7 @@ export function ResetPasswordPage() {
   if (!token) {
     return (
       <AuthCard heading="Reset password">
-        <p className="login-card__error">
-          This link is missing its reset token. Request a new one from the login page.
-        </p>
+        <Alert>This link is missing its reset token. Request a new one from the login page.</Alert>
         <p className="login-card__footer-link">
           <Link to="/forgot-password">Request a new reset link</Link>
         </p>
@@ -74,7 +73,7 @@ export function ResetPasswordPage() {
             required
           />
         </label>
-        {error && <p className="login-card__error">{error}</p>}
+        {error && <Alert>{error}</Alert>}
         <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? 'Resetting Password...' : 'Reset Password'}
         </button>

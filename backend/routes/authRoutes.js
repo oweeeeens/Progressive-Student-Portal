@@ -1,6 +1,14 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { login, register, changePassword, forgotPassword, resetPassword, me } = require('../controllers/authController');
+const {
+  login,
+  register,
+  changePassword,
+  passwordResetAvailability,
+  forgotPassword,
+  resetPassword,
+  me,
+} = require('../controllers/authController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
 
@@ -26,6 +34,10 @@ const forgotPasswordLimiter = rateLimit({
 });
 
 router.post('/login', loginLimiter, login);
+// Unauthenticated and unrated on purpose: it returns one boolean about the
+// deployment's own configuration, no user data, and the login page needs it
+// before anyone has typed anything.
+router.get('/password-reset-availability', passwordResetAvailability);
 router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
 router.post('/reset-password', resetPassword);
 

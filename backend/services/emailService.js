@@ -2,16 +2,30 @@
 // provider's SDK directly — if this ever needs to switch providers, this is
 // the only file that changes.
 //
-// DEV FALLBACK: if RESEND_API_KEY isn't set (e.g. this is a local dev/demo
-// environment with no real Resend account configured), emails are logged to
-// the console instead of actually sent. This keeps the forgot-password flow
-// fully testable without needing real email infrastructure — same reasoning
-// as DEV_PLACEHOLDER_PASSWORD in utils/password.js. Set RESEND_API_KEY in
-// backend/.env to send real emails.
+// DEV FALLBACK: with EMAIL_DEV_FALLBACK=true and no API key, emails are
+// written to the console instead of sent, which keeps the forgot-password
+// flow testable locally without real email infrastructure — same reasoning
+// as DEV_PLACEHOLDER_PASSWORD in utils/password.js.
+//
+// It is OPT-IN, and that matters. Previously the console fallback was what
+// happened whenever the key was missing, so a deployment that simply forgot
+// to set RESEND_API_KEY still told every user "a reset link has been sent"
+// and then wrote the link to a server log they will never read. Silence
+// dressed as success is worse than a plain "this isn't available" — hence
+// canSendEmail() below, which the API and the UI both ask before offering
+// the flow at all.
 const { Resend } = require('resend');
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const devFallbackEnabled = process.env.EMAIL_DEV_FALLBACK === 'true';
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+
+// Whether a reset email can reach a person at all: a real provider is
+// configured, or this is a developer machine that has opted into the console
+// fallback.
+function canSendEmail() {
+  return Boolean(resend) || devFallbackEnabled;
+}
 
 async function sendPasswordResetEmail(toEmail, resetUrl) {
   const subject = 'Reset your Student Portal password';
@@ -22,7 +36,13 @@ async function sendPasswordResetEmail(toEmail, resetUrl) {
   `;
 
   if (!resend) {
-    console.log(`[emailService] RESEND_API_KEY not set — logging instead of sending.`);
+    if (!devFallbackEnabled) {
+      // Reached only if a caller skipped canSendEmail(). Refuse loudly
+      // rather than pretend: a silently dropped password reset is how a
+      // user gets locked out with no explanation.
+      throw new Error('Email is not configured, so no reset email can be sent.');
+    }
+    console.log('[emailService] EMAIL_DEV_FALLBACK is on — logging instead of sending.');
     console.log(`[emailService] To: ${toEmail}`);
     console.log(`[emailService] Reset link: ${resetUrl}`);
     return;
@@ -31,4 +51,4 @@ async function sendPasswordResetEmail(toEmail, resetUrl) {
   await resend.emails.send({ from: FROM_EMAIL, to: toEmail, subject, html });
 }
 
-module.exports = { sendPasswordResetEmail };
+module.exports = { sendPasswordResetEmail, canSendEmail };

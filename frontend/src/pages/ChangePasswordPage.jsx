@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { Alert } from '../components/Alert'
 import { AuthCard } from '../components/AuthCard'
 
 // Shown instead of the normal app (no sidebar — every other route would
@@ -87,7 +88,7 @@ export function ChangePasswordPage() {
             required
           />
         </label>
-        {error && <p className="login-card__error">{error}</p>}
+        {error && <Alert>{error}</Alert>}
         <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? 'Changing Password...' : 'Change Password'}
         </button>

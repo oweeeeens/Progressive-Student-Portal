@@ -75,8 +75,8 @@ automatically (type `${{` in the value field to pick them).
 | `ADMIN_EMAIL` | the school's admin address | Used once, by `seed:admin`. |
 | `ADMIN_PASSWORD` | a strong password | Used once. Change it after the first login. |
 | `ADMIN_FULL_NAME` | e.g. `System Administrator` | Used once. |
-| `RESEND_API_KEY` | *(optional)* | Without it, password-reset emails are written to the server log instead of sent. See "Email" below. |
-| `RESEND_FROM_EMAIL` | `onboarding@resend.dev` | Works without verifying a domain. |
+| `RESEND_API_KEY` | *(optional)* | Enables "Forgot password". Leave unset and the portal says so plainly instead of pretending — see "Email" below. |
+| `RESEND_FROM_EMAIL` | `onboarding@resend.dev` | Only used when a key is set. |
 
 Do **not** set `PGSSLMODE` while using the private `PGHOST` above — that
 network carries no TLS and needs none. Set it to `require` only if you ever
@@ -140,11 +140,21 @@ the project stopped and start it for the defense and for your panel's testing.
 `npm run seed:demo-data` insert fictional students, sections and grades. They
 are development fixtures only.
 
-**Email.** Without `RESEND_API_KEY`, the "Forgot password" flow writes the
-reset link to the server log instead of emailing it — the user sees a success
-message and never receives anything. Either add a Resend key, or rely on the
-admin/registrar manual password reset built into User Management, which is the
-documented fallback.
+**Email.** `RESEND_API_KEY` is what makes "Forgot password" work. Without it
+the page says reset by email isn't set up and tells the user to ask their
+adviser, the registrar or the ICT staff — who can issue a temporary password
+from **User Management**, which is the fallback this project was designed
+around. Nothing silently fails either way.
+
+Do **not** set `EMAIL_DEV_FALLBACK` on a deployment: it is the developer
+console fallback, and on a server it would write reset links into logs while
+telling users the email was sent.
+
+If you do add a Resend key, be aware that the shared `onboarding@resend.dev`
+sender is intended for testing. Delivering to arbitrary recipients — your
+students' personal addresses — normally requires verifying a sending domain,
+which this school may not have. Send one test reset to a real student address
+before relying on it in front of the panel.
 
 **Database backups.** Railway's Postgres has its own backup settings. Turn them
 on before the school enters real student data.
