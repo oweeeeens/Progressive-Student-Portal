@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { Alert } from '../components/Alert'
 import { AuthCard } from '../components/AuthCard'
 import './LoginPage.css'
 
@@ -35,7 +36,7 @@ export function LoginPage() {
   return (
     <AuthCard heading="Log in">
       {location.state?.resetComplete && (
-        <p className="login-card__success">Password reset. Log in with your new password.</p>
+        <Alert variant="success">Password reset. Log in with your new password.</Alert>
       )}
 
       <form onSubmit={handleSubmit} className="login-card__form">
@@ -68,9 +69,9 @@ export function LoginPage() {
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
           Remember me on this device
         </label>
-        {error && <p className="login-card__error">{error}</p>}
+        {error && <Alert>{error}</Alert>}
         <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting ? 'Logging In...' : 'Log In'}
+          {submitting ? 'Logging in…' : 'Log in'}
         </button>
       </form>
 

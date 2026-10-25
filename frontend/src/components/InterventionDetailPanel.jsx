@@ -23,26 +23,36 @@ export function InterventionDetailPanel({ intervention, studentName, onStatusCha
     <div className="intervention-detail">
       <dl className="field-grid">
         {studentName && (
-          <>
+          <div>
             <dt>Student</dt>
             <dd>{studentName}</dd>
-          </>
+          </div>
         )}
-        <dt>Type</dt>
-        <dd>{INTERVENTION_TYPE_LABELS[intervention.intervention_type]}</dd>
-        <dt>Date logged</dt>
-        <dd>{intervention.date_logged}</dd>
-        <dt>Risk at logging</dt>
-        <dd>
-          <StatusPill
-            label={`${intervention.risk_level_at_intervention} (${intervention.grading_period_name})`}
-            variant={RISK_VARIANTS[intervention.risk_level_at_intervention]}
-          />
-        </dd>
-        <dt>Logged by</dt>
-        <dd>{intervention.logged_by_name}</dd>
-        <dt>Notes</dt>
-        <dd>{intervention.notes || '—'}</dd>
+        <div>
+          <dt>Type</dt>
+          <dd>{INTERVENTION_TYPE_LABELS[intervention.intervention_type]}</dd>
+        </div>
+        <div>
+          <dt>Date logged</dt>
+          <dd>{intervention.date_logged}</dd>
+        </div>
+        <div>
+          <dt>Risk at logging</dt>
+          <dd>
+            <StatusPill
+              label={`${intervention.risk_level_at_intervention} (${intervention.grading_period_name})`}
+              variant={RISK_VARIANTS[intervention.risk_level_at_intervention]}
+            />
+          </dd>
+        </div>
+        <div>
+          <dt>Logged by</dt>
+          <dd>{intervention.logged_by_name}</dd>
+        </div>
+        <div>
+          <dt>Notes</dt>
+          <dd>{intervention.notes || '—'}</dd>
+        </div>
       </dl>
 
       <label className="intervention-detail__status-field">

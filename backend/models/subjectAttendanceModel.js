@@ -91,4 +91,42 @@ async function getHistoryForStudent(studentId, { classOfferingId, from, to } = {
   return { records: result.rows, summary };
 }
 
-module.exports = { getActiveStudentsInOffering, recordAttendance, getRosterForDate, getHistoryForStudent };
+// Per-SUBJECT totals for one student, current school year only — the
+// "which classes am I actually missing?" question that the daily/SF2 figure
+// cannot answer, since that one counts whole school days.
+//
+// Scoped to the current school year through the grading period (subject
+// attendance rows carry no school_year of their own), so last year's
+// records can't quietly inflate this year's counts. Counted in SQL rather
+// than walked in the controller, the same shape dailyAttendanceModel's
+// getStatusCountsByPeriod already uses.
+async function getSubjectSummaryForStudent(studentId) {
+  const result = await pool.query(
+    `SELECT subj.name AS subject_name,
+            teacher.full_name AS teacher_name,
+            COUNT(*) FILTER (WHERE sar.status = 'present')::int AS present,
+            COUNT(*) FILTER (WHERE sar.status = 'absent')::int AS absent,
+            COUNT(*) FILTER (WHERE sar.status = 'late')::int AS late,
+            COUNT(*) FILTER (WHERE sar.status = 'excused')::int AS excused,
+            COUNT(*)::int AS total_sessions
+     FROM subject_attendance_records sar
+     JOIN class_offerings co ON co.id = sar.class_offering_id
+     JOIN subjects subj ON subj.id = co.subject_id
+     JOIN users teacher ON teacher.id = co.teacher_id
+     JOIN grading_periods gp ON gp.id = sar.grading_period_id
+     JOIN school_years sy ON sy.id = gp.school_year_id
+     WHERE sar.student_id = $1 AND sy.is_current = TRUE
+     GROUP BY subj.name, teacher.full_name
+     ORDER BY subj.name`,
+    [studentId]
+  );
+  return result.rows;
+}
+
+module.exports = {
+  getActiveStudentsInOffering,
+  recordAttendance,
+  getRosterForDate,
+  getHistoryForStudent,
+  getSubjectSummaryForStudent,
+};

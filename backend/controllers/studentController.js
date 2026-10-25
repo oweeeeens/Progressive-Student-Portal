@@ -2,55 +2,25 @@
 // happens inside studentModel (every query is passed req.user); this file
 // only handles input validation, error shaping, and who may write.
 const studentModel = require('../models/studentModel');
-const { provisionStudentAccountIfReady } = require('../services/accountProvisioning');
 const passwordReset = require('../services/passwordReset');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
-const riskCalculator = require('../services/riskCalculator');
+const classOfferingModel = require('../models/classOfferingModel');
+const {
+  stripLearnerStatus,
+  stripLearnerStatusFromList,
+  allowedFilterKeys,
+} = require('../utils/learnerStatusVisibility');
+const { LEARNER_STATUS_FIELDS, fieldsVisibleTo } = require('../config/learnerStatus');
 
-const LRN_PATTERN = /^\d{12}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const VALID_SEX = ['M', 'F'];
-const VALID_ENROLLMENT_STATUS = ['pending', 'enrolled', 'dropped', 'transferred', 'graduated'];
-
-// Validates the fields present in `data`. When `partial` is true (PATCH),
-// fields that are simply absent are skipped rather than treated as missing.
-function validateStudentInput(data, { partial = false } = {}) {
-  const errors = [];
-  const has = (key) => Object.prototype.hasOwnProperty.call(data, key);
-
-  if (!partial || has('lrn')) {
-    if (!data.lrn || !LRN_PATTERN.test(data.lrn)) {
-      errors.push('lrn must be exactly 12 digits (DepEd Learner Reference Number).');
-    }
-  }
-  if (!partial || has('firstName')) {
-    if (!data.firstName || !data.firstName.trim()) errors.push('firstName is required.');
-  }
-  if (!partial || has('lastName')) {
-    if (!data.lastName || !data.lastName.trim()) errors.push('lastName is required.');
-  }
-  if (!partial || has('dateOfBirth')) {
-    const date = new Date(data.dateOfBirth);
-    if (!data.dateOfBirth || Number.isNaN(date.getTime()) || date > new Date()) {
-      errors.push('dateOfBirth must be a valid past date (YYYY-MM-DD).');
-    }
-  }
-  if (has('sex') && data.sex && !VALID_SEX.includes(data.sex)) {
-    errors.push(`sex must be one of: ${VALID_SEX.join(', ')}`);
-  }
-  if (has('enrollmentStatus') && data.enrollmentStatus && !VALID_ENROLLMENT_STATUS.includes(data.enrollmentStatus)) {
-    errors.push(`enrollmentStatus must be one of: ${VALID_ENROLLMENT_STATUS.join(', ')}`);
-  }
-  if (has('currentSectionId') && data.currentSectionId !== null && !Number.isInteger(data.currentSectionId)) {
-    errors.push('currentSectionId must be an integer or null.');
-  }
-  if (has('email') && data.email && !EMAIL_PATTERN.test(data.email)) {
-    errors.push('email does not look like a valid email address.');
-  }
-
-  return errors;
-}
+// Column -> the query-string param the roster filters with, and a compact
+// label for a checkbox in a crowded toolbar.
+const FILTER_PARAM_BY_KEY = { is_pwd: 'isPwd', is_4ps: 'is4ps', is_als_graduate: 'isAlsGraduate' };
+const SHORT_LABELS = { is_pwd: 'PWD only', is_4ps: '4Ps only', is_als_graduate: 'ALS only' };
+const { buildAcademicProgress } = require('../services/academicProgressCalculator');
+// Shared with services/bulkImportValidator.js so a single-student edit and a
+// bulk-imported row can never silently disagree about what's valid.
+const { validateStudentInput } = require('../utils/studentValidation');
 
 // Postgres error codes for constraints we want to turn into friendly 400s
 // instead of a raw 500. error.constraint tells us which UNIQUE constraint
@@ -70,22 +40,43 @@ function handleWriteError(error, res) {
 
 const VALID_SORT_BY = ['name', 'status'];
 
+// Learner-status filters the CALLER is actually allowed to use. Gated
+// against the same map that strips the fields from responses: filtering a
+// roster down to "only 4Ps learners" reveals exactly what the hidden column
+// would have, so a role that can't read the field can't filter by it
+// either. A disallowed param is ignored rather than erroring — it's not a
+// client mistake worth failing the whole request over.
+function parseLearnerStatusFilters(req) {
+  const allowed = allowedFilterKeys(req.user);
+  const requested = { isPwd: 'is_pwd', is4ps: 'is_4ps', isAlsGraduate: 'is_als_graduate' };
+  const filters = {};
+  for (const [param, column] of Object.entries(requested)) {
+    if (req.query[param] === 'true' && allowed.has(column)) filters[param] = true;
+  }
+  return filters;
+}
+
 async function listStudents(req, res) {
-  const { search, gradeLevel, sectionId, status, includeInactive, sortBy, sortDir, page, pageSize } = req.query;
+  const { search, gradeLevel, sectionId, status, includeInactive, hasAccount, sortBy, sortDir, page, pageSize } = req.query;
 
   const result = await studentModel.listStudents(req.user, {
+    learnerStatus: parseLearnerStatusFilters(req),
     search,
     gradeLevel: gradeLevel ? Number(gradeLevel) : undefined,
     sectionId: sectionId ? Number(sectionId) : undefined,
     status,
     includeInactive: includeInactive === 'true',
+    hasAccount: hasAccount === 'true' ? true : hasAccount === 'false' ? false : undefined,
     sortBy: VALID_SORT_BY.includes(sortBy) ? sortBy : undefined,
     sortDir: sortDir === 'desc' ? 'desc' : 'asc',
     page: page ? Number(page) : undefined,
     pageSize: pageSize ? Number(pageSize) : undefined,
   });
 
-  res.json(result);
+  // The roster never displays these as badges (see the Students list), but
+  // strip them anyway — the list endpoint is reachable directly, and a
+  // field nobody renders is still a field that was sent.
+  res.json({ ...result, students: stripLearnerStatusFromList(req.user, result.students) });
 }
 
 // Summary counts for the list page's stat cards — scoped the same way the
@@ -100,7 +91,59 @@ async function getStudent(req, res) {
   if (!student) {
     return res.status(404).json({ error: 'Student not found.' });
   }
-  res.json({ student });
+  // Server-side enforcement, not a UI concern: a role that may not see a
+  // learner's PWD or 4Ps status never receives the field at all. This also
+  // covers the student's own My Profile view, since 'student' appears in no
+  // field's visibleToRoles list (see config/learnerStatus.js).
+  res.json({ student: stripLearnerStatus(req.user, student) });
+}
+
+// The subjects this student is currently taking, i.e. their section's
+// active class offerings for the current school year. Scoped by the exact
+// same findById() call getStudent uses, so a student asking for anyone
+// else's id gets the same 404 they'd get from the profile itself — this
+// route can't become a way to enumerate other sections' timetables.
+async function getStudentSubjects(req, res) {
+  const student = await studentModel.findById(req.user, Number(req.params.id));
+  if (!student) {
+    return res.status(404).json({ error: 'Student not found.' });
+  }
+  // Not an error — a student between section assignments simply has none yet.
+  if (!student.current_section_id) {
+    return res.json({ subjects: [] });
+  }
+  const subjects = await classOfferingModel.listBySection(student.current_section_id);
+  res.json({ subjects });
+}
+
+// A writer can only set learner-status fields they're allowed to SEE. In
+// practice both roles that can write students (admin, registrar) can see
+// all three, so this changes nothing today — it's here so that adding a
+// write-capable role later can't silently hand it a field the visibility
+// map says it shouldn't have.
+function stripUnwritableLearnerStatus(req) {
+  const allowed = allowedFilterKeys(req.user);
+  const body = { ...req.body };
+  const byParam = { isPwd: 'is_pwd', is4ps: 'is_4ps', isAlsGraduate: 'is_als_graduate' };
+  for (const [param, column] of Object.entries(byParam)) {
+    if (!allowed.has(column)) delete body[param];
+  }
+  return body;
+}
+
+// Which learner-status fields THIS caller may see — and therefore filter
+// by. The roster UI asks rather than hardcoding the role list a second
+// time, so config/learnerStatus.js stays the only place the rule lives.
+async function getLearnerStatusFields(req, res) {
+  const allowed = fieldsVisibleTo(req.user?.role);
+  res.json({
+    fields: LEARNER_STATUS_FIELDS.filter((f) => allowed.includes(f.key)).map((f) => ({
+      key: f.key,
+      param: FILTER_PARAM_BY_KEY[f.key],
+      label: f.label,
+      shortLabel: SHORT_LABELS[f.key],
+    })),
+  });
 }
 
 async function createStudent(req, res) {
@@ -110,12 +153,9 @@ async function createStudent(req, res) {
   }
 
   try {
-    const id = await studentModel.createStudent(req.body);
+    const id = await studentModel.createStudent(stripUnwritableLearnerStatus(req));
     const student = await studentModel.findByIdUnscoped(id);
-    // Self-checking no-op unless this student was created already-enrolled
-    // with an email — see services/accountProvisioning.js.
-    const provisioned = await provisionStudentAccountIfReady(id);
-    res.status(201).json({ student, accountProvisioned: provisioned });
+    res.status(201).json({ student: stripLearnerStatus(req.user, student) });
   } catch (error) {
     handleWriteError(error, res);
   }
@@ -128,16 +168,12 @@ async function updateStudent(req, res) {
   }
 
   try {
-    const updated = await studentModel.updateStudent(Number(req.params.id), req.body);
+    const updated = await studentModel.updateStudent(Number(req.params.id), stripUnwritableLearnerStatus(req));
     if (!updated) {
       return res.status(404).json({ error: 'Student not found.' });
     }
     const student = await studentModel.findByIdUnscoped(updated.id);
-    // Covers a registrar flipping enrollmentStatus to 'enrolled' via this
-    // edit — self-checking no-op otherwise (already enrolled, no email on
-    // file yet, or already provisioned).
-    const provisioned = await provisionStudentAccountIfReady(updated.id);
-    res.json({ student, accountProvisioned: provisioned });
+    res.json({ student: stripLearnerStatus(req.user, student) });
   } catch (error) {
     handleWriteError(error, res);
   }
@@ -176,35 +212,45 @@ async function resetPassword(req, res) {
   res.json({ tempPassword });
 }
 
-// The Student Detail page's risk badge — current period's assessment (if
-// any) plus its triggered factors, via the exact same evaluateFactors call
-// the Risk Dashboard uses, so the two can never disagree. route-gated to
-// admin/adviser/guidance_counselor, the same audience as the Risk
-// Dashboard and Interventions — narrower than the general student-profile
-// visibility rule, since risk standing is more sensitive than a roster entry.
-async function getRisk(req, res) {
+// The Student Detail page's Academic Progress Tracking badge (formerly
+// "risk badge") — current period's assessment (if any), its band (At Risk /
+// Average-Steady / Performing Well), triggered factors, and advisory/
+// encouragement/recognition text, via the exact same
+// academicProgressCalculator.buildAcademicProgress call the Academic
+// Progress Tracking dashboard uses, so the two can never disagree.
+// route-gated to admin/adviser/guidance_counselor, the same audience as
+// that dashboard and Interventions — narrower than the general
+// student-profile visibility rule, since this is more sensitive than a
+// roster entry.
+async function getAcademicProgress(req, res) {
   const student = await studentModel.findById(req.user, Number(req.params.id));
   if (!student) return res.status(404).json({ error: 'Student not found.' });
 
   const currentPeriod = await gradingPeriodModel.findByDate(new Date().toISOString().slice(0, 10));
-  if (!currentPeriod) return res.json({ risk: null });
+  if (!currentPeriod) return res.json({ academicProgress: null });
 
   const assessment = await riskAssessmentModel.getForStudentAndPeriod(student.id, currentPeriod.id);
-  if (!assessment) return res.json({ risk: null });
+  if (!assessment) return res.json({ academicProgress: null });
 
-  const factors = riskCalculator.evaluateFactors({
-    currentGrade: assessment.average_grade != null ? Number(assessment.average_grade) : null,
+  const progress = buildAcademicProgress({
+    riskScore: assessment.risk_score,
+    averageGrade: assessment.average_grade != null ? Number(assessment.average_grade) : null,
     gradeTrend: assessment.grade_trend != null ? Number(assessment.grade_trend) : null,
-    currentAttendanceRate: assessment.attendance_rate != null ? Number(assessment.attendance_rate) : null,
+    attendanceRate: assessment.attendance_rate != null ? Number(assessment.attendance_rate) : null,
     attendanceTrend: assessment.attendance_trend != null ? Number(assessment.attendance_trend) : null,
   });
 
   res.json({
-    risk: {
+    academicProgress: {
       riskLevel: assessment.risk_level,
       riskScore: assessment.risk_score,
       calculatedAt: assessment.calculated_at,
-      factors,
+      band: progress.band,
+      bandLabel: progress.bandLabel,
+      factors: progress.factors,
+      advisories: progress.advisories,
+      topConcern: progress.topConcern,
+      note: progress.note,
     },
   });
 }
@@ -213,7 +259,9 @@ module.exports = {
   listStudents,
   getStats,
   getStudent,
-  getRisk,
+  getStudentSubjects,
+  getLearnerStatusFields,
+  getAcademicProgress,
   createStudent,
   updateStudent,
   deactivateStudent,

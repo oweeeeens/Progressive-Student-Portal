@@ -29,9 +29,10 @@ router.post('/login', loginLimiter, login);
 router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
 router.post('/reset-password', resetPassword);
 
-// Staff account creation — there is no public self-registration, and
-// student accounts are never created through this endpoint (auto-
-// provisioned at enrollment instead — see services/accountProvisioning.js).
+// Account creation — staff and students alike (see authController.register's
+// role === 'student' branch). There is no public self-registration; every
+// account is created here by an admin/registrar, or in bulk via
+// POST /api/users/bulk-create-student-accounts for existing Student Records.
 router.post('/register', requireAuth, requireRole('admin', 'registrar'), register);
 
 // Every route below requires requireAuth, which is exactly what allows a

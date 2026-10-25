@@ -9,7 +9,10 @@
 
 .login-card {
   width: 100%;
-  max-width: 720px;
+  /* The card is the only thing on this screen, so it is allowed to carry
+     some weight: at 720 x ~320 it sat in the middle of a 1440px window
+     looking like a dialog someone forgot to close. */
+  max-width: 780px;
   display: flex;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -35,12 +38,12 @@
     var(--color-primary-gradient-end) 100%
   );
   color: var(--color-text-on-primary);
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-7) var(--space-5);
 }
 
 .login-card__logo {
-  width: 88px;
-  height: 88px;
+  width: 74px;
+  height: 74px;
   border-radius: 50%;
   object-fit: cover;
   background: #fff;
@@ -75,7 +78,10 @@
   font-size: var(--font-size-xs);
   line-height: 1.5;
   margin: 0;
-  max-width: 22ch;
+  /* Wide enough that the school's name doesn't break after the em dash,
+     and balanced so the three lines come out even rather than ragged. */
+  max-width: 26ch;
+  text-wrap: balance;
 }
 
 .login-card__form-panel {
@@ -83,7 +89,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: var(--space-6) var(--space-5);
+  padding: var(--space-7) var(--space-6);
 }
 
 .login-card__form-heading {
@@ -165,21 +171,11 @@
   padding: var(--space-3) var(--space-4);
 }
 
-.login-card__error {
-  color: var(--color-danger);
-  background: var(--color-danger-bg);
-  border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--space-3);
-}
-
-.login-card__success {
-  color: var(--color-success);
-  background: var(--color-success-bg);
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
-  font-size: var(--font-size-sm);
+/* The login form's own error/success boxes used to live here; both are
+   now the shared <Alert>, which is the same message treatment the rest of
+   the app uses. Only the spacing inside this narrow column is local. */
+.login-card__form .alert,
+.login-card .alert {
   margin-bottom: var(--space-3);
 }
 
@@ -199,8 +195,8 @@
     padding: var(--space-5) var(--space-5) var(--space-4);
   }
   .login-card__logo {
-    width: 64px;
-    height: 64px;
+    width: 54px;
+    height: 54px;
     margin-bottom: var(--space-3);
   }
   .login-card__tagline {

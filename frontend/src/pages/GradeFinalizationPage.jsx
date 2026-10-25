@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import './GradesShared.css'
+import { Alert } from '../components/Alert'
 
 // The final stage of CLAUDE.md's 3-stage grade approval chain, done by
 // whoever actually advises the section (sections.adviser_id, not whoever's
@@ -132,7 +133,7 @@ export function GradeFinalizationPage() {
         <StatCard icon={CheckCircle2} value={verifiedGrades.length} label="Ready to finalize" variant="info" />
       </StatRow>
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
       {message && <p style={{ color: 'var(--color-success)' }}>{message}</p>}
 
       {!ready ? (

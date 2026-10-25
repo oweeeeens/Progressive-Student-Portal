@@ -4,6 +4,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { useUnsavedChangesTracker } from '../hooks/useUnsavedChangesTracker'
 import './GradesShared.css'
+import { Alert } from '../components/Alert'
 
 const STATUS_LABELS = {
   submitted: 'Submitted',
@@ -164,7 +165,7 @@ export function GradeEntryPage() {
         </div>
       </div>
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
       {message && <p style={{ color: 'var(--color-success)' }}>{message}</p>}
 
       {!ready ? (

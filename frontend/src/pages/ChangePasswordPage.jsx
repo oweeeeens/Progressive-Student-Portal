@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { AuthCard } from '../components/AuthCard'
@@ -39,15 +39,26 @@ export function ChangePasswordPage() {
 
   return (
     <AuthCard heading="Change your password">
-      <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', marginTop: 'calc(-1 * var(--space-2))' }}>
+      <p className="form-note auth-card__intro">
         {user?.mustChangePassword
           ? 'Your account was created with a temporary password. Set a new one to continue.'
           : 'Choose a new password.'}
       </p>
+      {/* This page renders outside the app shell, with no sidebar. When the
+          change is forced that is the point — but a student who opened it
+          from the account menu must not be stranded here. */}
+      {!user?.mustChangePassword && (
+        <p className="login-card__footer-link">
+          <Link to="/">Back to your portal</Link>
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="login-card__form">
         <label>
-          Current (temporary) password <span className="required-mark">*</span>
+          {/* "temporary" is only true the first time; reaching this page from
+              the account menu later is an ordinary password change. */}
+          {user?.mustChangePassword ? 'Current (temporary) password' : 'Current password'}{' '}
+          <span className="required-mark">*</span>
           <input
             type="password"
             value={currentPassword}

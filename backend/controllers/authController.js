@@ -7,9 +7,9 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET, JWT_EXPIRES_IN, CREATABLE_ROLES } = require('../config/auth');
 const userModel = require('../models/userModel');
-const studentModel = require('../models/studentModel');
 const { verifyPassword, generateTempPassword } = require('../utils/password');
 const passwordReset = require('../services/passwordReset');
+const { createStudentAccount } = require('../services/accountCreation');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -80,34 +80,12 @@ async function register(req, res) {
     if (!studentId) {
       return res.status(400).json({ error: 'studentId is required to create a student account.' });
     }
-    const student = await studentModel.findByIdUnscoped(Number(studentId));
-    if (!student) {
-      return res.status(400).json({ error: 'studentId does not refer to an existing student record.' });
-    }
-    if (student.user_id) {
-      return res.status(409).json({ error: 'This student already has a portal account.' });
-    }
-    if (!student.email) {
-      return res
-        .status(400)
-        .json({ error: "This student has no personal email on file — add one to their Student Record first." });
-    }
 
-    const existingByEmail = await userModel.findByEmail(student.email);
-    if (existingByEmail) {
-      return res.status(409).json({ error: 'An account with that email already exists.' });
+    const result = await createStudentAccount(Number(studentId));
+    if (!result.ok) {
+      return res.status(result.status).json({ error: result.error });
     }
-
-    const tempPassword = generateTempPassword();
-    const user = await userModel.createUser({
-      email: student.email,
-      password: tempPassword,
-      fullName: `${student.first_name} ${student.last_name}`,
-      role: 'student',
-      mustChangePassword: true,
-    });
-    await studentModel.linkUserAccount(student.id, user.id);
-    return res.status(201).json({ user: toPublicUser(user), tempPassword });
+    return res.status(201).json({ user: toPublicUser(result.user), tempPassword: result.tempPassword });
   }
 
   const { email, fullName } = req.body;

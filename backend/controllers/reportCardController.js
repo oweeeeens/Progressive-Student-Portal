@@ -58,7 +58,15 @@ async function generateReportCard(req, res) {
   const isAdviserOfSection = student.current_section_id
     ? (await sectionModel.getSectionById(student.current_section_id))?.adviser_id === req.user.id
     : false;
-  if (!['admin', 'registrar'].includes(req.user.role) && !isAdviserOfSection) {
+  // A student may generate their OWN report card and no one else's. There is
+  // no id check needed for that: studentModel.findById above is already
+  // scoped (role 'student' -> s.user_id = req.user.id), so any other id has
+  // returned 404 by now and never reaches this line. The card itself is
+  // built from finalized grades and daily attendance — exactly what the
+  // student can already read on their home page, now in the printable form
+  // the school hands out on paper.
+  const isOwnRecord = req.user.role === 'student';
+  if (!['admin', 'registrar'].includes(req.user.role) && !isAdviserOfSection && !isOwnRecord) {
     return res.status(403).json({ error: 'You do not have permission to generate this student’s report card.' });
   }
 

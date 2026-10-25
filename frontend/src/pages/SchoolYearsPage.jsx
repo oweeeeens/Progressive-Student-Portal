@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
+import { Alert } from '../components/Alert'
 
 const emptySchoolYearForm = { label: '', startDate: '', endDate: '' }
 const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: '' }
@@ -169,7 +170,7 @@ export function SchoolYearsPage() {
         <StatCard icon={Star} value={currentYear ? currentYear.label : '—'} label="Current school year" variant="info" />
       </StatRow>
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
 
       {showYearForm && (
         <form onSubmit={handleYearSubmit} className="intervention-log-form">

@@ -47,7 +47,12 @@ async function getById(id) {
 // date, so the frontend needs the list of periods to choose from.
 async function listForCurrentSchoolYear() {
   const result = await pool.query(
-    `SELECT gp.id, gp.name, gp.sequence_number
+    // start_date/end_date travel with the period so a caller can say which
+    // dates fall inside it — the student attendance page lists the actual
+    // days behind "3 days absent" rather than just the number. They come
+    // back as plain YYYY-MM-DD strings (see the DATE parser in config/db.js),
+    // so a date range is a string comparison with no timezone in play.
+    `SELECT gp.id, gp.name, gp.sequence_number, gp.start_date, gp.end_date
      FROM grading_periods gp
      JOIN school_years sy ON sy.id = gp.school_year_id
      WHERE sy.is_current = TRUE

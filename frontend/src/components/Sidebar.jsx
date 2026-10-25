@@ -4,12 +4,15 @@ import {
   Home,
   Users,
   UserPlus,
+  FileUp,
   CalendarCheck,
+  GraduationCap,
   ClipboardList,
   PenLine,
   ShieldCheck,
   CheckCircle2,
-  AlertTriangle,
+  TrendingUp,
+  BarChart3,
   HeartHandshake,
   UserCog,
   CalendarRange,
@@ -43,7 +46,11 @@ const canFinalizeGrades = isStaffRole
 // assignment" table, it's a single school-wide position, so a literal role
 // check is the correct and only boundary (unlike the four above).
 const canVerifyGrades = (role) => ['admin', 'principal'].includes(role)
-const canSeeRiskDashboard = (role) => ['admin', 'adviser', 'guidance_counselor'].includes(role)
+const canSeeAcademicProgress = (role) => ['admin', 'adviser', 'guidance_counselor'].includes(role)
+// Deliberately NOT advisers — they keep the per-section Academic Progress
+// Tracking view above; this is the school-wide rollup, admin/principal/
+// guidance_counselor only, matching routes/analyticsRoutes.js's server-side gate.
+const canSeeAnalytics = (role) => ['admin', 'principal', 'guidance_counselor'].includes(role)
 const canManageAcademicSetup = (role) => role === 'admin'
 
 // Each section groups related pages under a short, sentence-case label (not
@@ -53,10 +60,30 @@ const canManageAcademicSetup = (role) => role === 'admin'
 function getNavSections(role) {
   return [
     {
+      // Unlabelled on purpose: a student's two pages are their own record,
+      // not a category of the school's data, and a header above two items
+      // called "My Grades" and "My Attendance" would only repeat them.
+      key: 'own-record',
+      label: null,
+      items: [
+        { to: '/my-grades', label: 'My Grades', icon: GraduationCap, show: role === 'student' },
+        { to: '/my-attendance', label: 'My Attendance', icon: CalendarCheck, show: role === 'student' },
+      ],
+    },
+    {
       label: 'Students',
       items: [
-        { to: '/students', label: 'Students', icon: Users, show: true },
+        // A student only ever sees their own single record in this list
+        // anyway (studentModel's appendScopeClause self-scopes it) — an
+        // extra list + click for something the Home page already gives them
+        // directly, so it's hidden for that role rather than just scoped.
+        // A student's nav is Home and nothing else: their whole record,
+        // advice, charts and tables scroll on that one page (see
+        // pages/StudentHomePage.jsx), so this section renders nothing at
+        // all for them.
+        { to: '/students', label: 'Students', icon: Users, show: role !== 'student' },
         { to: '/students/new', label: 'New Student', icon: UserPlus, show: canWrite(role) },
+        { to: '/students/bulk-import', label: 'Bulk Import', icon: FileUp, show: canWrite(role) },
       ],
     },
     {
@@ -75,17 +102,18 @@ function getNavSections(role) {
       ],
     },
     {
-      label: 'Risk & Interventions',
+      label: 'Academic Progress & Interventions',
       items: [
-        { to: '/risk-dashboard', label: 'Risk Dashboard', icon: AlertTriangle, show: canSeeRiskDashboard(role) },
-        { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeRiskDashboard(role) },
+        { to: '/academic-progress', label: 'Academic Progress Tracking', icon: TrendingUp, show: canSeeAcademicProgress(role) },
+        { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeAcademicProgress(role) },
+        { to: '/analytics', label: 'Analytics', icon: BarChart3, show: canSeeAnalytics(role) },
       ],
     },
     {
       label: 'Accounts',
       items: [
-        { to: '/staff', label: 'Staff Accounts', icon: UserCog, show: canWrite(role) },
-        { to: '/staff/new', label: 'New Staff Account', icon: UserPlus, show: canWrite(role) },
+        { to: '/users', label: 'User Management', icon: UserCog, show: canWrite(role) },
+        { to: '/users/new', label: 'New Account', icon: UserPlus, show: canWrite(role) },
       ],
     },
     {
@@ -109,7 +137,65 @@ function isSectionActive(section, pathname) {
   return section.items.some((item) => pathname === item.to || pathname.startsWith(`${item.to}/`))
 }
 
-export function Sidebar() {
+// A nav item with children: the parent row plus its indented child links.
+// The parent expands when the user clicks its chevron AND whenever one of
+// its children is the active route, so navigating to /my-progress/trends
+// can never leave the current page hidden inside a collapsed parent — the
+// same rule the top-level sections already follow.
+function NavItemWithChildren({ item, pathname }) {
+  const isBranchActive = pathname === item.to || pathname.startsWith(`${item.to}/`)
+  const [manuallyExpanded, setManuallyExpanded] = useState(false)
+  const expanded = isBranchActive || manuallyExpanded
+
+  return (
+    <div className="sidebar__subnav">
+      <div className="sidebar__parent-row">
+        <NavLink
+          to={item.to}
+          onClick={(e) => {
+            if (!confirmLeave()) e.preventDefault()
+          }}
+          className={`sidebar__link${isBranchActive ? ' sidebar__link--active' : ''}`}
+          title={item.label}
+        >
+          <item.icon size={18} strokeWidth={1.75} className="sidebar__link-icon" />
+          <span className="sidebar__link-label">{item.label}</span>
+        </NavLink>
+        <button
+          type="button"
+          className="sidebar__parent-toggle"
+          onClick={() => setManuallyExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} ${item.label}`}
+          title={`${expanded ? 'Collapse' : 'Expand'} ${item.label}`}
+        >
+          <ChevronDown size={13} strokeWidth={2} className={`sidebar__section-chevron${expanded ? '' : ' sidebar__section-chevron--collapsed'}`} />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="sidebar__children">
+          {item.children.map((child) => (
+            <NavLink
+              key={child.to}
+              to={child.to}
+              onClick={(e) => {
+                if (!confirmLeave()) e.preventDefault()
+              }}
+              className={({ isActive }) => `sidebar__child-link${isActive ? ' sidebar__child-link--active' : ''}`}
+              title={child.label}
+            >
+              <span className="sidebar__child-bullet" aria-hidden="true" />
+              <span className="sidebar__link-label">{child.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function Sidebar({ collapsed = false }) {
   const { user, logout } = useAuth()
   const { pathname } = useLocation()
   const sections = getNavSections(user?.role).filter((section) => section.items.some((item) => item.show))
@@ -133,7 +219,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
       <div className="sidebar__brand">
         <img src="/logo.png" alt="" className="sidebar__logo" />
         <div className="sidebar__brand-text">
@@ -165,41 +251,56 @@ export function Sidebar() {
           // still records the user's preference for when it's no longer
           // the active one.
           const isCollapsed = !isSectionActive(section, pathname) && collapsedLabels.has(section.label)
+          // A collapsible group containing exactly one link is chrome with
+          // nothing to do: the header can't tell you anything the single
+          // item below it doesn't, and collapsing it hides one thing. A
+          // general rule, applied to any role that ends up with a one-item
+          // group.
+          const visibleItems = section.items.filter((item) => item.show)
+          // A section with no label never gets a header either — see the
+          // student's own-record group, which needs no category above it.
+          const showGroupHeader = visibleItems.length > 1 && Boolean(section.label)
 
           return (
-            <div className="sidebar__section" key={section.label}>
-              <button
-                type="button"
-                className="sidebar__section-toggle"
-                onClick={() => toggleSection(section.label)}
-                aria-expanded={!isCollapsed}
-              >
-                <span className="sidebar__section-label">{section.label}</span>
-                <ChevronDown
-                  size={14}
-                  strokeWidth={2}
-                  className={`sidebar__section-chevron${isCollapsed ? ' sidebar__section-chevron--collapsed' : ''}`}
-                />
-              </button>
-              <div className={`sidebar__section-items${isCollapsed ? ' sidebar__section-items--collapsed' : ''}`}>
+            <div className="sidebar__section" key={section.key || section.label}>
+              {showGroupHeader && (
+                <button
+                  type="button"
+                  className="sidebar__section-toggle"
+                  onClick={() => toggleSection(section.label)}
+                  aria-expanded={!isCollapsed}
+                >
+                  <span className="sidebar__section-label">{section.label}</span>
+                  <ChevronDown
+                    size={14}
+                    strokeWidth={2}
+                    className={`sidebar__section-chevron${isCollapsed ? ' sidebar__section-chevron--collapsed' : ''}`}
+                  />
+                </button>
+              )}
+              <div className={`sidebar__section-items${isCollapsed && showGroupHeader ? ' sidebar__section-items--collapsed' : ''}`}>
                 <div>
                   {section.items
                     .filter((item) => item.show)
-                    .map((item) => (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end={['/students', '/staff'].includes(item.to)}
-                        onClick={(e) => {
-                          if (!confirmLeave()) e.preventDefault()
-                        }}
-                        className={({ isActive }) => `sidebar__link${isActive ? ' sidebar__link--active' : ''}`}
-                        title={item.label}
-                      >
-                        <item.icon size={18} strokeWidth={1.75} className="sidebar__link-icon" />
-                        <span className="sidebar__link-label">{item.label}</span>
-                      </NavLink>
-                    ))}
+                    .map((item) =>
+                      item.children ? (
+                        <NavItemWithChildren key={item.to} item={item} pathname={pathname} />
+                      ) : (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          end={['/students', '/users'].includes(item.to)}
+                          onClick={(e) => {
+                            if (!confirmLeave()) e.preventDefault()
+                          }}
+                          className={({ isActive }) => `sidebar__link${isActive ? ' sidebar__link--active' : ''}`}
+                          title={item.label}
+                        >
+                          <item.icon size={18} strokeWidth={1.75} className="sidebar__link-icon" />
+                          <span className="sidebar__link-label">{item.label}</span>
+                        </NavLink>
+                      )
+                    )}
                 </div>
               </div>
             </div>

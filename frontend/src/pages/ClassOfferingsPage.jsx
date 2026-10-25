@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
+import { Alert } from '../components/Alert'
 
 const PAGE_SIZE = 15
 const emptyForm = { schoolYearId: '', sectionId: '', subjectId: '', teacherId: '' }
@@ -15,7 +16,9 @@ const emptyForm = { schoolYearId: '', sectionId: '', subjectId: '', teacherId: '
 export function ClassOfferingsPage() {
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
-  const [activeTotal, setActiveTotal] = useState(0)
+  // null, not 0: until the count request answers there is no number to
+  // show, and a failed request must not be reported as "none".
+  const [activeTotal, setActiveTotal] = useState(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -157,7 +160,7 @@ export function ClassOfferingsPage() {
         <StatCard icon={BookMarked} value={activeTotal} label="Active class offerings" />
       </StatRow>
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="intervention-log-form">
@@ -234,7 +237,7 @@ export function ClassOfferingsPage() {
         <p>Loading…</p>
       ) : rows.length === 0 ? (
         <div className="empty-state">
-          <p>No class offerings found.</p>
+          <p>{error ? 'This list could not be loaded.' : 'No class offerings found.'}</p>
         </div>
       ) : (
         <div className="table-card">

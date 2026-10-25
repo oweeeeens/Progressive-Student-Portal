@@ -61,4 +61,22 @@ async function getForStudentAndPeriod(studentId, gradingPeriodId) {
   return result.rows[0] || null;
 }
 
-module.exports = { upsert, listForDashboard, getForStudentAndPeriod };
+// Every stored assessment for one student, oldest period first — the "My
+// Progress" trend sparkline's data source (see
+// controllers/myProgressController.js). Same grading_periods join/ordering
+// convention as analyticsModel.js's trend queries.
+async function listForStudent(studentId) {
+  const result = await pool.query(
+    `SELECT ra.average_grade, ra.attendance_rate, ra.grade_trend, ra.attendance_trend,
+            ra.risk_score, ra.risk_level,
+            gp.id AS grading_period_id, gp.name AS period_name, gp.sequence_number
+     FROM risk_assessments ra
+     JOIN grading_periods gp ON gp.id = ra.grading_period_id
+     WHERE ra.student_id = $1
+     ORDER BY gp.sequence_number`,
+    [studentId]
+  );
+  return result.rows;
+}
+
+module.exports = { upsert, listForDashboard, getForStudentAndPeriod, listForStudent };

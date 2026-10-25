@@ -9,7 +9,9 @@ const {
   listStudents,
   getStats,
   getStudent,
-  getRisk,
+  getStudentSubjects,
+  getLearnerStatusFields,
+  getAcademicProgress,
   createStudent,
   updateStudent,
   deactivateStudent,
@@ -28,8 +30,22 @@ router.use(requireAuth);
 router.get('/', listStudents);
 // Must stay above '/:id' — otherwise Express matches "stats" as an id.
 router.get('/stats', getStats);
+// Must stay above '/:id' too — same reason as /stats.
+router.get('/learner-status-fields', getLearnerStatusFields);
 router.get('/:id', getStudent);
-router.get('/:id/risk', requireRole('admin', 'adviser', 'guidance_counselor'), getRisk);
+// No role gate: visibility is scoped per-student inside the controller, the
+// same way GET /:id is — a student sees their own subjects, nobody else's.
+router.get('/:id/subjects', getStudentSubjects);
+// Principal included: they already see the school-wide rollup of exactly
+// this data on the Analytics dashboard, so withholding the per-student
+// version only broke the drill-down, it didn't protect anything.
+// Deliberately NOT extended to interventions below — logging and
+// managing follow-up stays admin/adviser/guidance_counselor.
+router.get(
+  '/:id/academic-progress',
+  requireRole('admin', 'principal', 'adviser', 'guidance_counselor'),
+  getAcademicProgress
+);
 // No role gate — admin/registrar/actual-adviser-of-the-section is checked
 // by assignment inside the controller itself (see reportCardController.js).
 router.get('/:id/report-card', generateReportCard);

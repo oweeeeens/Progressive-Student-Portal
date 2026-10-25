@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import './GradesShared.css'
+import { Alert } from '../components/Alert'
 
 const PAGE_SIZE = 20
 
@@ -175,7 +176,7 @@ export function VerifyGradesPage() {
         <StatCard icon={ClipboardCheck} value={total} label="Awaiting review" variant="warning" />
       </StatRow>
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
       {message && <p style={{ color: 'var(--color-success)' }}>{message}</p>}
 
       {!gradingPeriodId ? (

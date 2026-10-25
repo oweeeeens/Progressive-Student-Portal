@@ -1,15 +1,20 @@
-// The adviser/guidance-counselor dashboard: each student's risk level and
-// which specific factors triggered it. risk_assessments only stores the
-// numbers (see riskAssessmentModel.js) — the human-readable "why" is
-// re-derived here via riskCalculator.evaluateFactors, the exact same
-// function the engine used to compute the score in the first place, so the
-// dashboard can never disagree with how the score was actually calculated.
+// Academic Progress Tracking (formerly "Risk Dashboard") — every student in
+// scope, grouped into three performance bands (At Risk / Average-Steady /
+// Performing Well), not just the flagged ones. risk_assessments only stores
+// the numbers (see riskAssessmentModel.js) — the human-readable factors,
+// band, and advisory/encouragement/recognition text are all re-derived here
+// via academicProgressCalculator.buildAcademicProgress, which itself is
+// built on riskCalculator.evaluateFactors (the exact same function the
+// engine used to compute the score in the first place), so none of this can
+// ever disagree with how the score was actually calculated. The underlying
+// risk-scoring formula is unchanged — this file is a presentation layer on
+// top of it, per CLAUDE.md's Academic Progress Tracking Logic section.
 const riskAssessmentModel = require('../models/riskAssessmentModel');
 const sectionModel = require('../models/sectionModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
-const { evaluateFactors } = require('../services/riskCalculator');
+const { buildAcademicProgress } = require('../services/academicProgressCalculator');
 
-async function getDashboard(req, res) {
+async function getAcademicProgress(req, res) {
   const { sectionId } = req.query;
   let { gradingPeriodId } = req.query;
 
@@ -46,14 +51,15 @@ async function getDashboard(req, res) {
 
   const students = rows.map((row) => {
     const hasAssessment = row.risk_level != null;
-    const factors = hasAssessment
-      ? evaluateFactors({
-          currentGrade: row.average_grade != null ? Number(row.average_grade) : null,
+    const progress = hasAssessment
+      ? buildAcademicProgress({
+          riskScore: row.risk_score,
+          averageGrade: row.average_grade != null ? Number(row.average_grade) : null,
           gradeTrend: row.grade_trend != null ? Number(row.grade_trend) : null,
-          currentAttendanceRate: row.attendance_rate != null ? Number(row.attendance_rate) : null,
+          attendanceRate: row.attendance_rate != null ? Number(row.attendance_rate) : null,
           attendanceTrend: row.attendance_trend != null ? Number(row.attendance_trend) : null,
         })
-      : [];
+      : null;
 
     return {
       studentId: row.student_id,
@@ -68,11 +74,16 @@ async function getDashboard(req, res) {
       attendanceRate: row.attendance_rate,
       attendanceTrend: row.attendance_trend,
       calculatedAt: row.calculated_at,
-      factors,
+      band: hasAssessment ? progress.band : 'not_yet_calculated',
+      bandLabel: hasAssessment ? progress.bandLabel : 'Not Yet Calculated',
+      factors: hasAssessment ? progress.factors : [],
+      advisories: hasAssessment ? progress.advisories : [],
+      topConcern: hasAssessment ? progress.topConcern : null,
+      note: hasAssessment ? progress.note : null,
     };
   });
 
   res.json({ gradingPeriodId: Number(gradingPeriodId), students });
 }
 
-module.exports = { getDashboard };
+module.exports = { getAcademicProgress };

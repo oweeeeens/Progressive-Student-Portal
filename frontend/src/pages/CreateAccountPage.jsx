@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { api } from '../api/client'
+import { Alert } from '../components/Alert'
 
 const ROLE_LABELS = {
   adviser: 'Adviser',
@@ -22,7 +23,7 @@ const ROLE_LABELS = {
 // password is shown exactly once, right after creation — it cannot be
 // retrieved again after leaving this page, so the admin/registrar must relay
 // it to the new user right now.
-export function CreateStaffAccountPage() {
+export function CreateAccountPage() {
   const [searchParams] = useSearchParams()
   const preselectedStudentId = searchParams.get('studentId')
 
@@ -98,7 +99,7 @@ export function CreateStaffAccountPage() {
 
   return (
     <div style={{ maxWidth: 480 }}>
-      <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Staff Accounts', to: '/staff' }, { label: 'New' }]} />
+      <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'User Management', to: '/users' }, { label: 'New' }]} />
       <h1>{isStudentRole ? 'New Student Account' : 'New Staff Account'}</h1>
 
       {created && (
@@ -119,7 +120,7 @@ export function CreateStaffAccountPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <label>
           Role
           <select value={role} onChange={(e) => setRole(e.target.value)} style={{ width: '100%' }}>
@@ -189,12 +190,12 @@ export function CreateStaffAccountPage() {
               </div>
             )}
             {selectedStudent && !selectedStudent.email && (
-              <p style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+              <p className="form-note form-note--danger">
                 This student has no personal email on file — add one via their Student Record first.
               </p>
             )}
             {selectedStudent && selectedStudent.email && (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+              <p className="form-note">
                 Portal account email: <strong>{selectedStudent.email}</strong> (from their Student Record)
               </p>
             )}
@@ -212,7 +213,7 @@ export function CreateStaffAccountPage() {
           </>
         )}
 
-        {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+        {error && <Alert>{error}</Alert>}
         <button type="submit" className="btn-primary" disabled={submitting || !canSubmit}>
           {submitting ? 'Creating Account...' : 'Create Account'}
         </button>

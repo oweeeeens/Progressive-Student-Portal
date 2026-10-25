@@ -27,11 +27,12 @@ async function requireAuth(req, res, next) {
   }
 
   // Enforced here, not just as a frontend redirect: a user created with a
-  // temp password (staff account creation, or student auto-provisioning —
-  // see services/accountProvisioning.js) can't touch anything except the
-  // auth endpoints (check who they are, change their password) until they
-  // do. Checked against the full original URL, not req.path, since
-  // requireAuth is reused across many routers mounted at different prefixes.
+  // temp password (staff or student account creation — see
+  // services/accountCreation.js and authController.register) can't touch
+  // anything except the auth endpoints (check who they are, change their
+  // password) until they do. Checked against the full original URL, not
+  // req.path, since requireAuth is reused across many routers mounted at
+  // different prefixes.
   if (user.must_change_password && !req.originalUrl.startsWith('/api/auth/')) {
     return res.status(403).json({ error: 'You must change your password before continuing.', mustChangePassword: true });
   }

@@ -14,16 +14,21 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { api } from '../api/client'
+import {
+  ANNOUNCEMENT_ROLE_LABELS,
+  ANNOUNCEMENT_EDITED_THRESHOLD_MS,
+  formatAnnouncementDateTime,
+} from '../utils/announcementFormat'
 import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
-import { TopBar } from '../components/TopBar'
 import { UserInfoCard } from '../components/UserInfoCard'
 import { Pagination } from '../components/Pagination'
 import { QuickActions } from '../components/QuickActions'
 import { StudentsNeedingAttention } from '../components/StudentsNeedingAttention'
 import { ActivityFeed } from '../components/ActivityFeed'
 import './DashboardPage.css'
+import { Alert } from '../components/Alert'
 
 // Role-specific shortcuts, placed prominently near the top of the page.
 // Admin's "Post Announcement" opens the inline form already on this page
@@ -46,13 +51,13 @@ function getQuickActions(role, onPostAnnouncement) {
       // their Student Record and, from there, creating their portal account.
       return [
         { label: 'New Student', to: '/students/new', icon: UserPlus },
-        { label: 'Create Account', to: '/staff/new', icon: UserCog },
+        { label: 'Create Account', to: '/users/new', icon: UserCog },
       ]
     case 'guidance_counselor':
-      return [{ label: 'View Flagged Students', to: '/risk-dashboard', icon: AlertTriangle }]
+      return [{ label: 'View Flagged Students', to: '/academic-progress', icon: AlertTriangle }]
     case 'admin':
       return [
-        { label: 'Manage Staff Accounts', to: '/staff', icon: UserCog },
+        { label: 'Manage User Accounts', to: '/users', icon: UserCog },
         { label: 'Post Announcement', onClick: onPostAnnouncement, icon: Plus },
       ]
     default:
@@ -61,27 +66,13 @@ function getQuickActions(role, onPostAnnouncement) {
 }
 
 const AUTHOR_ROLES = ['admin', 'registrar', 'guidance_counselor', 'ict_faculty']
-// Only the roles in AUTHOR_ROLES can ever appear as posted_by_role — no
-// entries for roles that can't post, so this can't silently drift from them.
-const ROLE_LABELS = {
-  admin: 'Admin',
-  guidance_counselor: 'Guidance Counselor',
-  registrar: 'Registrar',
-  ict_faculty: 'ICT Faculty',
-}
 const PAGE_SIZE = 10
-// A new post counts as "edited" only once the gap is large enough to rule
-// out normal request/processing latency between the create and its first read.
-const EDITED_THRESHOLD_MS = 5000
 
 function canAuthor(role) {
   return AUTHOR_ROLES.includes(role)
 }
 function canModify(user, announcement) {
   return user.role === 'admin' || user.id === announcement.posted_by
-}
-function formatDateTime(isoString) {
-  return new Date(isoString).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function AnnouncementForm({ initial, onCancel, onSubmit, submitLabel }) {
@@ -123,7 +114,7 @@ function AnnouncementForm({ initial, onCancel, onSubmit, submitLabel }) {
         Attachment {initial?.original_filename && '(leave blank to keep the current one)'}
         <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files[0])} />
       </label>
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
         <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? 'Saving…' : submitLabel}
@@ -214,8 +205,7 @@ export function DashboardPage() {
   const quickActions = getQuickActions(user.role, () => setCreating(true))
 
   return (
-    <div>
-      <TopBar />
+    <div className="dashboard-page">
       <Breadcrumbs items={[{ label: 'Home' }]} />
 
       <div className="page-header">
@@ -236,7 +226,7 @@ export function DashboardPage() {
       <QuickActions actions={quickActions} />
 
       {stats && Object.keys(stats).length > 0 && (
-        <StatRow>
+        <StatRow compact>
           {stats.students !== undefined && (
             <StatCard icon={Users} value={stats.students} label="Active students" />
           )}
@@ -249,7 +239,7 @@ export function DashboardPage() {
         </StatRow>
       )}
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
 
       <div className="dashboard-main">
         <div className="dashboard-primary">
@@ -329,9 +319,11 @@ export function DashboardPage() {
                           )}
                         </div>
                         <p className="feed-item__byline">
-                          Posted by {a.posted_by_name} ({ROLE_LABELS[a.posted_by_role] || a.posted_by_role}) on{' '}
-                          {formatDateTime(a.created_at)}
-                          {new Date(a.updated_at) - new Date(a.created_at) > EDITED_THRESHOLD_MS && ' (edited)'}
+                          Posted by {a.posted_by_name} (
+                          {ANNOUNCEMENT_ROLE_LABELS[a.posted_by_role] || a.posted_by_role}) on{' '}
+                          {formatAnnouncementDateTime(a.created_at)}
+                          {new Date(a.updated_at) - new Date(a.created_at) > ANNOUNCEMENT_EDITED_THRESHOLD_MS &&
+                            ' (edited)'}
                         </p>
                         <p className="feed-item__body">{a.body}</p>
                         {a.original_filename && (

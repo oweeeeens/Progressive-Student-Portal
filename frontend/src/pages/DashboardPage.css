@@ -1,21 +1,34 @@
-/* The one page-specific "hero" heading in the app — bigger than the shared
-   h1 scale on purpose, since this is the single welcome moment every role
-   lands on, not a repeatable page-title pattern other pages should copy. */
+/* Was a deliberate 2rem "hero" size, bigger than the shared h1 scale — cut
+   back to the standard page-title token (still a real heading, just not
+   dominating the viewport above everything else on a page people land on
+   constantly, not once). */
 .dashboard-greeting {
-  font-size: 2rem;
+  font-size: var(--font-size-xl);
   margin-bottom: var(--space-1);
 }
 
 .dashboard-greeting__subtitle {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   margin: 0;
+}
+
+/* This page's own header/action buttons read as a compact desktop toolbar,
+   not full touch-target buttons — scoped to .dashboard-page rather than
+   changed in the shared .btn-primary rule, since no other page has asked
+   for this density yet. */
+.dashboard-page .page-header {
+  margin-bottom: var(--space-4);
+}
+.dashboard-page .btn-primary {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
 }
 
 .dashboard-main {
   display: grid;
   grid-template-columns: 1fr 300px;
-  gap: var(--space-5);
+  gap: var(--space-4);
   align-items: start;
 }
 
@@ -28,7 +41,7 @@
 .dashboard-side {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 /* The left grid column's own stack — Announcements above Recent Activity —
@@ -37,6 +50,6 @@
 .dashboard-primary {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
   min-width: 0;
 }

@@ -46,7 +46,9 @@ Grades are NOT entered directly by one person. They go through a 3-stage approva
 - **Rejection handling:** if the Principal rejects a submitted grade, it returns to the Subject Teacher to resubmit (status reverts to Submitted / or a Rejected status with a resubmit action)
 - **Risk formula uses only Finalized grades** (post-adviser-input), not grades still in Submitted or Principal-Verified status. Note: this means risk detection may lag behind real-time classroom performance due to the approval pipeline — call this out explicitly as a known limitation in the thesis manuscript (Scope and Limitations chapter), framed as working within the school's existing grade-approval process rather than bypassing it.
 
-## Risk Detection Logic (Part A)
+## Academic Progress Tracking Logic (Part A)
+As of 2026-10-16, the module formerly called "Risk Dashboard" throughout the UI/routes/docs is renamed **Academic Progress Tracking**. This is a presentation/data-model expansion only — the risk-scoring formula below is completely unchanged. The dashboard now shows every student in scope by default, grouped into three performance bands, not just the ones flagged as at-risk.
+
 Recalculated whenever new grades/attendance are entered (not real-time).
 
 Per grading period (per term), track each student's:
@@ -58,7 +60,7 @@ Per grading period (per term), track each student's:
 Trend = (Most Recent Value − Earliest Value) / Number of Periods
 ```
 
-**Risk scoring formula:**
+**Risk scoring formula (unchanged):**
 ```
 IF current grade < 75            → +2   (DepEd at-risk threshold)
 IF grade trend ≤ -5/period       → +2   (declining fast)
@@ -70,6 +72,14 @@ IF attendance trend ≤ -5%/period → +2   (declining fast)
 6+  → High Risk
 ```
 Note: Attendance risk threshold is still pending confirmation from the client (DepEd Order referenced but not yet provided) — use placeholder until confirmed, make this value configurable/easy to change.
+
+**Performance bands (new, built on top of the unchanged risk score above):**
+Every student is classified into exactly one of three bands per grading period:
+1. **At Risk** — any risk factor triggered (risk score > 0, Low/Medium/High exactly as above). Shows which specific factor(s) triggered plus a short, rule-based advisory message tied to each one (e.g. a declining grade trend suggests a tutoring referral; low attendance suggests an attendance follow-up).
+2. **Average / Steady** — no risk factors triggered, but not clearly excelling either. Neutral status with a brief encouragement note.
+3. **Performing Well** — no risk factors triggered AND (current average grade ≥ 90, DepEd's "Outstanding" band, OR a grade trend improving by ≥ 5 points/period). Gets a recognition/reward badge.
+
+Advisory/encouragement/recognition text is **rule-based** (a fixed message per triggered factor, configured in `backend/config/academicProgress.js`), not AI-generated — kept deterministic and explainable for the same reason the risk formula itself is, and to avoid sending minors' academic data to a third-party service. See `backend/services/academicProgressCalculator.js` for the band/advisory logic, layered on top of (not modifying) `riskCalculator.js`.
 
 ## Intervention Tracking Logic (Part B — the closed loop)
 When a student is flagged, the adviser/guidance counselor logs an intervention:
@@ -84,7 +94,7 @@ When a student is flagged, the adviser/guidance counselor logs an intervention:
 - Keep data access scoped per role as described above
 
 ## Development Notes
-- Build order: **Auth → Student Records → Attendance → Grades → Risk Dashboard → Intervention Tracking** (Enrollment was removed from scope — see above)
+- Build order: **Auth → Student Records → Attendance → Grades → Academic Progress Tracking → Intervention Tracking** (Enrollment was removed from scope — see above)
 - The risk dashboard depends on grades/attendance data existing — don't build it first
 - Keep the risk formula weights/thresholds in a single config file, not hardcoded throughout — the client or adviser may want to adjust them later
 - No Google Classroom integration — out of scope, mentioned only as future work in the thesis
@@ -97,7 +107,7 @@ Use these for UI chrome — navbar, headers, buttons, login page, general brandi
 - Background: `#F5F5F5` or white — keep clean, not literal gray
 - Red accent (sunburst red): `#C8102E` — use sparingly, decorative only
 
-**Important exception:** do NOT use the brand yellow/red for Risk Dashboard risk levels. Risk levels (Low/Medium/High) must use the standard traffic-light convention instead, kept visually distinct from brand colors:
+**Important exception:** do NOT use the brand yellow/red for Academic Progress Tracking's At Risk levels. Risk levels (Low/Medium/High) must use the standard traffic-light convention instead, kept visually distinct from brand colors:
 - Low Risk: green (e.g. `#2E7D32`)
 - Medium Risk: amber/orange (e.g. `#ED6C02`) — distinct from brand gold
 - High Risk: red (e.g. `#D32F2F`) — distinct from brand red accent
@@ -117,6 +127,16 @@ Registration stays admin-only (no public self-signup) — but here's how each ro
 - Temporary password generated, forced password change on first login
 - No self-registration flow for students — avoids reopening the open-registration security risk already ruled out in the Auth module
 
+## User Management (expanded from "Staff Accounts" as of 2026-10-16)
+The old Staff-only account list is now a full **User Management** module (Admin + Registrar access, same as before) covering every role, staff and students alike:
+- **List/search/filter** all accounts by role, active/inactive status, and section/class assignment
+- **Edit account details** — name, email, and role (role reassignment is blocked while the account still actively advises a section or teaches a class offering — reassign those in Academic Setup first, so `sections.adviser_id` / `class_offerings.teacher_id` never point at a user whose role no longer matches)
+- **Activate/Deactivate** instead of hard-delete — ties into the existing `is_active` check in `authMiddleware.js`, already re-verified on every request, so access is lost immediately. Historical records (grades submitted, interventions logged) stay intact. An admin cannot deactivate their own account (self-lockout guard)
+- **Bulk account creation for students** — reuses the same per-student eligibility/creation logic as the single "New Account" form (`backend/services/accountCreation.js`), either from a "Pending Student Accounts" list (any existing Student Record with no login yet) or directly from the Bulk Import result screen for freshly-imported students
+- Role reassignment *into or out of* `admin` is blocked outright — admin was never a role handed out through a web form (see `CREATABLE_ROLES` in `backend/config/auth.js`) and that holds for edits too
+
+**Dependency fix, actually completed this time:** the student account **auto-provisioning trigger referenced above (REMOVED: Enrollment Management) was still wired into `studentController.js` until 2026-10-16** — every student record saved with an email and `enrollment_status: 'enrolled'` (the default since 2026-10-08) silently created a portal account, contradicting this doc. It's now genuinely removed; account creation for a student is always a deliberate, separate action (single or bulk, both described above).
+
 ## Forgot Password / Reset Flow
 - "Forgot Password" link on login page → user enters email → system sends a time-limited reset link (expires in ~1 hour) via email
 - Email service: **Resend** (resend.com) — generous free tier (3,000 emails/month), simple Node.js API, easier to set up than SMTP for a capstone project
@@ -133,7 +153,7 @@ Registration stays admin-only (no public self-signup) — but here's how each ro
 
 ## System-Wide UI Standards (applies to every page, not just one module)
 Based on a reference college portal design the team liked — apply these patterns consistently app-wide:
-1. **Stat card rows** at the top of list/dashboard pages — icon + number + label summarizing the page's data (e.g. Risk Dashboard: low/medium/high counts; Interventions: open/monitoring/resolved/escalated counts)
+1. **Stat card rows** at the top of list/dashboard pages — icon + number + label summarizing the page's data (e.g. Academic Progress Tracking: At Risk/Average-Steady/Performing Well counts; Interventions: open/monitoring/resolved/escalated counts)
 2. **Breadcrumb navigation** at the top of every page (Home / Section / Subpage)
 3. **Status badges** — all status values (enrollment status, risk level, intervention status, document review status) render as colored pill badges, not plain text. Risk levels keep their own green/amber/red; other statuses use visually distinct colors so they're never confused with risk indicators
 4. **Consistent card/panel containers** for content blocks — avoid bare unstyled tables

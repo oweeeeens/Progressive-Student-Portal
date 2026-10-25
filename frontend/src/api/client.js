@@ -62,9 +62,21 @@ async function upload(path, formData, method = 'POST') {
   return data;
 }
 
+// Pulls the filename out of a `Content-Disposition: attachment;
+// filename="..."` header. Used when the SERVER is the one that knows what
+// the file should be called — e.g. the Analytics export, whose filename
+// encodes the filters that were applied, which the caller would otherwise
+// have to reconstruct.
+function filenameFromResponse(response) {
+  const header = response.headers.get('Content-Disposition') || '';
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(header);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 // Plain <a href> links can't carry the Authorization header, so downloading
 // a protected file means fetching it as a blob ourselves and triggering the
-// save via a temporary object URL.
+// save via a temporary object URL. `filename` is optional — omit it to use
+// whatever name the server put in Content-Disposition.
 async function downloadFile(path, filename) {
   const headers = {};
   const token = getToken();
@@ -80,7 +92,7 @@ async function downloadFile(path, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = filename;
+  link.download = filename || filenameFromResponse(response) || 'download';
   link.click();
   URL.revokeObjectURL(url);
 }

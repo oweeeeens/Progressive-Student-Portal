@@ -1,7 +1,10 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Eye } from 'lucide-react'
 import { api } from '../api/client'
 import { StatusPill } from './StatusPill'
+import { DataTable, fieldValue } from './table/DataTable'
 import { InterventionDetailPanel, INTERVENTION_TYPE_LABELS, INTERVENTION_STATUS_VARIANTS } from './InterventionDetailPanel'
+import { Alert } from './Alert'
 
 // Resolved/Escalated are normally set automatically by the risk engine on
 // the next recalculation (see riskEngine.js) — Open/Monitoring are the two
@@ -58,7 +61,7 @@ export function InterventionHistory({ studentId }) {
   return (
     <div className="record-section">
       <h2>Interventions</h2>
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
 
       <form onSubmit={handleLog} className="panel intervention-log-form">
         <h3>Log a new intervention</h3>
@@ -87,58 +90,39 @@ export function InterventionHistory({ studentId }) {
         </button>
       </form>
 
-      {interventions.length === 0 ? (
-        <div className="empty-state">
-          <p>No interventions logged yet.</p>
-          <p>Log one above when this student needs follow-up.</p>
-        </div>
-      ) : (
-        <div className="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Logged by</th>
-              </tr>
-            </thead>
-            <tbody>
-              {interventions.map((i) => (
-                <Fragment key={i.id}>
-                  <tr
-                    className="is-clickable-row"
-                    tabIndex={0}
-                    role="button"
-                    aria-expanded={expandedId === i.id}
-                    onClick={() => toggleExpanded(i.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        toggleExpanded(i.id)
-                      }
-                    }}
-                  >
-                    <td>{i.date_logged}</td>
-                    <td>{INTERVENTION_TYPE_LABELS[i.intervention_type]}</td>
-                    <td>
-                      <StatusPill label={i.status} variant={INTERVENTION_STATUS_VARIANTS[i.status]} />
-                    </td>
-                    <td>{i.logged_by_name}</td>
-                  </tr>
-                  {expandedId === i.id && (
-                    <tr className="detail-row">
-                      <td colSpan={4}>
-                        <InterventionDetailPanel intervention={i} onStatusChange={handleStatusChange} />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              <DataTable
+          columns={[
+            { key: 'type', header: 'Type', render: (i) => INTERVENTION_TYPE_LABELS[i.intervention_type] },
+            { key: 'date', header: 'Date logged', render: (i) => fieldValue(i.date_logged) },
+            { key: 'by', header: 'Logged by', render: (i) => fieldValue(i.logged_by_name) },
+            {
+              key: 'status',
+              header: 'Status',
+              uniformValue: (i) => i.status,
+              render: (i) => <StatusPill label={i.status} variant={INTERVENTION_STATUS_VARIANTS[i.status]} />,
+            },
+          ]}
+          rows={interventions}
+          rowKey={(i) => i.id}
+          onRowClick={(i) => toggleExpanded(i.id)}
+          renderExpanded={(i) =>
+            expandedId === i.id ? <InterventionDetailPanel intervention={i} onStatusChange={handleStatusChange} /> : null
+          }
+          rowActions={(i) => [
+            {
+              key: 'toggle',
+              label: expandedId === i.id ? 'Hide details' : 'View details',
+              icon: Eye,
+              onSelect: () => toggleExpanded(i.id),
+            },
+          ]}
+          emptyState={
+            <>
+              <p>No interventions logged for this student.</p>
+              <p>Log one from Academic Progress Tracking when they need follow-up.</p>
+            </>
+          }
+        />
     </div>
   )
 }

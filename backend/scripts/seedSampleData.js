@@ -39,11 +39,12 @@ async function seed() {
   );
   const schoolYearId = schoolYear.rows[0].id;
 
+  // This school uses 3 grading periods per year, not the 4-quarter default —
+  // confirmed with the client.
   const periods = [
-    ['Q1', 1, '2026-06-01', '2026-08-15'],
-    ['Q2', 2, '2026-08-16', '2026-10-31'], // covers "today" in this dev environment
-    ['Q3', 3, '2026-11-01', '2027-01-15'],
-    ['Q4', 4, '2027-01-16', '2027-03-31'],
+    ['Q1', 1, '2026-06-01', '2026-09-15'],
+    ['Q2', 2, '2026-09-16', '2026-12-31'], // covers "today" in this dev environment
+    ['Q3', 3, '2027-01-01', '2027-03-31'],
   ];
   for (const [name, sequenceNumber, startDate, endDate] of periods) {
     await pool.query(
@@ -122,7 +123,7 @@ async function seed() {
   console.log(`  ABM A  (section id ${abmAId}, adviser2@studentportal.local): Eve Garcia, Fred Torres`);
   console.log(`  subject_teacher@studentportal.local teaches General Mathematics:`);
   console.log(`    class_offering id ${stemAOfferingId} = STEM A, class_offering id ${stemBOfferingId} = STEM B (not ABM A)`);
-  console.log('  Grading periods: Q1 Jun1-Aug15, Q2 Aug16-Oct31, Q3 Nov1-Jan15, Q4 Jan16-Mar31');
+  console.log('  Grading periods: Q1 Jun1-Sep15, Q2 Sep16-Dec31, Q3 Jan1-Mar31');
 }
 
 seed()

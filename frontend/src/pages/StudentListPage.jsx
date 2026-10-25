@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Plus, Search, Users, UserCheck, UserX, Clock, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Users, AlertTriangle, Clock, UserX, FileUp, Eye, Pencil } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { DataTable, fieldValue } from '../components/table/DataTable'
+import { TableToolbar, TableFilter } from '../components/table/TableToolbar'
+import { Alert } from '../components/Alert'
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 25
 const canWrite = (role) => role === 'admin' || role === 'registrar'
 
 const STATUS_VARIANTS = {
@@ -19,11 +22,6 @@ const STATUS_VARIANTS = {
 }
 const RISK_LABELS = { low: 'Low risk', medium: 'Medium risk', high: 'High risk' }
 
-function SortIcon({ active, dir }) {
-  if (!active) return null
-  return dir === 'desc' ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronUp size={14} strokeWidth={2} />
-}
-
 export function StudentListPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -33,6 +31,12 @@ export function StudentListPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [sectionId, setSectionId] = useState('')
+  // Reporting filters. Which of these the viewer may use is decided by the
+  // server (a role that can't read a field can't filter by it either, or
+  // the filter would leak the value by inference) — the UI simply asks what
+  // it's allowed to offer rather than hardcoding the role list twice.
+  const [learnerStatusFilters, setLearnerStatusFilters] = useState({})
+  const [availableStatusFilters, setAvailableStatusFilters] = useState([])
   const [sortBy, setSortBy] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
   const [sections, setSections] = useState([])
@@ -57,6 +61,15 @@ export function StudentListPage() {
     api.get(path).then((data) => setSections(data.sections))
   }, [user?.role])
 
+  // The server is the authority on which learner-status fields this role may
+  // see — and therefore filter by.
+  useEffect(() => {
+    api
+      .get('/students/learner-status-fields')
+      .then((data) => setAvailableStatusFilters(data.fields))
+      .catch(() => setAvailableStatusFilters([]))
+  }, [])
+
   useEffect(() => {
     setLoading(true)
     setError(null)
@@ -64,6 +77,9 @@ export function StudentListPage() {
     if (search) params.set('search', search)
     if (status) params.set('status', status)
     if (sectionId) params.set('sectionId', sectionId)
+    for (const [key, on] of Object.entries(learnerStatusFilters)) {
+      if (on) params.set(key, 'true')
+    }
 
     api
       .get(`/students?${params.toString()}`)
@@ -73,25 +89,91 @@ export function StudentListPage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [page, search, status, sectionId, sortBy, sortDir])
+  }, [page, search, status, sectionId, sortBy, sortDir, learnerStatusFilters])
 
   function toggleSort(column) {
     setPage(1)
-    if (sortBy === column) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
+    if (sortBy === column) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else {
       setSortBy(column)
       setSortDir('asc')
     }
   }
 
-  function handleRowClick(e, studentId) {
-    if (e.target.closest('a')) return // the name's own Link already navigates
-    navigate(`/students/${studentId}`)
+  function clearFilters() {
+    setPage(1)
+    setSearch('')
+    setStatus('')
+    setSectionId('')
+    setLearnerStatusFilters({})
   }
 
-  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
-  const filtersActive = Boolean(search || status || sectionId)
+  const filtersActive = Boolean(search || status || sectionId || Object.values(learnerStatusFilters).some(Boolean))
+  const anyFlagged = useMemo(() => students.some((s) => s.risk_level), [students])
+
+  // Only tiles carrying distinct, non-obvious information. "Active
+  // students" and "Enrolled" were the same number on a roster where
+  // everyone is enrolled, and two more tiles read zero — four tiles saying
+  // almost nothing. Total always earns its place; the exception states only
+  // appear once they actually exist, and "Flagged" is the one number here a
+  // reader can't get from the table at a glance.
+  const tiles = useMemo(() => {
+    if (!counts) return []
+    const flagged = students.filter((s) => s.risk_level).length
+    const shown = [{ key: 'total', icon: Users, value: counts.total, label: 'Students' }]
+    if (flagged > 0) {
+      shown.push({
+        key: 'flagged',
+        icon: AlertTriangle,
+        value: flagged,
+        label: 'Flagged on this page',
+        variant: 'negative',
+      })
+    }
+    if (counts.pending > 0) {
+      shown.push({ key: 'pending', icon: Clock, value: counts.pending, label: 'Pending enrollment', variant: 'warning' })
+    }
+    if (counts.dropped > 0) {
+      shown.push({ key: 'dropped', icon: UserX, value: counts.dropped, label: 'Dropped', variant: 'negative' })
+    }
+    return shown
+  }, [counts, students])
+
+  // Identifying column first, supporting detail next, status after that —
+  // never lead with an ID number, so LRN sits behind the name.
+  const columns = [
+    {
+      key: 'name',
+      header: 'Name',
+      sortable: true,
+      render: (s) => (
+        <span className="cell-with-mark">
+          {s.risk_level && <span className={`risk-dot risk-dot--${s.risk_level}`} title={RISK_LABELS[s.risk_level]} />}
+          {s.last_name}, {s.first_name}
+        </span>
+      ),
+    },
+    { key: 'lrn', header: 'LRN', render: (s) => fieldValue(s.lrn) },
+    {
+      key: 'section',
+      header: 'Grade / Section',
+      render: (s) => fieldValue(s.section_name ? `Grade ${s.grade_level} – ${s.section_name}` : null),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      // Muted when every row says the same thing — see DataTable's
+      // uniformValue note.
+      uniformValue: (s) => `${s.enrollment_status}|${s.is_active}`,
+      render: (s) => (
+        <>
+          <StatusPill label={s.enrollment_status} variant={STATUS_VARIANTS[s.enrollment_status]} />
+          {!s.is_active && <StatusPill label="inactive" variant="neutral" />}
+        </>
+      ),
+    },
+  ]
 
   return (
     <div>
@@ -99,158 +181,163 @@ export function StudentListPage() {
 
       <div className="page-header">
         <h1>Students</h1>
-        <div className="page-header__actions">
-          <div className="search-field">
-            <Search size={16} strokeWidth={1.75} />
-            <input
-              type="search"
-              placeholder="Search by name or LRN"
-              value={search}
-              onChange={(e) => {
-                setPage(1)
-                setSearch(e.target.value)
-              }}
-            />
-          </div>
-          <label>
-            Status
-            <select
-              value={status}
-              onChange={(e) => {
-                setPage(1)
-                setStatus(e.target.value)
-              }}
-            >
-              <option value="">All</option>
-              {Object.keys(STATUS_VARIANTS).map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Section
-            <select
-              value={sectionId}
-              onChange={(e) => {
-                setPage(1)
-                setSectionId(e.target.value)
-              }}
-            >
-              <option value="">All sections</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  Grade {s.grade_level} - {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {canWrite(user?.role) && (
-            <Link to="/students/new" className="btn-primary">
-              <Plus size={16} strokeWidth={1.75} />
-              New Student
-            </Link>
-          )}
-        </div>
       </div>
 
-      {counts && (
+      {counts && tiles.length > 0 && (
         <StatRow>
-          <StatCard icon={Users} value={counts.total} label="Active students" />
-          <StatCard icon={UserCheck} value={counts.enrolled} label="Enrolled" variant="positive" />
-          <StatCard icon={Clock} value={counts.pending} label="Pending enrollment" variant="warning" />
-          <StatCard icon={UserX} value={counts.dropped} label="Dropped" variant="negative" />
+          {tiles.map((t) => (
+            <StatCard key={t.key} icon={t.icon} value={t.value} label={t.label} variant={t.variant} />
+          ))}
         </StatRow>
       )}
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
+
+      <TableToolbar
+        search={search}
+        onSearchChange={(v) => {
+          setPage(1)
+          setSearch(v)
+        }}
+        searchPlaceholder="Search by name or LRN"
+        isFiltered={filtersActive}
+        onClearFilters={clearFilters}
+        filters={
+          <>
+            <TableFilter label="Status">
+              <select
+                value={status}
+                onChange={(e) => {
+                  setPage(1)
+                  setStatus(e.target.value)
+                }}
+              >
+                <option value="">All</option>
+                {Object.keys(STATUS_VARIANTS).map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </TableFilter>
+            {/* Reporting filters: "pull every PWD learner" for a DepEd
+                return. Only ever filters FOR the flag — the school's use
+                case is producing a list, not excluding those learners. */}
+            {availableStatusFilters.map((field) => (
+              <label key={field.param} className="table-toolbar__filter">
+                <input
+                  type="checkbox"
+                  checked={learnerStatusFilters[field.param] === true}
+                  onChange={(e) => {
+                    setPage(1)
+                    setLearnerStatusFilters((f) => ({ ...f, [field.param]: e.target.checked }))
+                  }}
+                />
+                <span>{field.shortLabel}</span>
+              </label>
+            ))}
+            <TableFilter label="Section">
+              <select
+                value={sectionId}
+                onChange={(e) => {
+                  setPage(1)
+                  setSectionId(e.target.value)
+                }}
+              >
+                <option value="">All sections</option>
+                {sections.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    Grade {s.grade_level} - {s.name}
+                  </option>
+                ))}
+              </select>
+            </TableFilter>
+          </>
+        }
+        actions={
+          canWrite(user?.role) && (
+            <>
+              <button type="button" onClick={() => navigate('/students/bulk-import')}>
+                <FileUp size={16} strokeWidth={1.75} />
+                Bulk Import
+              </button>
+              <Link to="/students/new" className="btn-primary">
+                <Plus size={16} strokeWidth={1.75} />
+                New Student
+              </Link>
+            </>
+          )
+        }
+      />
 
       {loading ? (
         <p>Loading students…</p>
-      ) : students.length === 0 ? (
-        <div className="empty-state">
-          {filtersActive ? (
+      ) : (
+        <DataTable
+          columns={columns}
+          rows={students}
+          rowKey={(s) => s.id}
+          onRowClick={(s) => navigate(`/students/${s.id}`)}
+          rowActions={(s) => [
+            { key: 'view', label: 'View profile', icon: Eye, onSelect: () => navigate(`/students/${s.id}`) },
+            canWrite(user?.role) && {
+              key: 'edit',
+              label: 'Edit details',
+              icon: Pencil,
+              onSelect: () => navigate(`/students/${s.id}/edit`),
+            },
+          ]}
+          sort={{ by: sortBy, dir: sortDir }}
+          onSortChange={toggleSort}
+          // The dot beside a name now says what it means, right above the
+          // table. It takes three different colours, so the legend names
+          // all three rather than implying one — an unexplained coloured
+          // mark next to a person is never acceptable. Each dot also keeps
+          // its title tooltip, and colour is never the only signal (the
+          // student's own page states the band in words).
+          legend={
+            anyFlagged && (
+              <>
+                <span className="data-table__legend-item">Flagged at risk this grading period:</span>
+                {['low', 'medium', 'high'].map((level) => (
+                  <span key={level} className="data-table__legend-item">
+                    <span className={`risk-dot risk-dot--${level}`} />
+                    {RISK_LABELS[level]}
+                  </span>
+                ))}
+              </>
+            )
+          }
+          isFiltered={filtersActive}
+          error={error}
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={total}
+          onPageChange={setPage}
+          emptyState={
+            canWrite(user?.role) ? (
+              <>
+                <p>No students yet.</p>
+                <p>
+                  <Link to="/students/new">Add the first student</Link> to get started.
+                </p>
+              </>
+            ) : (
+              <p>No students in your roster yet.</p>
+            )
+          }
+          noResultsState={
             <>
-              <p>No students match these filters.</p>
-              <p>Try a different search term or clear the filters.</p>
-            </>
-          ) : canWrite(user?.role) ? (
-            <>
-              <p>No students yet.</p>
+              <p>No students match your filters.</p>
               <p>
-                <Link to="/students/new">Add the first student</Link> to get started.
+                <button type="button" className="link-button" onClick={clearFilters}>
+                  Clear filters
+                </button>{' '}
+                to see the full roster.
               </p>
             </>
-          ) : (
-            <p>No students in your roster yet.</p>
-          )}
-        </div>
-      ) : (
-        <div className="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>LRN</th>
-                <th>
-                  <button type="button" className="sortable-header" onClick={() => toggleSort('name')}>
-                    Name <SortIcon active={sortBy === 'name'} dir={sortDir} />
-                  </button>
-                </th>
-                <th>Grade / Section</th>
-                <th>
-                  <button type="button" className="sortable-header" onClick={() => toggleSort('status')}>
-                    Status <SortIcon active={sortBy === 'status'} dir={sortDir} />
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr
-                  key={s.id}
-                  className="is-clickable-row"
-                  tabIndex={0}
-                  onClick={(e) => handleRowClick(e, s.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') navigate(`/students/${s.id}`)
-                  }}
-                >
-                  <td>{s.lrn}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                      {s.risk_level && (
-                        <span className={`risk-dot risk-dot--${s.risk_level}`} title={RISK_LABELS[s.risk_level]} />
-                      )}
-                      <Link to={`/students/${s.id}`}>
-                        {s.last_name}, {s.first_name}
-                      </Link>
-                    </div>
-                  </td>
-                  <td>{s.section_name ? `Grade ${s.grade_level} – ${s.section_name}` : '—'}</td>
-                  <td>
-                    <StatusPill label={s.enrollment_status} variant={STATUS_VARIANTS[s.enrollment_status]} />
-                    {!s.is_active && <StatusPill label="inactive" variant="neutral" />}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </button>
-        </div>
+          }
+        />
       )}
     </div>
   )

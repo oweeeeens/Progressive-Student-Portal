@@ -53,16 +53,57 @@
   --color-warning-bg-2: #fbe8bd; /* gradient second-stop */
   --color-neutral-bg: #eef0f3;
 
-  /* Risk levels — intentionally separate from the brand palette, see above */
-  --risk-low: #1e8449;
-  --risk-low-bg: #e9f7ef;
-  --risk-low-bg-2: #d9f0e1; /* gradient second-stop — own token, not shared with --color-success-bg-2 even though the hex coincides */
-  --risk-medium: #b07500;
-  --risk-medium-bg: #fdf3da;
-  --risk-medium-bg-2: #fbe8bd;
-  --risk-high: #c0392b;
-  --risk-high-bg: #fdecea;
-  --risk-high-bg-2: #fbdcd8;
+  /* ---------------------------------------------------------------------
+     Performance bands — the ONE definition every chart, badge and row tint
+     reads from, so Analytics, Academic Progress Tracking and the student
+     view can never disagree about what a band looks like.
+
+     The three At Risk steps are ONE deepening red, because risk level is
+     ORDINAL, not categorical: the old traffic-light scheme made "At Risk —
+     Low" green and "Performing Well" gold, which inverted the meaning at a
+     glance (green read as "fine" on a row that was actually flagged).
+     Blue is the neutral middle; green is reserved for the one genuinely
+     good band.
+
+     Validated with the dataviz skill's validate_palette.js, not by eye:
+       - the three reds pass every ORDINAL check (monotone lightness,
+         >=0.06 step gaps, single hue 7deg spread, light end clears surface)
+       - Performing Well is #2fb344, NOT the originally proposed #0ca30c:
+         that green sat at deltaE 3.8 from At Risk - Medium under
+         deuteranopia, i.e. the best and a middling band were
+         indistinguishable to the most common form of colour blindness.
+         #2fb344 lifts the worst pair to 8.0, meeting the >=8 target.
+     Colour never carries meaning alone here regardless: every band keeps
+     its text label in the legend and its count printed in its segment. */
+  --band-at-risk-high: #8c1d1d;
+  --band-at-risk-medium: #cc4125;
+  --band-at-risk-low: #f0917f;
+  --band-average: #2a78d6;
+  --band-performing-well: #2fb344;
+  /* The single blue every NON-risk chart uses. Same value as the Average
+     band on purpose — one blue in the system, not two that almost match.
+     A chart picks either the risk ramp or this; it never invents its own. */
+  --chart-blue: #2a78d6;
+  /* Readable ink for a value printed INSIDE a band's own fill. */
+  --band-ink-on-at-risk-high: #ffffff;
+  --band-ink-on-at-risk-medium: #ffffff;
+  --band-ink-on-at-risk-low: #5c1b10; /* pale salmon can't carry white */
+  --band-ink-on-average: #ffffff;
+  --band-ink-on-performing-well: #ffffff;
+
+  /* Risk levels — the badge/pill/row-tint face of the three At Risk bands
+     above. Pointed AT the band tokens rather than holding their own hexes,
+     which is what makes a pill and a chart segment the same colour by
+     construction instead of by remembering to update both. */
+  --risk-low: var(--band-at-risk-low);
+  --risk-low-bg: #fdeeeb;
+  --risk-low-bg-2: #fbdfd9; /* gradient second-stop */
+  --risk-medium: var(--band-at-risk-medium);
+  --risk-medium-bg: #fbe9e4;
+  --risk-medium-bg-2: #f7d5cb;
+  --risk-high: var(--band-at-risk-high);
+  --risk-high-bg: #f6e3e3;
+  --risk-high-bg-2: #eecccc;
   --risk-none: #8a93a3;
   --risk-none-bg: #f0f1f3;
 
@@ -77,35 +118,46 @@
      far lower-opacity values (see the dark block) since any saturated
      fill reads as heavy against a dark surface. */
   --risk-low-row: var(--risk-low-bg);
-  --risk-low-row-hover: #d8f0e2;
+  --risk-low-row-hover: #fbe1db;
   --risk-medium-row: var(--risk-medium-bg);
-  --risk-medium-row-hover: #fbe7b8;
+  --risk-medium-row-hover: #f7d8ce;
   --risk-high-row: var(--risk-high-bg);
-  --risk-high-row-hover: #fbdbd5;
+  --risk-high-row-hover: #eed2d2;
 
   /* A row with no grade entered yet (Enter Grades) — same "fainter than a
      badge's own fill" reasoning as the risk-row tokens above, reused here
      rather than duplicated. */
   --grade-missing-row: var(--color-warning-bg);
 
-  /* Type */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-size-xs: 0.75rem; /* 12px — fine print */
-  --font-size-sm: 0.8125rem; /* 13px — table meta, secondary text */
-  --font-size-base: 0.9375rem; /* 15px — body text, inputs */
-  --font-size-md: 1rem; /* 16px */
-  --font-size-lg: 1.125rem; /* 18px — sub-section headers */
-  --font-size-xl: 1.375rem; /* 22px — page section headers */
-  --font-size-2xl: 1.75rem; /* 28px — page titles */
+  /* Type — moderate app-wide reduction (2026-10-16): body/input sizes
+     (xs/sm/base/md) trimmed ~6-8%, keeping them close enough to stay easily
+     readable at a glance; heading-level sizes (lg/xl/2xl) trimmed further
+     (11-18%), since that's where most of the visual bulk was and tightening
+     them carries less readability risk than shrinking body copy would. */
+  /* IBM Plex Sans, self-hosted (see main.jsx). Chosen over Inter — which
+     is so widely used it reads as a default rather than a choice — for a
+     face with actual character that still holds up in dense tables: open
+     apertures, unambiguous 1/l/I, and lining numerals that stay aligned
+     in a column of grades. */
+  --font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-size-xs: 0.6875rem; /* 11px — fine print */
+  --font-size-sm: 0.75rem; /* 12px — table meta, secondary text */
+  --font-size-base: 0.875rem; /* 14px — body text, inputs */
+  --font-size-md: 0.9375rem; /* 15px */
+  --font-size-lg: 1rem; /* 16px — sub-section headers */
+  --font-size-xl: 1.1875rem; /* 19px — page section headers */
+  --font-size-2xl: 1.4375rem; /* 23px — page titles */
 
-  /* Spacing (4px base unit) */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.5rem;
-  --space-6: 2rem;
-  --space-7: 3rem;
+  /* Spacing (4px base unit) — same moderate pass, ~15-20% off every step
+     except the smallest (space-1 is already the practical floor; going
+     sub-4px starts reading as a rendering glitch rather than "tighter"). */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.375rem; /* 6px */
+  --space-3: 0.625rem; /* 10px */
+  --space-4: 0.8125rem; /* 13px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.625rem; /* 26px */
+  --space-7: 2.375rem; /* 38px */
 
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -118,8 +170,8 @@
   --shadow-md: 0 4px 16px rgba(26, 58, 107, 0.12);
   --shadow-lg: 0 16px 40px rgba(26, 58, 107, 0.18);
 
-  --sidebar-width: 240px;
-  --sidebar-width-collapsed: 64px;
+  --sidebar-width: 200px;
+  --sidebar-width-collapsed: 56px;
 
   /* Shared page-background wash — referenced by both `body` and
      `.app-shell` (which otherwise paints over body with a flat fill), so
@@ -168,6 +220,10 @@
   --btn-primary-gradient-start: #2c4f80;
   --btn-primary-gradient-hover-start: #35609a;
 
+  /* The select chevron is drawn in a data URI, which can't read a token, so
+     the dark theme restates it in its own primary (#5f8cd3). Navy on a dark
+     field would be nearly invisible. */
+
   /* Background/surface lifted off near-black (#11161f/#1a212e before) —
      still clearly a dark theme, just not a pitch-black one, which is the
      other half of the glare problem alongside near-white text below. */
@@ -199,15 +255,41 @@
   --color-warning-bg-2: #453d26;
   --color-neutral-bg: #2a3140;
 
-  --risk-low: #4caf72;
-  --risk-low-bg: #1c3326;
-  --risk-low-bg-2: #223d2d;
-  --risk-medium: #d9a23b;
-  --risk-medium-bg: #3a3320;
-  --risk-medium-bg-2: #453d26;
-  --risk-high: #e2685a;
-  --risk-high-bg: #3a2024;
-  --risk-high-bg-2: #46262b;
+  /* Dark-mode bands are SELECTED against the dark surface, not an
+     automatic flip of the light hexes — re-validated with
+     validate_palette.js --mode dark --surface #1e2530, which is how the
+     flip was caught: light mode's #8c1d1d falls to 1.69:1 here, i.e. the
+     most severe band would be the hardest one to see.
+
+     The lightness direction therefore INVERTS: on white, "most severe" is
+     the darkest red; on a dark surface it's the brightest. Both encode the
+     same thing — most severe = most prominent against its own background.
+     All five clear 3:1 against the surface, all pass the chroma floor
+     (an earlier, paler top step read as grey at chroma 0.037), and the
+     ramp passes every ordinal check. Worst CVD pair is 7.7, inside the
+     6-8 band the dataviz skill permits only with secondary encoding —
+     which the labels and in-segment counts provide. */
+  --band-at-risk-high: #ffa894;
+  --band-at-risk-medium: #ef6b48;
+  --band-at-risk-low: #bf4e38;
+  --band-average: #6fa8ee;
+  --band-performing-well: #29a878;
+  --chart-blue: #6fa8ee;
+  --band-ink-on-at-risk-high: #3d1309;
+  --band-ink-on-at-risk-medium: #2e0d05;
+  --band-ink-on-at-risk-low: #ffffff;
+  --band-ink-on-average: #10243d;
+  --band-ink-on-performing-well: #ffffff;
+
+  --risk-low: var(--band-at-risk-low);
+  --risk-low-bg: #39231d;
+  --risk-low-bg-2: #452a22;
+  --risk-medium: var(--band-at-risk-medium);
+  --risk-medium-bg: #3d2119;
+  --risk-medium-bg-2: #4a291f;
+  --risk-high: var(--band-at-risk-high);
+  --risk-high-bg: #43251f;
+  --risk-high-bg-2: #512d25;
   --risk-none: #76829a;
   --risk-none-bg: #242b38;
 
@@ -217,12 +299,12 @@
      composited text contrast stays 6.0-12.3 either way, so this is a
      pure "look," not a readability tradeoff). Hover deepens the alpha,
      not the hue. */
-  --risk-low-row: rgba(76, 175, 114, 0.08);
-  --risk-low-row-hover: rgba(76, 175, 114, 0.14);
-  --risk-medium-row: rgba(217, 162, 59, 0.08);
-  --risk-medium-row-hover: rgba(217, 162, 59, 0.14);
-  --risk-high-row: rgba(226, 104, 90, 0.08);
-  --risk-high-row-hover: rgba(226, 104, 90, 0.14);
+  --risk-low-row: rgba(191, 78, 56, 0.09);
+  --risk-low-row-hover: rgba(191, 78, 56, 0.16);
+  --risk-medium-row: rgba(239, 107, 72, 0.09);
+  --risk-medium-row-hover: rgba(239, 107, 72, 0.16);
+  --risk-high-row: rgba(255, 168, 148, 0.09);
+  --risk-high-row-hover: rgba(255, 168, 148, 0.16);
 
   /* Same translucent-wash reasoning as the risk rows above. */
   --grade-missing-row: rgba(224, 184, 77, 0.08);
@@ -239,6 +321,12 @@
   --page-wash-start: #1b222c;
 
   color-scheme: dark;
+}
+
+/* Restated for dark mode: the chevron above is navy ink baked into a data
+   URI, which disappears against a dark field. */
+:root[data-theme='dark'] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235f8cd3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 /* =============================================================================
@@ -283,12 +371,50 @@ body {
   color: var(--color-primary);
 }
 
+/* The parts of the UI the app doesn't draw still belong to it. Left at
+   their defaults, a Windows scrollbar, a system-blue checkbox and a black
+   caret are three other design systems showing through this one. */
+:root {
+  /* Firefox's two-value form; the WebKit pseudo-elements below do the same
+     job in Chrome/Safari/Edge. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+  /* Checkboxes, radios and range inputs — the one line that stops the
+     school's navy UI from being audited through a browser-blue tick. */
+  accent-color: var(--color-primary);
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+  /* Inset by a transparent border so the bar reads as a slim pill floating
+     in the gutter rather than a block filling it. */
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-faint);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 h1,
 h2,
 h3 {
   font-family: var(--font-family);
   font-weight: 600;
   line-height: 1.3;
+  /* Headings wrap into even lines instead of leaving one orphaned word on
+     the second line; browsers without support simply wrap as before. */
+  text-wrap: balance;
   margin: 0 0 var(--space-4);
 }
 
@@ -319,6 +445,16 @@ a {
 }
 a:hover {
   text-decoration: underline;
+  /* A browser-default underline sits on the baseline and cuts through every
+     descender in the link. These two lines are the difference between a
+     typeset link and an unstyled one. */
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 label {
@@ -340,6 +476,47 @@ textarea {
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
   margin-top: var(--space-1);
+  /* The text cursor is part of the palette too — a black caret in a navy
+     field is the browser's choice, not the product's. */
+  caret-color: var(--color-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+input:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus) {
+  border-color: var(--color-primary);
+}
+/* Muted, not faint: placeholder text still has to clear 4.5:1, and
+   --color-text-faint does not on a white field. */
+::placeholder {
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--color-neutral-bg);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+/* Native selects ship three different arrows on three platforms. One drawn
+   chevron, in brand ink, carried as a data URI so it needs no asset. */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231a3a6b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  padding-right: var(--space-6);
+}
+/* The date picker's own button is a dark glyph from the browser; tinting it
+   to the brand navy costs one filter and removes the last stock control. */
+input[type='date']::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+input[type='date']::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
 }
 input:focus,
 select:focus,
@@ -636,6 +813,585 @@ th {
   background: var(--risk-high);
 }
 
+/* =============================================================================
+   Table system
+   =============================================================================
+   One list component (components/table/DataTable.jsx) and one set of
+   measurements, so every list in the app — roster, accounts, interventions,
+   analytics, the student's own lists — looks and behaves identically.
+   Pages supply columns and rows; they never style a table. */
+:root {
+  --table-row-height: 44px;
+}
+
+/* Rows are a fixed height with a single line of text. Variable-height rows
+   made the roster scan badly: the eye can't settle into a rhythm when every
+   row is a slightly different size. Anything too long is truncated with a
+   title attribute rather than wrapping. */
+.table-card tbody td {
+  height: var(--table-row-height);
+  padding-top: 0;
+  padding-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.table-card th.is-right,
+.table-card td.is-right {
+  text-align: right;
+}
+/* A column whose every row holds the same value: kept (so the field is
+   still visibly present) but muted, so a wall of identical text doesn't
+   compete with the columns that actually differ. */
+.table-card td.is-uniform {
+  color: var(--color-text-faint);
+}
+.table-card td.is-uniform .status-pill {
+  opacity: 0.55;
+}
+/* The one treatment for a missing value, in tables and on detail pages. */
+.is-empty-value {
+  color: var(--color-text-faint);
+}
+
+/* The student's identity card: a filled navy header bar carrying the name
+   the way DepEd forms print it (surname first) with strand/section
+   opposite, over four label/value pairs. It replaced a stack of Personal
+   Information / Enrollment / Guardian panels — a student already knows
+   their own address and guardian's phone number, and reprinting all of it
+   pushed the advice they came for off the first screen. This is
+   identification, not a form. */
+.namecard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  /* Clips the filled bar's top corners to the card's own radius — without
+     it the bar squares off the two corners it sits in. */
+  overflow: hidden;
+}
+.namecard__bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-primary);
+}
+.namecard__bar h1 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  letter-spacing: 0.01em;
+  color: var(--color-text-on-primary);
+}
+.namecard__bar-meta {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-on-primary-muted);
+}
+.namecard__fields {
+  padding: var(--space-4);
+}
+
+/* Standing context — school year, grading period, enrollment status. Label
+   above value, with a soft-tinted icon tile opposite. These are states
+   that hold for weeks, not figures that move, which is why they are not
+   stat cards (see components/ContextCard.jsx). */
+.context-card-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+@media (max-width: 760px) {
+  .context-card-row {
+    grid-template-columns: 1fr;
+  }
+}
+.context-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.context-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.context-card__label {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.context-card__value {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+/* The tile is tinted, the card is not — a row of three cards with three
+   different fills would read as three different statuses. */
+.context-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+}
+.context-card__icon--primary {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+.context-card__icon--accent {
+  background: var(--color-warning-bg);
+  color: var(--color-accent-text);
+}
+.context-card__icon--success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.context-card__icon--info {
+  background: var(--color-neutral-bg);
+  color: var(--color-text-muted);
+}
+
+/* The newest announcement, full width above the student's own record. Only
+   the title and the first two lines of the body show (clamped), so a long
+   post can never grow tall enough to push the record below the fold — the
+   rest expands in the announcements panel further down the page. */
+.announcement-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary-light-2);
+  border-radius: var(--radius-md);
+}
+.announcement-banner__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  color: var(--color-primary);
+}
+.announcement-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+.announcement-banner__title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.announcement-banner__body {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.announcement-banner__aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+.announcement-banner__date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+@media (max-width: 620px) {
+  .announcement-banner {
+    flex-wrap: wrap;
+  }
+  /* On a phone the date and the action were still sharing the first line
+     with the headline, squeezing a two-word title onto two lines and
+     clipping the body mid-word. They take their own row instead, indented
+     to the text column so the banner still reads as one block. */
+  .announcement-banner__aside {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    /* The indent is subtracted from the width, not added to it: as a plain
+       width:100% plus a left margin, this row ran 28px past the banner and
+       pushed its own action out through the right edge. */
+    width: calc(100% - 32px - var(--space-3));
+    margin-left: calc(32px + var(--space-3));
+  }
+}
+
+/* The read-only, paginated announcements list beside the student's record
+   (components/AnnouncementsPanel.jsx). Rows are title + date only; the
+   body, byline and attachment expand in place, the same detail-on-demand
+   pattern the rest of the app uses. */
+.announcement-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.announcement-item {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.announcement-item:first-child {
+  padding-top: 0;
+}
+.announcement-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+.announcement-item__title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.announcement-item__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.announcement-item__detail {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border);
+}
+.announcement-item__byline {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+/* Authors type announcements as plain text with their own line breaks —
+   preserve them rather than collapsing a posted list into one paragraph. */
+.announcement-item__body {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  white-space: pre-wrap;
+}
+
+/* The counselling card. Sits directly under the stat strip because it's the
+   reason a flagged student opens this page at all. */
+.advice-card {
+  margin-bottom: var(--space-5);
+}
+.advice-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.advice-card__head h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.advice-card__groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+.advice-card__groups h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+}
+.advice-card__groups ul,
+.advice-card__targets ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.advice-card__groups li,
+.advice-card__targets li {
+  margin-bottom: var(--space-1);
+}
+.advice-card__note {
+  margin: 0;
+}
+/* Separated by a rule rather than a tinted panel — it's the next step in the
+   same conversation, not a different kind of content. */
+.advice-card__targets {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+.advice-card__targets h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+}
+.advice-card__targets > p {
+  margin-top: 0;
+  color: var(--color-text-muted);
+}
+.advice-card__current {
+  color: var(--color-text-muted);
+}
+
+/* One plain sentence under every chart saying what it MEANS. Weighted a
+   touch heavier than the description above the plot, because this is the
+   line most readers will actually take away. */
+.chart-card__interpretation {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+
+/* Learner-status reporting flags on the student form — grouped in their own
+   fieldset and labelled as reporting data, so nobody reads them as part of
+   the academic risk assessment they sit near. */
+.learner-status-fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.learner-status-fieldset legend {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.checkbox-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+}
+.checkbox-field input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.checkbox-field__hint {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+}
+
+/* A short clarifying line under a panel heading (e.g. "Not used in risk
+   scoring") — quieter than body text, louder than nothing. */
+.panel__note {
+  margin: calc(var(--space-1) * -1) 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* A cell whose text is preceded by a small mark (e.g. the risk dot beside
+   a student's name). The mark never stands alone — the table's legend
+   explains it and the cell still carries full text. */
+.cell-with-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+/* A button that reads as a link — used inside empty/no-results copy where
+   the action is "clear filters", which is state, not navigation. */
+.link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--color-primary);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-button:hover {
+  color: var(--color-primary-hover);
+  background: none;
+}
+
+.data-table__legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.data-table__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.data-table__caption {
+  caption-side: top;
+  text-align: left;
+  padding: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.data-table__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.data-table__count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.data-table__actions-head,
+.data-table__actions-cell {
+  width: 56px;
+}
+/* The inactive sort glyph is present on every sortable column but quiet —
+   it advertises that the column CAN be sorted without implying it is. */
+.data-table__sort {
+  color: var(--color-text-faint);
+  flex-shrink: 0;
+}
+.data-table__sort.is-active {
+  color: var(--color-primary);
+}
+
+/* --- Row actions ("⋮") --------------------------------------------------- */
+.row-menu {
+  position: relative;
+  display: inline-flex;
+}
+.row-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.row-menu__trigger:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+.row-menu__sheet {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 2px);
+  z-index: 20;
+  min-width: 180px;
+  padding: var(--space-1);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.row-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.row-menu__item:hover:not(:disabled) {
+  background: var(--color-primary-light);
+}
+.row-menu__item:disabled {
+  color: var(--color-text-faint);
+  cursor: not-allowed;
+}
+.row-menu__item.is-danger {
+  color: var(--color-danger);
+}
+.row-menu__item.is-danger:hover:not(:disabled) {
+  background: var(--color-danger-bg);
+}
+
+/* --- Toolbar above the table --------------------------------------------- */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.table-toolbar__filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.table-toolbar__filter select,
+.table-toolbar__filter input {
+  margin-top: 0;
+}
+.table-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+.table-toolbar__clear {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.table-toolbar__clear:hover {
+  color: var(--color-danger);
+}
+
 /* A clickable table-header label for sortable columns — reset to look
    exactly like the plain <th> text next to it, not like a button. */
 .sortable-header {
@@ -660,38 +1416,31 @@ th {
   flex-shrink: 0;
 }
 
-/* The Risk Dashboard's table specifically — roomier rows than the default
-   table-card, since "Triggered Factors" often wraps to multiple lines and
-   felt cramped at the standard cell padding. */
+/* Academic Progress Tracking's At Risk table specifically — roomier rows
+   than the default table-card, since "Triggered Factors & Advisory" often
+   wraps to multiple lines and felt cramped at the standard cell padding. */
 .risk-table td {
   padding-top: var(--space-4);
   padding-bottom: var(--space-4);
   line-height: 1.55;
 }
 
-/* A whole row tinted to match its own risk-level badge — the *-row tokens
-   (see :root) are a deliberately much fainter wash than the badge's own
-   background, so the badge stays the primary signal and the row reads as
-   a quiet, secondary cue underneath it, not a second competing block of
-   color. Hover deepens the same wash rather than snapping to the generic
-   navy row-hover, which would look muddy layered on red/green. */
-.risk-table tbody tr.risk-row--low {
-  background: var(--risk-low-row);
+/* A thin left-border accent in the row's own risk color — replaces an
+   earlier full-row background wash, which read as too heavy across a whole
+   class list (every row a different tinted block). The row itself stays
+   the normal white/neutral background like every other table-card row
+   (including Average/Steady and Performing Well below); the risk badge
+   chip plus this border are enough signal without turning the table into
+   a wall of color. First-child gets the color pulled in from the table's
+   own border-radius so it doesn't clip at the rounded corner. */
+.risk-table tbody tr.risk-row--low > td:first-child {
+  box-shadow: inset 3px 0 0 var(--risk-low);
 }
-.risk-table tbody tr.risk-row--low:hover {
-  background: var(--risk-low-row-hover);
+.risk-table tbody tr.risk-row--medium > td:first-child {
+  box-shadow: inset 3px 0 0 var(--risk-medium);
 }
-.risk-table tbody tr.risk-row--medium {
-  background: var(--risk-medium-row);
-}
-.risk-table tbody tr.risk-row--medium:hover {
-  background: var(--risk-medium-row-hover);
-}
-.risk-table tbody tr.risk-row--high {
-  background: var(--risk-high-row);
-}
-.risk-table tbody tr.risk-row--high:hover {
-  background: var(--risk-high-row-hover);
+.risk-table tbody tr.risk-row--high > td:first-child {
+  box-shadow: inset 3px 0 0 var(--risk-high);
 }
 
 /* A student whose risk hasn't been calculated yet has nothing to show —
@@ -721,6 +1470,472 @@ th {
 .btn-subtle:hover:not(:disabled) {
   background: var(--color-primary-light);
   border-color: var(--color-primary);
+}
+
+/* A square, icon-only action for a dense table row's Actions column — a
+   label beside every icon (what .btn-subtle normally carries) is what
+   forces a row of 2-3 actions onto multiple lines, taller than the data
+   itself needs. The label isn't dropped, just moved to the native title
+   attribute, same as TopBar's icon buttons already do. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  color: var(--color-primary);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+/* A table cell that stays on one line and ellipsizes instead of wrapping —
+   for a value whose length varies per row (e.g. an adviser with multiple
+   sections vs. one), so row height never depends on how many items one
+   particular row happens to list. The full value is still available via
+   this cell's own title attribute on hover. */
+.truncate-cell {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chart text — per the dataviz skill, marks (bars/lines/dots) carry the
+   series color; labels/values/axis text never do, so they stay legible
+   regardless of which hue the mark beside them happens to be. Value labels
+   sit one step stronger than row/axis labels — they're the number the
+   reader came for. */
+.chart-row-label,
+.chart-axis-label {
+  font-size: var(--font-size-xs);
+  fill: var(--color-text-muted);
+}
+.chart-value-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  fill: var(--color-text);
+  /* A halo in the card's own surface colour, painted UNDER the glyphs, so a
+     value that lands on a gridline or on a threshold line isn't struck
+     through by it. Cheaper and more reliable than measuring text to place a
+     backing rectangle, and it applies to every chart at once. */
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+/* A grid, not a wrapping inline list: entries line up in columns so the eye
+   scans one ragged edge instead of labels landing at arbitrary x-positions
+   on every row. */
+.chart-legend {
+  display: grid;
+  /* max-content, not 1fr: with 1fr a two-item legend stretches to the
+     card's full width and the second item lands against the far edge,
+     reading as a separate caption instead of part of the same legend.
+     Tracks now size to their own label and pack from the left. */
+  grid-template-columns: repeat(auto-fit, minmax(150px, max-content));
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+}
+.chart-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  min-width: 0;
+}
+
+/* Data-coverage caveat under a chart (e.g. how many students aren't
+   assessed yet) — deliberately a sentence, not a slice, so a caveat can't
+   out-size the bands the chart is actually about. */
+.chart-coverage-note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+/* Declares a truncated y-axis. A chart whose axis doesn't start at zero has
+   to say so, or it overstates every change drawn on it. */
+.chart-axis-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+  font-style: italic;
+}
+.chart-legend__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+   Chart system
+   =============================================================================
+   Five forms exist and no more: horizontal bars (comparing categories),
+   horizontal bars around a zero line (a SIGNED value, where the direction
+   is the point — see ChangeBarChart), vertical bars against a threshold
+   (periods measured against a required figure — see ColumnChart), a line
+   chart (direction over time), and a stat tile (a single number — see
+   .stat-card). Every measurement in the uniform spec is written down HERE,
+   once, so "no chart is taller than any other" is a property of the
+   stylesheet rather than something each page has to remember.
+
+   Pages never style charts. They pass data to BarChart/ChangeBarChart/
+   ColumnChart/LineChart inside a ChartCard and get the house look
+   automatically. */
+:root {
+  --chart-bar-thickness: 16px;
+  --chart-row-height: 28px;
+  --chart-max-body-height: 220px;
+}
+
+/* Positioning context for a chart's hover readout. Every chart that has a
+   tooltip wraps itself in this so .chart-tooltip's absolute coordinates are
+   measured from the chart, not the page. */
+.chart-frame {
+  position: relative;
+}
+
+/* --- The card every chart sits in --------------------------------------- */
+.chart-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+.chart-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.chart-card__title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.chart-card__description {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.chart-card__body {
+  margin-top: var(--space-4);
+}
+/* The one empty state for every chart: a plain grey sentence, no bordered
+   box, no icon — an absence of data shouldn't draw more attention than the
+   data would have. */
+.chart-card__empty {
+  margin: 0;
+  padding: var(--space-5) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.chart-card-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+/* --- Horizontal bars ----------------------------------------------------- */
+/* min-height matches the line chart's fixed plot height so a 4-row bar
+   chart and a line chart are the same size in their cards — "no chart
+   taller than any other" has to hold across FORMS, not just within one.
+   Rows stay vertically centred in that space; past the max, the body
+   scrolls rather than growing the card. */
+.bar-chart {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* The floor keeps a bar chart as tall as a line chart standing beside it.
+     BarChart lowers it for charts with too few rows to fill it — one bar
+     centred in 180px of blank card reads as a broken chart, not a short
+     one. */
+  min-height: var(--bar-chart-min-height, 180px);
+  max-height: var(--chart-max-body-height);
+  overflow-y: auto;
+}
+/* label | bar | value — the three-column read the form is built around. */
+.bar-chart__row {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--chart-row-height);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: background 0.15s ease;
+}
+.bar-chart__row.is-hovered,
+.bar-chart__row:focus-visible {
+  background: var(--color-neutral-bg);
+}
+/* One small size, medium grey — never black, never bold, never the series
+   colour. The coloured bar beside it already carries identity. */
+.bar-chart__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar-chart__track {
+  display: block;
+  width: 100%;
+  height: var(--chart-bar-thickness);
+}
+/* The fill is always full-width and REVEALED by a clip-path, rather than
+   being sized by width. Animating width makes the browser lay the row out
+   again on every frame; clip-path animates on the compositor and touches
+   no layout at all. inset()'s `round` keeps the 4px data-end the chart
+   spec calls for — which is why this isn't done with transform: scaleX(),
+   since scaling would stretch that corner radius into an ellipse. */
+.bar-chart__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  transition: clip-path 0.3s ease;
+}
+.bar-chart__fill.is-zero {
+  /* A zero row is a static stub, not an animated bar — clipped to a fixed
+     sliver so it reads as a real zero rather than a missing row. */
+  clip-path: inset(0 calc(100% - 6px) 0 0 round var(--radius-sm));
+  background: var(--color-border-strong);
+  opacity: 0.55;
+}
+.bar-chart__value {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Hairline, border-token grey, sitting under every mark drawn over it. */
+.chart-gridline {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+/* --- Vertical bars against a threshold (ColumnChart) --------------------- */
+/* The threshold line is dashed and a step stronger than a gridline: it is
+   not data, but it IS the number every bar is being compared against, so it
+   has to out-rank the grid without competing with the bars. */
+.chart-reference-line {
+  stroke: var(--color-text-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+/* Sits in the chart's right gutter, outside the plot — see ColumnChart's
+   PADDING.right. Text ink, never the mark colour. */
+.chart-reference-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  fill: var(--color-text-muted);
+}
+.column-chart__bar {
+  transition: opacity 0.15s ease;
+}
+/* Hovering one column dims the others rather than recolouring the hovered
+   one: changing a bar's colour on hover would contradict the one thing its
+   colour means here (above or below the threshold). */
+.chart-frame:has(.column-chart__bar.is-hovered) .column-chart__bar:not(.is-hovered) {
+  opacity: 0.55;
+}
+/* A period with nothing recorded: a muted baseline stub, not a bar. */
+.column-chart__missing {
+  stroke: var(--color-border-strong);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+
+/* Analytics' scope-and-export row: what the page is currently filtered to
+   on the left, the export buttons that inherit those same filters on the
+   right. Wraps to two lines on narrow screens rather than squeezing. */
+.analytics-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.analytics-toolbar__exports {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* The active-filter summary: which filters are currently narrowing every
+   chart below, each individually removable, plus one clear-all. Without it
+   a reader who scrolled past the filter row can't tell whether a surprising
+   number is real or just filtered. */
+.filter-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.filter-summary__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-primary);
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.filter-chip:hover {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.filter-chip__clear {
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 2px var(--space-1);
+}
+.filter-chip__clear:hover {
+  color: var(--color-danger);
+}
+
+/* Per-chart series pickers (ChartFieldToggles) — deliberately lighter than
+   the page-level filter chips above, since these only hide a line rather
+   than change what's counted. */
+.chart-toggles {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.chart-toggles__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.chart-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+.chart-toggle:hover {
+  border-color: var(--color-border-strong);
+}
+.chart-toggle.is-off {
+  opacity: 0.45;
+}
+.chart-toggle.is-off .chart-toggle__swatch {
+  background: var(--color-border-strong) !important;
+}
+.chart-toggle__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* The shared hover/focus readout (ChartTooltip.jsx). pointer-events: none is
+   load-bearing, not decoration — without it the tooltip sits under the
+   pointer, steals the hover from the mark it's describing, and flickers. */
+.chart-tooltip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  pointer-events: none;
+  z-index: 5;
+  min-width: 90px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-text);
+  color: var(--color-surface);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.chart-tooltip__title {
+  color: var(--color-border);
+  margin-bottom: 2px;
+}
+.chart-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* A short stroke of the series colour keys the row — at this density a
+   filled swatch is data-weight ink doing a label's job. */
+.chart-tooltip__key {
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+/* Value leads, label follows: the reader already knows which mark they
+   aimed at and wants the number, so the number carries the weight. */
+.chart-tooltip__value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.chart-tooltip__label {
+  color: var(--color-border);
+}
+
+.chart-point {
+  transition: r 0.15s ease;
+}
+/* Vertical hairline that finds the x-position under the pointer. */
+.chart-crosshair {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.chart-row-label.is-active {
+  fill: var(--color-text);
+  font-weight: 600;
+}
+
+/* While a filter refetch is in flight the chart holds its PREVIOUS render at
+   reduced opacity instead of being replaced by a spinner — no skeleton, no
+   layout jump, no flash of empty card between two populated states. */
+.is-refetching {
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
 }
 
 .trend-icon {
@@ -780,6 +1995,17 @@ th {
 .tabs__item svg {
   flex-shrink: 0;
 }
+/* A .record-section used as a tab's only/outermost content (as opposed to
+   one of several stacked sections on an ordinary page) sits directly under
+   the tab bar's own bottom border — its usual border-top/margin-top would
+   just double that same line. Scoped to :first-child so a tab that renders
+   a stat row before its record-section (Analytics' Overview tab) keeps the
+   separator between the two. */
+[role='tabpanel'] > .record-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
 
 /* A record's own larger identity avatar (vs. the 36px chip in TopBar) —
    same gradient treatment, just sized for a page header. */
@@ -787,8 +2013,8 @@ th {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   flex-shrink: 0;
   background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));
@@ -814,11 +2040,21 @@ th {
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-1);
+}
+/* The summary pills above this whole component (AttendanceHistory.jsx)
+   total every recorded period, not just whichever month is currently in
+   view here — this line is what makes that difference legible instead of
+   looking like the two don't add up. */
+.attendance-calendar__month-tally {
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-4);
 }
 .attendance-calendar__header button {
-  width: 32px;
-  height: 32px;
+  width: 27px;
+  height: 27px;
   padding: 0;
   display: inline-flex;
   align-items: center;
@@ -844,11 +2080,15 @@ th {
   font-weight: 500;
   color: var(--color-text-faint);
 }
+/* aspect-ratio 1.7 (wider than tall), not 1 — the cell only ever holds a
+   2-digit number plus a color wash, not enough content to justify a full
+   square at this grid's width. */
 .attendance-calendar__cell {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1;
+  aspect-ratio: 1.7;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
@@ -876,6 +2116,22 @@ th {
   background: var(--color-neutral-bg);
   color: var(--color-text-muted);
   font-weight: 600;
+}
+/* A weekend with nothing recorded isn't a gap worth noticing (it's not a
+   school day at all) — dimmed and visually recessive, distinct from a
+   weekday with no record, which keeps the plain/neutral look above
+   (.attendance-calendar__cell's own base style) so it still reads as "a
+   school day that's missing data," not "doesn't apply here." */
+.attendance-calendar__cell.is-weekend {
+  background: none;
+  color: var(--color-text-faint);
+  opacity: 0.55;
+}
+/* A ring, not a fill — has to stay visible layered on top of any status
+   color today might also have (e.g. today was marked absent). */
+.attendance-calendar__cell.is-today {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+  font-weight: 700;
 }
 .attendance-calendar__legend {
   display: flex;
@@ -908,37 +2164,6 @@ th {
 }
 .attendance-calendar__dot.is-excused {
   background: var(--color-text-muted);
-}
-
-/* Grade trend sparkline (see components/GradeSparkline.jsx) — the line
-   stays in a muted de-emphasis hue; only the current period's point picks
-   up the brand accent. Status (improving/declining) is carried by the
-   trend arrow + label next to it, not by coloring this line red/green —
-   a single series shouldn't also double as a status encoding. */
-.grade-sparkline__line {
-  fill: none;
-  stroke: var(--color-border-strong);
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-.grade-sparkline__point {
-  fill: var(--color-border-strong);
-  stroke: var(--color-surface);
-  stroke-width: 2;
-}
-.grade-sparkline__point--current {
-  fill: var(--color-primary);
-}
-.grade-sparkline-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-.grade-sparkline-wrap__label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
 }
 
 /* Student Detail's profile header — sits above the tabs, stays visible
@@ -1121,10 +2346,20 @@ th {
 
 /* A record's own field grid — label above value, register-card style,
    rather than a plain two-column table. */
+/* A compact label/value register — label small and muted (form-field
+   style), value normal body size, tight gap between a label and its own
+   value, a bit more between one pair and the next. REQUIRES each pair
+   wrapped in its own <div> (<div><dt/><dd/></div>, repeated) rather than
+   flat <dt>/<dd> siblings directly inside the <dl> — with auto-fill
+   multi-column grid placement, flat siblings get auto-placed into
+   whatever column count currently fits and can land a dt and an unrelated
+   pair's dd in the same row (confirmed: InterventionDetailPanel did this
+   before being fixed to the wrapper pattern). The wrapper div is what
+   makes each pair one grid cell, so pairing survives any column count. */
 .field-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-4) var(--space-6);
+  gap: var(--space-3) var(--space-6);
 }
 .field-grid dt {
   font-size: var(--font-size-sm);
@@ -1166,6 +2401,14 @@ th {
 .form-field select {
   width: 100%;
   margin-top: 0;
+}
+/* A control's width is a hint about the answer. An LRN, a date or a
+   two-option select in a full-width box invites a sentence. */
+.form-field--short {
+  max-width: 13rem;
+}
+.form-field--medium {
+  max-width: 22rem;
 }
 .form-field__feedback {
   display: flex;
@@ -1216,6 +2459,42 @@ th {
   padding: var(--space-5);
   box-shadow: var(--shadow-sm);
 }
+/* My Progress' band history: one cell per grading period, chevrons between,
+   scrolling sideways rather than wrapping so the Q1 -> Q2 -> Q3 reading
+   order never breaks across lines. */
+.band-strip {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+.band-strip__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.band-strip__arrow {
+  color: var(--color-text-faint);
+  flex-shrink: 0;
+}
+.band-strip__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  min-width: 110px;
+}
+.band-strip__period {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
 .panel > h2:first-child {
   font-size: var(--font-size-md);
   margin-top: 0;
@@ -1264,8 +2543,8 @@ th {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  height: 32px;
+  min-width: 27px;
+  height: 27px;
   padding: 0 var(--space-2);
   font-size: var(--font-size-sm);
   font-weight: 500;
@@ -1365,19 +2644,21 @@ th {
 .quick-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
+/* Desktop admin shortcuts, not touch targets — smaller padding/text than a
+   generic full-size button so a row of these reads as a compact toolbar. */
 .quick-actions__item {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
   background: var(--color-surface);
   color: var(--color-primary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: 500;
   text-decoration: none;
   box-shadow: var(--shadow-sm);
@@ -1395,6 +2676,661 @@ th {
   flex-shrink: 0;
 }
 
+/* =============================================================================
+   Alert — the one in-place message
+   =============================================================================
+   Every page used to report a failure as a loose red sentence with an inline
+   style, which put a server error on the same visual level as a caption.
+   One component now owns the treatment: tinted surface, hue-matched border
+   and icon, body copy in normal ink so the message itself stays readable.
+
+   Not a toast, on purpose: these explain why the thing below them is wrong
+   or missing, so they stay on screen next to it until the state changes.
+   The semantic (non-risk) palette only — a failed request is not an at-risk
+   student, and the two must never share a colour. */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  /* A one-sentence message stretched across a 1200px page is a thin ribbon
+     of text the eye has to track. Capped at a readable measure; narrower
+     columns simply use what they have. */
+  max-width: 78ch;
+  border: 1px solid;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+}
+.alert__icon {
+  flex-shrink: 0;
+  /* Optically aligned to the first line of text rather than the box. */
+  margin-top: 2px;
+}
+.alert__body {
+  flex: 1;
+  min-width: 0;
+}
+.alert__title {
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+}
+.alert__message {
+  min-width: 0;
+}
+.alert__message > :first-child {
+  margin-top: 0;
+}
+.alert__message > :last-child {
+  margin-bottom: 0;
+}
+.alert__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+/* Borders are mixed from the hue rather than using it at full strength: a
+   solid danger-red outline around a pale pink box reads as a second,
+   louder alert drawn around the first. */
+.alert--danger {
+  background: var(--color-danger-bg);
+  border-color: color-mix(in srgb, var(--color-danger) 38%, var(--color-surface));
+}
+.alert--danger .alert__icon,
+.alert--danger .alert__title {
+  color: var(--color-danger);
+}
+.alert--warning {
+  background: var(--color-warning-bg);
+  border-color: color-mix(in srgb, var(--color-warning) 38%, var(--color-surface));
+}
+.alert--warning .alert__icon,
+.alert--warning .alert__title {
+  color: var(--color-warning);
+}
+.alert--success {
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 38%, var(--color-surface));
+}
+.alert--success .alert__icon,
+.alert--success .alert__title {
+  color: var(--color-success);
+}
+.alert--info {
+  background: var(--color-primary-light);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-surface));
+}
+.alert--info .alert__icon,
+.alert--info .alert__title {
+  color: var(--color-primary);
+}
+
+/* A short note under a form control — the sibling of a field label, not a
+   page-level message, so it stays a sentence rather than becoming a box. */
+.form-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.form-note--danger {
+  color: var(--color-danger);
+}
+
+/* The sentence under an auth card heading (why you are on this page) —
+   pulled tight under the heading instead of a full paragraph gap below it. */
+.auth-card__intro {
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-4);
+}
+
+/* --- Two-line table cell ------------------------------------------------- */
+/* A cell that carries its own caption: the subject and, under it, who
+   teaches it; a mark and, under it, that it is still in review. The caption
+   is a size and a tone down, never a second value competing with the first,
+   and it keeps a table from needing a column per attribute. */
+.cell-primary {
+  display: block;
+}
+.cell-secondary {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+/* A figure under the passing mark or the required rate. The same red the
+   charts use for the same meaning, so the table and the bars above it can't
+   disagree about what "below" looks like. The legend under each table says
+   so in words — colour is never the only carrier. */
+.is-below {
+  color: var(--band-at-risk-high);
+}
+/* No mark recorded for this subject in this period. Faint, because an empty
+   cell is an absence of data, not a zero. */
+.grade-cell__empty {
+  color: var(--color-text-faint);
+}
+
+/* The namecard's second half: everything the school holds that a student
+   does not need on screen every time, behind its own disclosure. */
+.namecard__more {
+  padding: 0 var(--space-4) var(--space-4);
+}
+.namecard__more .field-grid {
+  padding: var(--space-4) 0 0;
+}
+.namecard__note {
+  margin-top: var(--space-3);
+}
+
+/* A sentence under a section heading, explaining what the table below it
+   actually is — used where two similar tables could otherwise be mistaken
+   for each other (daily vs per-subject attendance). */
+.record-section__note {
+  margin: calc(var(--space-2) * -1) 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  max-width: 78ch;
+}
+
+/* Text for assistive technology only — used where an icon's shape and
+   colour carry a verdict visually, so the same verdict reaches a screen
+   reader without printing it twice on screen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- The days behind a count --------------------------------------------- */
+/* Dates as chips rather than a paragraph: a student scans this for one day
+   they disagree with, and chips give each date its own edge to land on. */
+.day-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+.day-list li {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+.day-list--present li {
+  border-color: color-mix(in srgb, var(--color-success) 30%, var(--color-surface));
+  background: var(--color-success-bg);
+}
+.day-list--absent li {
+  border-color: color-mix(in srgb, var(--band-at-risk-high) 30%, var(--color-surface));
+  background: var(--risk-high-bg);
+}
+.day-list--late li {
+  border-color: color-mix(in srgb, var(--color-warning) 32%, var(--color-surface));
+  background: var(--color-warning-bg);
+}
+
+/* --- A rate, its required line, and its figure, inside a table cell ------ */
+.inline-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  width: 100%;
+}
+.inline-rate__track {
+  position: relative;
+  flex: 0 1 7rem;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-bg);
+  overflow: hidden;
+}
+.inline-rate__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--band-at-risk-high);
+  /* Revealed by clip-path, like every other bar in this product: animating
+     width would re-lay out the table row on every frame. */
+  transition: clip-path 0.3s ease;
+}
+.inline-rate__fill.is-met {
+  background: var(--color-success);
+}
+.inline-rate__marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 0;
+  border-left: 2px dashed var(--color-text);
+}
+.inline-rate strong {
+  font-variant-numeric: tabular-nums;
+  min-width: 3.4rem;
+  text-align: right;
+}
+
+/* --- Change around a zero line (ChangeBarChart) --------------------------- */
+/* Same three-column read as .bar-chart — label, track, value — so the two
+   forms are siblings rather than two different ideas of a bar chart. What
+   differs is the baseline: it sits in the middle, because the value drawn
+   here is signed. */
+.change-bar-chart {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--bar-chart-min-height, 180px);
+  max-height: var(--chart-max-body-height);
+  overflow-y: auto;
+}
+.change-bar-chart__row {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--chart-row-height);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: background 0.15s ease;
+}
+.change-bar-chart__row.is-hovered,
+.change-bar-chart__row:focus-visible {
+  background: var(--color-neutral-bg);
+}
+.change-bar-chart__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.change-bar-chart__track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--chart-bar-thickness);
+}
+/* The reference the whole chart is read against, so it is drawn rather than
+   implied by where the bars happen to start. */
+.change-bar-chart__zero {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 50%;
+  width: 1px;
+  background: var(--color-border-strong);
+  /* Above the bars: a bar that reaches the line must not paint over the one
+     reference the chart is read against. */
+  z-index: 1;
+}
+.change-bar-chart__fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+/* No change at all: a small neutral tick on the line, so "held steady" reads
+   as a measurement rather than as a missing bar. */
+.change-bar-chart__unchanged {
+  position: absolute;
+  top: 50%;
+  left: calc(50% - 5px);
+  width: 10px;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 1px;
+  background: var(--color-border-strong);
+}
+.change-bar-chart__value {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --- One subject's history, opened from its row -------------------------- */
+.subject-detail {
+  padding: var(--space-4);
+}
+.subject-detail__marks {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 28rem;
+}
+.subject-detail__marks li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.subject-detail__period {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  min-width: 3rem;
+}
+.subject-detail__mark {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin-right: auto;
+}
+
+/* --- The four checks, as tiles -------------------------------------------- */
+/* Sits at the top of Where You Stand: the shape of the problem before any
+   of the words below it. Shape and colour both carry flagged-vs-clear, and
+   CheckStrip adds the word itself for screen readers. */
+.check-strip {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+}
+.check-strip li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.check-strip li.is-flagged {
+  border-color: color-mix(in srgb, var(--band-at-risk-high) 32%, var(--color-surface));
+  background: var(--risk-high-bg);
+}
+.check-strip__icon {
+  display: flex;
+  flex-shrink: 0;
+}
+.check-strip li.is-flagged .check-strip__icon {
+  color: var(--band-at-risk-high);
+}
+.check-strip li.is-clear .check-strip__icon {
+  color: var(--color-success);
+}
+.check-strip__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.check-strip__measure {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.check-strip__value {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- One figure against the target it has to reach ------------------------ */
+.target-bar {
+  max-width: 44rem;
+  margin-bottom: var(--space-4);
+}
+.target-bar__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.target-bar__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.target-bar__values {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.target-bar__values strong {
+  color: var(--color-text);
+}
+/* The figure takes the colour of its own bar when it is short of the
+   target, so the number and the mark agree. Needs the element in the
+   selector to outrank .target-bar__values strong above. */
+.target-bar__values strong.is-below {
+  color: var(--band-at-risk-high);
+}
+.target-bar__track {
+  position: relative;
+  height: var(--chart-bar-thickness);
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-bg);
+  overflow: hidden;
+}
+.target-bar__fill {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--band-at-risk-high);
+  /* The fill is full-width and revealed by TargetBar's clip-path, so this
+     animates on the compositor instead of re-laying out the track. */
+  transition: clip-path 0.3s ease;
+}
+.target-bar__fill.is-reached {
+  background: var(--color-success);
+}
+/* The same dashed threshold the trend charts draw, turned on its side. */
+.target-bar__marker {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 0;
+  border-left: 2px dashed var(--color-text);
+}
+.target-bar__gap {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* --- A stat card that opens an explanation -------------------------------- */
+/* The interactive variant only. A plain stat card keeps its div, so nothing
+   else in the app gains a focus stop it has no use for. The base <button>
+   styling has to be undone here: .stat-card is a layout, not a control. */
+.stat-card--interactive {
+  position: relative;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.stat-card--interactive:hover:not(:disabled) {
+  /* Keep the card's own lift rather than the button's fill. */
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+}
+.stat-card--interactive.is-expanded {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+.stat-card__chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--color-text-faint);
+  transition: transform 0.2s ease, color 0.15s ease;
+}
+.stat-card--interactive:hover .stat-card__chevron {
+  color: var(--color-primary);
+}
+.stat-card--interactive.is-expanded .stat-card__chevron {
+  transform: rotate(180deg);
+  color: var(--color-primary);
+}
+
+/* --- The explanation itself ----------------------------------------------- */
+/* Sits directly under the row it belongs to, pulled up against it so the
+   figure and its working read as one block rather than two panels. */
+.stat-explainer {
+  margin-top: calc(var(--space-4) * -1 + var(--space-1));
+  margin-bottom: var(--space-4);
+  border-color: var(--color-primary-light-2);
+}
+.stat-explainer__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.stat-explainer__head h3 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stat-explainer__subject {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.stat-explainer__lead {
+  margin-top: 0;
+}
+/* The working itself: label on the left, figure on the right, with the
+   result separated by a rule — a receipt, not a paragraph. */
+.stat-explainer__calc {
+  max-width: 34rem;
+  margin-bottom: var(--space-4);
+}
+.stat-explainer__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) 0;
+  font-size: var(--font-size-base);
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.stat-explainer__row span:last-child {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.stat-explainer__row.is-total {
+  border-bottom: none;
+  border-top: 2px solid var(--color-border-strong);
+  margin-top: var(--space-1);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.stat-explainer__rule {
+  max-width: 78ch;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.stat-explainer__rule:last-child {
+  margin-bottom: 0;
+}
+
+/* Every check the formula makes, flagged or not — the clear ones matter as
+   much as the flagged ones, so they are listed, not hidden. */
+.stat-explainer__checks {
+  list-style: none;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.stat-explainer__checks li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+.stat-explainer__check-icon {
+  display: flex;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.stat-explainer__checks li.is-flagged .stat-explainer__check-icon {
+  color: var(--band-at-risk-high);
+}
+.stat-explainer__checks li.is-clear .stat-explainer__check-icon {
+  color: var(--color-success);
+}
+.stat-explainer__check-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.stat-explainer__check-rule {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* A borderless icon-only control (the explainer's close button). Shares the
+   top bar's treatment, which until now was scoped to that one component. */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.btn-icon:hover:not(:disabled) {
+  background: var(--color-neutral-bg);
+  border-color: transparent;
+  color: var(--color-text);
+}
+
+/* Digits in a table or a summary figure are read as a column, so they get
+   the font's lining, fixed-width numerals: without this, 1 is narrower than
+   8 and every grade, count and date in a list sits a pixel or two off the
+   one above it. Only affects digits, so names and labels are untouched. */
+.table-card th,
+.table-card td,
+.stat-card__value,
+.field-grid dd {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Stat cards — a summary row at the top of list/dashboard pages. These ARE
    boxed (unlike feed items and record sections) because each one is a
    discrete figure meant to be scanned independently, not a continuation of
@@ -1404,6 +3340,16 @@ th {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-5);
+}
+/* Several pages show a stat row whose cards are filtered down to the ones
+   that are non-zero (Interventions) or that the role can see (a registrar's
+   dashboard shows one). With auto-fit and a 1fr maximum, the survivors
+   stretch edge to edge, and a single figure in a 1200px-wide card reads as
+   a banner with a number lost in it. Below four cards the track is capped
+   so each card stays card-sized; from four up, the full-width row is right
+   and nothing changes. */
+.stat-row:not(:has(> :nth-child(4))) {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 300px));
 }
 .stat-card {
   display: flex;
@@ -1425,14 +3371,21 @@ th {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-xl);
   flex-shrink: 0;
   /* Defaults to the brand navy; variants below override for semantic figures.
      A soft two-tone gradient within each hue rather than a flat tint. */
   background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));
   color: var(--color-primary);
+}
+/* Lets the label beside it actually shrink enough for text-overflow:
+   ellipsis to engage — a flex item's default min-width:auto otherwise
+   holds it at its content's natural (unwrapped) width regardless of the
+   ellipsis rule. */
+.stat-card__body {
+  min-width: 0;
 }
 .stat-card__value {
   font-size: var(--font-size-2xl);
@@ -1441,9 +3394,22 @@ th {
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
 }
+/* Single-line, not just a font-size choice: a label that wraps to two lines
+   makes that one card's content taller than its row-mates, and since
+   .stat-card centers its content vertically, a taller card's icon no
+   longer lines up with the shorter cards beside it — the exact
+   misalignment this is here to prevent, not just an overflow guard. */
+/* A count that hasn't arrived prints as an em dash, in muted ink so it
+   reads as "not known yet" rather than as a value. */
+.stat-card__value--unknown {
+  color: var(--color-text-faint);
+}
 .stat-card__label {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .stat-card--positive .stat-card__icon {
   background: linear-gradient(135deg, var(--color-success-bg), var(--color-success-bg-2));
@@ -1480,6 +3446,29 @@ th {
 .stat-card--accent .stat-card__icon {
   background: linear-gradient(135deg, rgba(247, 198, 0, 0.18), rgba(247, 198, 0, 0.3));
   color: var(--color-accent-text);
+}
+
+/* Compact stat row/card — opt-in via <StatRow compact>, currently only used
+   on the Home dashboard. Smaller icon circle (48px -> 38px, within the
+   requested 36-40px), smaller value text (the 2xl page-title size -> xl),
+   tighter padding/gaps — same figures, noticeably less vertical space. */
+.stat-row--compact {
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.stat-card--compact {
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+.stat-card--compact .stat-card__icon {
+  width: 32px;
+  height: 32px;
+}
+.stat-card--compact .stat-card__value {
+  font-size: var(--font-size-xl);
+}
+.stat-card--compact .stat-card__label {
+  font-size: var(--font-size-xs);
 }
 
 /* A feed entry (announcements) — hairline-divided like .record-section
@@ -1535,7 +3524,33 @@ th {
     opacity: 0.5;
   }
 }
+/* One authored moment: content arrives with a short rise as a route
+   resolves, so a page change reads as a transition rather than a repaint.
+   Applied once, at the content container — not per section, which would
+   turn one moment into a staggered show. */
+@keyframes content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A single global switch, not one rule per animation: everything that moves
+   in this app is decoration over an already-legible page, so a user who
+   asks for less motion gets none of it rather than a slower version. */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
   .skeleton {
     animation: none;
     opacity: 0.75;

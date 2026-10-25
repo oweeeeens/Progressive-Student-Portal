@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
+import { Alert } from '../components/Alert'
 
 const PAGE_SIZE = 15
 const emptyForm = { schoolYearId: '', gradeLevel: 11, strand: '', name: '', adviserId: '' }
@@ -15,7 +16,9 @@ const emptyForm = { schoolYearId: '', gradeLevel: 11, strand: '', name: '', advi
 export function SectionsPage() {
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
-  const [activeTotal, setActiveTotal] = useState(0)
+  // null, not 0: until the count request answers there is no number to
+  // show, and a failed request must not be reported as "none".
+  const [activeTotal, setActiveTotal] = useState(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [includeInactive, setIncludeInactive] = useState(false)
@@ -155,7 +158,7 @@ export function SectionsPage() {
         <StatCard icon={Layers} value={activeTotal} label="Active sections" />
       </StatRow>
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="intervention-log-form">
@@ -220,7 +223,7 @@ export function SectionsPage() {
         <p>Loading…</p>
       ) : rows.length === 0 ? (
         <div className="empty-state">
-          <p>No sections found.</p>
+          <p>{error ? 'This list could not be loaded.' : 'No sections found.'}</p>
         </div>
       ) : (
         <div className="table-card">

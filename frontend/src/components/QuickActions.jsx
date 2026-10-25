@@ -11,12 +11,12 @@ export function QuickActions({ actions }) {
       {actions.map((action) =>
         action.to ? (
           <Link key={action.label} to={action.to} className="quick-actions__item">
-            <action.icon size={18} strokeWidth={1.75} />
+            <action.icon size={16} strokeWidth={1.75} />
             {action.label}
           </Link>
         ) : (
           <button key={action.label} type="button" className="quick-actions__item" onClick={action.onClick}>
-            <action.icon size={18} strokeWidth={1.75} />
+            <action.icon size={16} strokeWidth={1.75} />
             {action.label}
           </button>
         )

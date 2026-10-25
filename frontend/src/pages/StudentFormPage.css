@@ -27,8 +27,11 @@
   align-items: center;
   flex: 1;
 }
+/* Every step flexes equally, including the last: with the last item fixed,
+   its connector had no room to grow and collapsed to nothing, so the line
+   ran between steps 1 and 2 and then simply stopped. */
 .form-steps__item:last-child {
-  flex: 0 0 auto;
+  flex: 1;
 }
 .form-steps__connector {
   flex: 1;
@@ -115,8 +118,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 54px;
+  height: 54px;
   margin: 0 auto var(--space-3);
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));

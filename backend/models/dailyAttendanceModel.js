@@ -88,6 +88,29 @@ async function getHistoryForStudent(studentId, { from, to } = {}) {
   return { records: result.rows, summary };
 }
 
+// The same per-period grouping as getAttendanceRatesByPeriod below, but
+// broken out into the four statuses rather than collapsed to a single rate
+// — the "My Progress" student view shows the actual day counts, since
+// "70% attendance" doesn't tell a student whether that was two absences or
+// twenty, which is the part they can act on.
+async function getStatusCountsByPeriod(studentId) {
+  const result = await pool.query(
+    `SELECT gp.id AS grading_period_id, gp.name AS period_name, gp.sequence_number,
+            COUNT(*) FILTER (WHERE dar.status = 'present')::int AS present,
+            COUNT(*) FILTER (WHERE dar.status = 'absent')::int AS absent,
+            COUNT(*) FILTER (WHERE dar.status = 'late')::int AS late,
+            COUNT(*) FILTER (WHERE dar.status = 'excused')::int AS excused,
+            COUNT(*)::int AS total_days
+     FROM daily_attendance_records dar
+     JOIN grading_periods gp ON gp.id = dar.grading_period_id
+     WHERE dar.student_id = $1
+     GROUP BY gp.id, gp.name, gp.sequence_number
+     ORDER BY gp.sequence_number`,
+    [studentId]
+  );
+  return result.rows;
+}
+
 // Per-grading-period attendance rate, ordered oldest-to-newest by the
 // period's sequence_number — the series the risk engine's trend calculation
 // walks (see riskEngine.js). "Present" counts both 'present' and 'late' (the
@@ -117,5 +140,6 @@ module.exports = {
   recordAttendance,
   getRosterForDate,
   getHistoryForStudent,
+  getStatusCountsByPeriod,
   getAttendanceRatesByPeriod,
 };

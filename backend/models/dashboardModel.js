@@ -80,7 +80,7 @@ async function getStats(user) {
 // "Students Needing Attention" widget — the top N highest-risk students in
 // this user's scope, each with its single most significant contributing
 // factor. Reuses riskAssessmentModel.listForDashboard and
-// riskCalculator.evaluateFactors exactly as riskDashboardController does,
+// riskCalculator.evaluateFactors exactly as academicProgressController does,
 // rather than re-deriving risk factors a second time.
 async function getTopAtRiskStudents(user, limit = 5) {
   if (!ATTENTION_WIDGET_ROLES.includes(user.role)) return [];

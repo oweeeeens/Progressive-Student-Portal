@@ -9,8 +9,14 @@ const { pool } = require('../config/db');
 // narrowed to their own section the same way the roster and dashboard are.
 const { appendScopeClause, BASE_FROM } = require('./studentModel');
 
-const VALID_TYPES = ['parent_conference', 'tutoring_referral', 'counseling_referral', 'attendance_follow_up', 'other'];
-const VALID_STATUSES = ['open', 'monitoring', 'resolved', 'escalated'];
+// The vocabulary itself lives in config/interventions.js, alongside the
+// display labels the Analytics export renders — re-exported here unchanged
+// so interventionController's existing interventionModel.VALID_TYPES /
+// .VALID_STATUSES checks keep working against a single source of truth.
+const { INTERVENTION_TYPES, INTERVENTION_STATUSES } = require('../config/interventions');
+
+const VALID_TYPES = INTERVENTION_TYPES;
+const VALID_STATUSES = INTERVENTION_STATUSES;
 // Both outcomes are "closed" states — resolved_at marks when either was reached.
 const CLOSED_STATUSES = ['resolved', 'escalated'];
 

@@ -28,6 +28,15 @@
   padding: var(--space-6) var(--space-6);
 }
 
+/* The app's one authored motion: a page rises a few pixels into place as
+   its route resolves. Short and ease-out so it reads as the page settling
+   rather than an effect — and it is the only entrance in the product, so
+   navigation feels continuous without anything else sliding around.
+   Disabled wholesale under prefers-reduced-motion (see index.css). */
+.app-shell__page {
+  animation: content-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (max-width: 720px) {
   .app-shell__content {
     padding: var(--space-5) var(--space-4);

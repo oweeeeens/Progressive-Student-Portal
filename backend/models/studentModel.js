@@ -8,7 +8,7 @@ const LIST_COLUMNS = `
   s.id, s.lrn, s.first_name, s.middle_name, s.last_name, s.sex, s.date_of_birth,
   s.address, s.email, s.guardian_name, s.guardian_contact_number, s.enrollment_status,
   s.is_active, s.user_id, s.current_section_id, sec.name AS section_name, sec.grade_level,
-  sec.strand, s.created_at, s.updated_at
+  sec.strand, s.is_pwd, s.is_4ps, s.is_als_graduate, s.created_at, s.updated_at
 `;
 
 const BASE_FROM = `
@@ -42,13 +42,22 @@ const SORT_COLUMNS = {
 // Appends the WHERE clause fragment (and its bound params) that restricts
 // which students a given user is allowed to see. admin/registrar/
 // guidance_counselor get no restriction here — guidance counselors will get
-// narrowed to flagged/at-risk students once the Risk Dashboard module adds
-// that concept; for now they see the full roster, same as admin/registrar.
+// narrowed to flagged/at-risk students if that's ever requested; for now
+// they see the full roster, same as admin/registrar.
 function appendScopeClause(user, clauses, params) {
   switch (user.role) {
     case 'admin':
     case 'registrar':
     case 'guidance_counselor':
+    // The principal is a single school-wide position (CLAUDE.md), and the
+    // rest of the app already treats them that way: they verify every
+    // submitted grade in the school, and the Analytics dashboard shows them
+    // named at-risk students with their risk levels. Falling through to the
+    // default below meant those names were visible in the rollup but every
+    // link to one returned 404 — the data wasn't protected, only the
+    // navigation was broken. Read scope only; writes stay admin/registrar
+    // via the route-level gate in routes/studentRoutes.js.
+    case 'principal':
       return;
     case 'adviser':
       params.push(user.id);
@@ -74,9 +83,24 @@ function appendScopeClause(user, clauses, params) {
   }
 }
 
+// Request-key -> column, for the learner-status reporting filters below.
+const LEARNER_STATUS_COLUMNS = { isPwd: 'is_pwd', is4ps: 'is_4ps', isAlsGraduate: 'is_als_graduate' };
+
 async function listStudents(
   user,
-  { search, gradeLevel, sectionId, status, includeInactive, sortBy, sortDir, page = 1, pageSize = 20 } = {}
+  {
+    search,
+    gradeLevel,
+    sectionId,
+    status,
+    includeInactive,
+    hasAccount,
+    learnerStatus,
+    sortBy,
+    sortDir,
+    page = 1,
+    pageSize = 20,
+  } = {}
 ) {
   const clauses = [];
   const params = [];
@@ -99,6 +123,26 @@ async function listStudents(
   if (status) {
     params.push(status);
     clauses.push(`s.enrollment_status = $${params.length}`);
+  }
+  // Used by User Management's "Pending Student Accounts" tab to find
+  // students eligible for the bulk account-creation action — hasAccount is
+  // a plain boolean, not tri-state, since "don't filter on this at all" is
+  // already expressed by leaving the param out entirely.
+  if (hasAccount === true) {
+    clauses.push('s.user_id IS NOT NULL');
+  } else if (hasAccount === false) {
+    clauses.push('s.user_id IS NULL');
+  }
+  // Learner-status reporting filters ("pull every PWD learner"). Only ever
+  // filters FOR the flag, never against it — the school's use case is
+  // producing a DepEd list, not excluding those learners from the roster.
+  // WHICH of these a caller may use is gated in the controller against the
+  // same visibility map that strips the fields from responses; allowing a
+  // filter on a field someone can't read would leak it by inference.
+  for (const key of ['isPwd', 'is4ps', 'isAlsGraduate']) {
+    if (learnerStatus && learnerStatus[key]) {
+      clauses.push(`s.${LEARNER_STATUS_COLUMNS[key]} = TRUE`);
+    }
   }
   appendScopeClause(user, clauses, params);
 
@@ -125,13 +169,20 @@ async function listStudents(
   return { students: dataResult.rows, total, page: Math.max(Number(page) || 1, 1), pageSize: limit };
 }
 
+// The single-student view carries one column the list doesn't: who advises
+// their section. Joined here rather than in BASE_FROM/LIST_COLUMNS because
+// those are shared with the roster list and with interventionModel, and a
+// name nobody renders there isn't worth adding to every one of those rows.
 async function findById(user, studentId) {
   const clauses = ['s.id = $1'];
   const params = [studentId];
   appendScopeClause(user, clauses, params);
 
   const result = await pool.query(
-    `SELECT ${LIST_COLUMNS} ${BASE_FROM} WHERE ${clauses.join(' AND ')}`,
+    `SELECT ${LIST_COLUMNS}, adviser.full_name AS adviser_name
+     ${BASE_FROM}
+     LEFT JOIN users adviser ON adviser.id = sec.adviser_id
+     WHERE ${clauses.join(' AND ')}`,
     params
   );
   return result.rows[0] || null;
@@ -141,8 +192,9 @@ async function createStudent(data) {
   const result = await pool.query(
     `INSERT INTO students
        (lrn, first_name, middle_name, last_name, sex, date_of_birth, address, email,
-        guardian_name, guardian_contact_number, current_section_id, enrollment_status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        guardian_name, guardian_contact_number, current_section_id, enrollment_status,
+        is_pwd, is_4ps, is_als_graduate)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING id`,
     [
       data.lrn,
@@ -163,6 +215,11 @@ async function createStudent(data) {
       // selectable status for the rare case it's still genuinely needed
       // (e.g. a record entered ahead of paperwork being finalized).
       data.enrollmentStatus || 'enrolled',
+      // Descriptive reporting flags — default false rather than null, same
+      // reasoning as the column defaults (see the migration).
+      data.isPwd === true,
+      data.is4ps === true,
+      data.isAlsGraduate === true,
     ]
   );
   return result.rows[0].id;
@@ -182,6 +239,9 @@ const UPDATABLE_FIELDS = {
   guardianContactNumber: 'guardian_contact_number',
   currentSectionId: 'current_section_id',
   enrollmentStatus: 'enrollment_status',
+  isPwd: 'is_pwd',
+  is4ps: 'is_4ps',
+  isAlsGraduate: 'is_als_graduate',
 };
 
 async function updateStudent(studentId, data) {
@@ -228,9 +288,9 @@ async function findByIdUnscoped(studentId) {
   return result.rows[0] || null;
 }
 
-// Lean, internal-use lookup for services/accountProvisioning.js — just the
-// fields needed to decide "does this student need a portal account yet,"
-// not the full public profile shape.
+// Lean, internal-use lookup for studentController.resetPassword — just the
+// fields needed to check whether this student has a portal account to reset
+// (user_id), not the full public profile shape.
 async function getAccountProvisioningInfo(studentId) {
   const result = await pool.query(
     'SELECT id, email, user_id, enrollment_status, first_name, last_name FROM students WHERE id = $1',

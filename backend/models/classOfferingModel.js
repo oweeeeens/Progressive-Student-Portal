@@ -29,6 +29,27 @@ async function listByTeacher(teacherId) {
   return result.rows;
 }
 
+// The subjects a section is actually taking this school year, with who
+// teaches each — "my subjects" from a student's point of view, since a
+// student's subject list IS their section's class offerings.
+//
+// Note there is no time-of-day or day-of-week on class_offerings (see that
+// table's migration), so this is a subject list, not a period-by-period
+// timetable; the schema has no schedule to show.
+async function listBySection(sectionId) {
+  const result = await pool.query(
+    `SELECT co.id, subj.name AS subject_name, u.full_name AS teacher_name
+     FROM class_offerings co
+     JOIN subjects subj ON subj.id = co.subject_id
+     JOIN users u ON u.id = co.teacher_id
+     JOIN school_years sy ON sy.id = co.school_year_id
+     WHERE co.section_id = $1 AND sy.is_current = TRUE AND co.is_active = TRUE
+     ORDER BY subj.name`,
+    [sectionId]
+  );
+  return result.rows;
+}
+
 async function teacherTeachesSection(teacherId, sectionId) {
   const result = await pool.query(
     'SELECT 1 FROM class_offerings WHERE teacher_id = $1 AND section_id = $2 LIMIT 1',
@@ -136,6 +157,7 @@ async function setClassOfferingActive(id, isActive) {
 module.exports = {
   getById,
   listByTeacher,
+  listBySection,
   teacherTeachesSection,
   getActiveStudentsInOffering,
   listClassOfferingsForAdmin,

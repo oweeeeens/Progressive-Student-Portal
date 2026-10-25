@@ -5,6 +5,7 @@ import { StatusPill } from './StatusPill'
 import { useUnsavedChangesTracker } from '../hooks/useUnsavedChangesTracker'
 import { addDays, todayDateString } from '../utils/dateUtils'
 import './AttendanceRosterPanel.css'
+import { Alert } from './Alert'
 
 const STATUSES = [
   { value: 'present', letter: 'P', label: 'Present' },
@@ -144,7 +145,7 @@ export function AttendanceRosterPanel({
         </div>
       </div>
 
-      {error && <p style={{ color: 'var(--color-danger)' }}>{error}</p>}
+      {error && <Alert>{error}</Alert>}
       {message && <p style={{ color: 'var(--color-success)' }}>{message}</p>}
 
       {!ready ? (

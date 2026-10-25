@@ -46,23 +46,27 @@ export function UserInfoCard({ stats }) {
     <aside className="panel profile-card">
       <h2>Your account</h2>
       <dl className="field-grid profile-card__grid">
-        <dt>Name</dt>
-        <dd>{user.fullName}</dd>
-        <dt>Role</dt>
-        <dd className="profile-card__role">{user.role.replace(/_/g, ' ')}</dd>
+        <div>
+          <dt>Name</dt>
+          <dd>{user.fullName}</dd>
+        </div>
+        <div>
+          <dt>Role</dt>
+          <dd className="profile-card__role">{user.role.replace(/_/g, ' ')}</dd>
+        </div>
         {sections && sections.length > 0 && (
-          <>
+          <div>
             <dt>{sections.length > 1 ? 'Sections' : 'Section'}</dt>
             <dd>{sections.map((s) => `Grade ${s.grade_level} - ${s.name}`).join(', ')}</dd>
-          </>
+          </div>
         )}
         {classOfferings && classOfferings.length > 0 && (
-          <>
+          <div>
             <dt>Classes</dt>
             <dd>
               {classOfferings.length} {classOfferings.length === 1 ? 'class' : 'classes'} this term
             </dd>
-          </>
+          </div>
         )}
       </dl>
 
