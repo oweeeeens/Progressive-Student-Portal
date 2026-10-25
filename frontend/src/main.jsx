@@ -16,6 +16,16 @@ import '@fontsource/ibm-plex-sans/latin-ext-400.css'
 import '@fontsource/ibm-plex-sans/latin-ext-500.css'
 import '@fontsource/ibm-plex-sans/latin-ext-600.css'
 import '@fontsource/ibm-plex-sans/latin-ext-700.css'
+// The display face, for page titles and section headings only (see
+// --font-family-display). IBM Plex Serif rather than an unrelated serif
+// because it is the same superfamily as the sans above: the two were drawn
+// together, so their proportions and weights already agree and a heading
+// never looks borrowed from another product. Only the two weights the
+// headings actually use.
+import '@fontsource/ibm-plex-serif/latin-400.css'
+import '@fontsource/ibm-plex-serif/latin-600.css'
+import '@fontsource/ibm-plex-serif/latin-ext-400.css'
+import '@fontsource/ibm-plex-serif/latin-ext-600.css'
 import './index.css'
 import App from './App.jsx'
 

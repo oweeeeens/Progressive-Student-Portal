@@ -1,15 +1,29 @@
+/* App chrome, not a card. This used to be a bordered, shadowed, rounded
+   surface floating inside the page, which meant every screen opened with
+   three stacked containers — this bar, then the breadcrumb, then the title
+   — before any content. As a full-bleed strip ruled off from the page
+   below it, it reads as part of the window rather than as the page's first
+   piece of content, and it stays put while a long roster scrolls under it. */
 .top-bar {
+  position: sticky;
+  top: 0;
+  /* Above the page content (and its sticky table headers), below the
+     account menu this bar itself opens. */
+  z-index: 15;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-6);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+@media (max-width: 720px) {
+  .top-bar {
+    padding: var(--space-2) var(--space-4);
+  }
 }
 
 .top-bar__context {

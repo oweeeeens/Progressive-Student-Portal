@@ -102,9 +102,14 @@ function getNavSections(role) {
       ],
     },
     {
-      label: 'Academic Progress & Interventions',
+      label: 'Progress & Interventions',
       items: [
-        { to: '/academic-progress', label: 'Academic Progress Tracking', icon: TrendingUp, show: canSeeAcademicProgress(role) },
+        // "Progress Tracking", not the module's full name: the group header
+        // directly above already carries the rest of it, and at the full
+        // name this item truncated to "Academic Progres..." — a nav item
+        // that cannot say what it is. The page title still shows the full
+        // name the client and the manuscript use.
+        { to: '/academic-progress', label: 'Progress Tracking', icon: TrendingUp, show: canSeeAcademicProgress(role) },
         { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeAcademicProgress(role) },
         { to: '/analytics', label: 'Analytics', icon: BarChart3, show: canSeeAnalytics(role) },
       ],

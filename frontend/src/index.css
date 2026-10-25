@@ -39,6 +39,13 @@
   --color-text-faint: #8a93a3;
   --color-text-on-primary: #ffffff;
   --color-text-on-primary-muted: #aebcd6;
+  /* Ink for text sitting on a --color-primary FILL (an active page number,
+     a selected view toggle, a hovered filter chip). Deliberately separate
+     from --color-text-on-primary above, which is for the navy chrome that
+     stays dark in both themes: --color-primary itself inverts to a light
+     blue in dark mode, and white on that is about 2.9:1 — below the floor
+     for body text. These small fills take dark ink there instead. */
+  --color-ink-on-primary-fill: #ffffff;
 
   /* Semantic (non-risk) status */
   --color-danger: #c0392b;
@@ -140,13 +147,33 @@
      apertures, unambiguous 1/l/I, and lining numerals that stay aligned
      in a column of grades. */
   --font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* The display face — page titles and section headings ONLY. The rule the
+     whole system follows is "words are serif, numbers and UI are sans": a
+     heading names a thing, so it gets the voice; a grade, a rate, a label
+     or a control is read rather than spoken, so it stays in the sans where
+     lining numerals and open apertures matter. Plex Serif is the sans's own
+     superfamily sibling, so the two agree on proportion and weight instead
+     of looking like two fonts that happened to meet here.
+     Georgia is the fallback because it is the one serif present on every
+     school machine whose x-height is close enough not to reflow a title. */
+  --font-family-display: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
   --font-size-xs: 0.6875rem; /* 11px — fine print */
   --font-size-sm: 0.75rem; /* 12px — table meta, secondary text */
   --font-size-base: 0.875rem; /* 14px — body text, inputs */
   --font-size-md: 0.9375rem; /* 15px */
   --font-size-lg: 1rem; /* 16px — sub-section headers */
   --font-size-xl: 1.1875rem; /* 19px — page section headers */
-  --font-size-2xl: 1.4375rem; /* 23px — page titles */
+  --font-size-2xl: 1.4375rem; /* 23px — section headings (serif) */
+  /* The display steps. The seven steps above span 11px to 23px, which is
+     barely a 2x range: with the page title only four points clear of a
+     table header, nothing on the page could lead, and every screen read as
+     an undifferentiated field of 14px text. These two steps exist so a page
+     has one element that is unmistakably its title.
+     Only the display face uses them, and only for a title or a figure — the
+     body scale above is unchanged, because the density of the tables is
+     correct and shrinking or growing data helps nobody. */
+  --font-size-3xl: 1.75rem; /* 28px — headline figures (stat values) */
+  --font-size-4xl: 2.25rem; /* 36px — the page title, one per page */
 
   /* Spacing (4px base unit) — same moderate pass, ~15-20% off every step
      except the smallest (space-1 is already the practical floor; going
@@ -161,6 +188,11 @@
 
   --radius-sm: 4px;
   --radius-md: 6px;
+  /* Every container that holds page content — panel, table card, chart
+     card, figures strip — uses this one radius. They used to be split
+     between --radius-md and --radius-lg depending on which was reached for
+     that day, which is visible as soon as two of them sit side by side. */
+  --radius-card: 8px;
   --radius-lg: 12px;
   --radius-xl: 14px; /* icon tiles (stat cards, avatars) — rounder than a card, not fully circular */
 
@@ -170,7 +202,10 @@
   --shadow-md: 0 4px 16px rgba(26, 58, 107, 0.12);
   --shadow-lg: 0 16px 40px rgba(26, 58, 107, 0.18);
 
-  --sidebar-width: 200px;
+  /* 216, not 200: at 200 the longest nav label in the product,
+     "Academic Progress Tracking", truncated to "Academic Progres..." —
+     a navigation item that cannot say its own name. */
+  --sidebar-width: 216px;
   --sidebar-width-collapsed: 56px;
 
   /* Shared page-background wash — referenced by both `body` and
@@ -239,6 +274,8 @@
   --color-text: #ccd3dd;
   --color-text-muted: #99a4b6;
   --color-text-faint: #828da3;
+  /* Same deep navy the Average band uses for ink on its own fill. */
+  --color-ink-on-primary-fill: #10243d;
   /* --color-text-on-primary(-muted) intentionally not overridden — same
      reasoning as the gradient tokens above: they sit on the sidebar/button
      navy, which doesn't change between themes, so neither should they. */
@@ -382,6 +419,10 @@ body {
   /* Checkboxes, radios and range inputs — the one line that stops the
      school's navy UI from being audited through a browser-blue tick. */
   accent-color: var(--color-primary);
+  /* The text cursor is drawn by the browser in black by default; in a navy
+     product that is one more borrowed default showing through, and it is
+     visible on every form in the app. */
+  caret-color: var(--color-primary);
 }
 *::-webkit-scrollbar {
   width: 10px;
@@ -406,10 +447,13 @@ body {
   background: transparent;
 }
 
+/* Headings are the one place this product speaks rather than reports, so
+   h1 and h2 carry the display serif while h3 — which labels a field group
+   inside a panel, next to the data itself — stays in the sans with
+   everything else it sits beside. */
 h1,
 h2,
 h3 {
-  font-family: var(--font-family);
   font-weight: 600;
   line-height: 1.3;
   /* Headings wrap into even lines instead of leaving one orphaned word on
@@ -419,18 +463,41 @@ h3 {
 }
 
 h1 {
-  font-size: var(--font-size-2xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-4xl);
+  font-weight: 600;
+  /* Less negative than the old -0.02em: at 36px the serif's own fitting is
+     already tight, and pulling further closes the counters. */
+  letter-spacing: -0.01em;
+  line-height: 1.15;
   color: var(--color-primary);
 }
 
+/* The gold tab under a page title. Gold is half the school's seal but had
+   been reduced to a 3px indicator on the active nav item; this is the one
+   other place it carries structure, and it deliberately rhymes with that
+   indicator so the two read as the same mark. Drawn under the title itself
+   rather than as a border on a wrapper, because six pages render a bare
+   <h1> with no wrapper to put it on. */
+h1::after {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 3px;
+  margin-top: var(--space-3);
+  background: var(--color-accent);
+  border-radius: 2px;
+}
+
 h2 {
-  font-size: var(--font-size-xl);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-2xl);
   color: var(--color-text);
+  letter-spacing: -0.005em;
 }
 
 h3 {
+  font-family: var(--font-family);
   font-size: var(--font-size-lg);
   color: var(--color-text);
 }
@@ -626,9 +693,17 @@ td {
   border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-base);
 }
+/* Column headers as a register's headers: small, spaced capitals over a
+   firm rule. They stop competing with the names and figures underneath —
+   at 12px sentence case they were close enough to the body text to read as
+   a first row of data — and the tracking is what makes a table of grades
+   look kept rather than dumped. The same spaced-capital treatment marks
+   the school name under the seal on the sign-in screen. */
 th {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
   color: var(--color-text-muted);
   border-bottom: 1px solid var(--color-border-strong);
 }
@@ -645,7 +720,10 @@ th {
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  /* flex-end, not center: the title block now ends in its gold tab, and
+     aligning the page's controls to that line reads as deliberate, where
+     centering them against the taller block floats them above the title. */
+  align-items: flex-end;
   gap: var(--space-4);
   margin-bottom: var(--space-5);
   flex-wrap: wrap;
@@ -683,7 +761,7 @@ th {
 .table-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   overflow: hidden;
 }
 .table-card table {
@@ -877,7 +955,11 @@ th {
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
   padding: var(--space-3) var(--space-4);
-  background: var(--color-primary);
+  /* The one navy that does NOT invert in dark mode — the same fixed value
+     the sidebar and the sign-in panel use. This bar carries white text, and
+     --color-primary becomes a light blue in dark mode, which left the
+     student's own name at about 2.9:1 on their home page. */
+  background: var(--color-primary-gradient-mid);
 }
 .namecard__bar h1 {
   margin: 0;
@@ -1606,9 +1688,8 @@ th {
 .chart-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   padding: var(--space-4) var(--space-5);
-  box-shadow: var(--shadow-sm);
 }
 .chart-card__head {
   display: flex;
@@ -1811,7 +1892,7 @@ th {
 }
 .filter-chip:hover {
   background: var(--color-primary);
-  color: var(--color-text-on-primary);
+  color: var(--color-ink-on-primary-fill);
 }
 .filter-chip__clear {
   border: none;
@@ -2288,7 +2369,7 @@ th {
 }
 .view-toggle button.is-active {
   background: var(--color-primary);
-  color: var(--color-text-on-primary);
+  color: var(--color-ink-on-primary-fill);
 }
 .view-toggle button + button {
   border-left: 1px solid var(--color-border-strong);
@@ -2441,23 +2522,31 @@ th {
   padding-top: var(--space-5);
   border-top: 1px solid var(--color-border);
 }
+/* A stacked record section's heading sits a step below a page's own
+   section headings — still the serif, so a detail page reads as one
+   document rather than a stack of differently-voiced boxes. */
 .record-section > h2 {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
   margin-bottom: var(--space-3);
 }
 
-/* A bordered, shadowed, padded content box — for a block of content that
+/* A bordered, padded content box — for a block of content that
    isn't a table (.table-card) and isn't one of several stacked record
    sections on a detail page (.record-section), e.g. the dashboard's
    announcements feed, activity feed, and sidebar widgets. Without this,
    those blocks sat directly on the page background with nothing marking
    where they began or ended. */
+/* Flat on purpose. Elevation in this product now means "floating above the
+   page" — a row menu, the account menu, the sticky action bar — and
+   nothing else. When every static block carried the same small shadow, the
+   shadow said nothing except "this is a card", which is the strongest
+   template signal a page can send. A 1px rule separates these just as
+   well. */
 .panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-card);
   padding: var(--space-5);
-  box-shadow: var(--shadow-sm);
 }
 /* My Progress' band history: one cell per grading period, chevrons between,
    scrolling sideways rather than wrapping so the Q1 -> Q2 -> Q3 reading
@@ -2495,8 +2584,11 @@ th {
   color: var(--color-text-muted);
 }
 
+/* The serif needs a little more size than the sans did to hold its shape:
+   at 15px its modelling turns to mush, and a panel heading is the thing
+   telling you what you are looking at. */
 .panel > h2:first-child {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-xl);
   margin-top: 0;
   margin-bottom: var(--space-4);
 }
@@ -2560,7 +2652,7 @@ th {
 .pagination-nav__page.is-active {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  color: var(--color-text-on-primary);
+  color: var(--color-ink-on-primary-fill);
   cursor: default;
 }
 .pagination-nav__ellipsis {
@@ -3167,13 +3259,16 @@ th {
   cursor: pointer;
 }
 .stat-card--interactive:hover:not(:disabled) {
-  /* Keep the card's own lift rather than the button's fill. */
-  background: var(--color-surface);
-  border-color: var(--color-border-strong);
+  /* A tint, not the button's own fill — this is still a figure, and the
+     strip around it has no per-figure border left to darken. */
+  background: var(--color-primary-light);
 }
+/* The open one is marked by the brand colour running down its leading edge
+   — inside a divided strip there is no card outline to recolour, and the
+   inset keeps it from thickening the hairline it sits on. */
 .stat-card--interactive.is-expanded {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-md);
+  background: var(--color-primary-light);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 .stat-card__chevron {
   flex-shrink: 0;
@@ -3331,41 +3426,44 @@ th {
   font-variant-numeric: tabular-nums;
 }
 
-/* Stat cards — a summary row at the top of list/dashboard pages. These ARE
-   boxed (unlike feed items and record sections) because each one is a
-   discrete figure meant to be scanned independently, not a continuation of
-   the content below it. */
+/* The figures at the top of a list or dashboard page: ONE strip, divided,
+   rather than three or four separately bordered cards floating in a grid.
+   Two reasons. A row of identical bordered boxes is the single most
+   template-looking element a page can open with, and these figures are one
+   reading of one dataset — they belong in one object. It also fixes a real
+   defect: pages that filter their figures down to the ones worth showing
+   (Verify Grades shows one) used to leave a lone card marooned in a
+   four-column grid.
+   The hairlines are the 1px grid gap showing the container's background
+   through, which means they land correctly even when the figures wrap to a
+   second line — no divider rules to get wrong at the edges. */
 .stat-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: var(--space-4);
+  gap: 1px;
+  background: var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
   margin-bottom: var(--space-5);
 }
-/* Several pages show a stat row whose cards are filtered down to the ones
-   that are non-zero (Interventions) or that the role can see (a registrar's
-   dashboard shows one). With auto-fit and a 1fr maximum, the survivors
-   stretch edge to edge, and a single figure in a 1200px-wide card reads as
-   a banner with a number lost in it. Below four cards the track is capped
-   so each card stays card-sized; from four up, the full-width row is right
-   and nothing changes. */
-.stat-row:not(:has(> :nth-child(4))) {
-  grid-template-columns: repeat(auto-fit, minmax(190px, 300px));
+/* One or two figures shouldn't stretch across a 1200px page — the strip
+   itself narrows instead of the figures growing apart. */
+.stat-row:not(:has(> :nth-child(3))) {
+  max-width: 560px;
 }
 .stat-card {
   display: flex;
   align-items: center;
   gap: var(--space-4);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  padding: var(--space-4) var(--space-5);
 }
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-border-strong);
+/* A plain figure is not a control: it gets no hover state at all. Only the
+   interactive variant (which opens an explanation) responds, and it does it
+   with a tint rather than the lift-and-shadow every card used to share. */
+.stat-row > .stat-card--interactive {
+  transition: background-color 0.15s ease;
 }
 .stat-card__icon {
   display: flex;
@@ -3387,10 +3485,15 @@ th {
 .stat-card__body {
   min-width: 0;
 }
+/* The figure stays in the sans — "words are serif, numbers are sans" — but
+   takes the display step, because in a divided strip the number is doing
+   the work the card outline used to do in separating one figure from the
+   next. */
 .stat-card__value {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-3xl);
   font-weight: 600;
   line-height: 1.1;
+  letter-spacing: -0.02em;
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
 }
@@ -3452,8 +3555,10 @@ th {
    on the Home dashboard. Smaller icon circle (48px -> 38px, within the
    requested 36-40px), smaller value text (the 2xl page-title size -> xl),
    tighter padding/gaps — same figures, noticeably less vertical space. */
+/* Compact means tighter figures, not a different object: the gap stays at
+   the 1px that draws the strip's hairlines (a real gap here would show the
+   container's border colour as a thick grey band between cells). */
 .stat-row--compact {
-  gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
 .stat-card--compact {

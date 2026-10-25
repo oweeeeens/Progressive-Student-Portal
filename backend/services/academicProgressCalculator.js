@@ -203,10 +203,19 @@ function buildBandExitTargets({ averageGrade, gradeTrend, attendanceRate, attend
 function buildRiskChecks({ factors, averageGrade, gradeTrend, attendanceRate, attendanceTrend }) {
   const triggered = new Set(factors.map((f) => f.key));
 
+  // These strings are read by a student, not by the formula. The values
+  // behind them are Postgres NUMERICs carrying their full declared scale,
+  // so a trend arrives as 5.885 and an average as "60.80" — printed
+  // verbatim that reads as a readout from a database rather than a report
+  // about a person, and implies a precision the measurement does not have.
+  // Rounded for DISPLAY only: every comparison in the scoring above still
+  // uses the full value.
+  const forDisplay = (value) => String(Math.round(Number(value) * 10) / 10);
+
   const describeFall = (value, unit) => {
     if (value == null) return 'Needs two grading periods';
-    if (value < 0) return `Falling ${Math.abs(value)} ${unit} a period`;
-    if (value > 0) return `Rising ${value} ${unit} a period`;
+    if (value < 0) return `Falling ${forDisplay(Math.abs(value))} ${unit} a period`;
+    if (value > 0) return `Rising ${forDisplay(value)} ${unit} a period`;
     return 'Holding steady';
   };
 
@@ -214,12 +223,12 @@ function buildRiskChecks({ factors, averageGrade, gradeTrend, attendanceRate, at
     low_grade: {
       measure: 'Average grade',
       rule: `Flagged when it is below ${GRADE_AT_RISK_THRESHOLD}`,
-      currentText: averageGrade != null ? String(averageGrade) : 'No finalized grades yet',
+      currentText: averageGrade != null ? forDisplay(averageGrade) : 'No finalized grades yet',
     },
     low_attendance: {
       measure: 'Attendance rate',
       rule: `Flagged when it is below ${ATTENDANCE_RISK_THRESHOLD}%`,
-      currentText: attendanceRate != null ? `${attendanceRate}%` : 'No attendance recorded yet',
+      currentText: attendanceRate != null ? `${forDisplay(attendanceRate)}%` : 'No attendance recorded yet',
     },
     declining_grade: {
       measure: 'Grade trend',

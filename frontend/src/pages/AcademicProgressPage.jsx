@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { formatGrade, formatRate, formatTrend } from '../utils/formatNumber'
 import { TrendIcon } from '../components/TrendIcon'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { INTERVENTION_TYPE_LABELS } from '../components/InterventionDetailPanel'
@@ -318,17 +319,16 @@ export function AcademicProgressPage() {
                         <div>
                           <dt>Grade / Trend</dt>
                           <dd>
-                            {fieldValue(s.averageGrade)}
-                            {s.gradeTrend != null && ` (${Number(s.gradeTrend) > 0 ? '+' : ''}${s.gradeTrend}/period)`}
+                            {fieldValue(formatGrade(s.averageGrade))}
+                            {s.gradeTrend != null && ` (${formatTrend(s.gradeTrend)}/period)`}
                             <TrendIcon trend={s.gradeTrend} />
                           </dd>
                         </div>
                         <div>
                           <dt>Attendance / Trend</dt>
                           <dd>
-                            {fieldValue(s.attendanceRate != null ? `${s.attendanceRate}%` : null)}
-                            {s.attendanceTrend != null &&
-                              ` (${Number(s.attendanceTrend) > 0 ? '+' : ''}${s.attendanceTrend}/period)`}
+                            {fieldValue(formatRate(s.attendanceRate))}
+                            {s.attendanceTrend != null && ` (${formatTrend(s.attendanceTrend)}/period)`}
                             <TrendIcon trend={s.attendanceTrend} />
                           </dd>
                         </div>
@@ -364,11 +364,11 @@ export function AcademicProgressPage() {
                 header: 'Section',
                 render: (s) => fieldValue(s.sectionName ? `Grade ${s.gradeLevel} - ${s.sectionName}` : null),
               },
-              { key: 'grade', header: 'Grade', render: (s) => fieldValue(s.averageGrade) },
+              { key: 'grade', header: 'Grade', align: 'right', render: (s) => fieldValue(formatGrade(s.averageGrade)) },
               {
                 key: 'attendance',
                 header: 'Attendance',
-                render: (s) => fieldValue(s.attendanceRate != null ? `${s.attendanceRate}%` : null),
+                render: (s) => fieldValue(formatRate(s.attendanceRate)),
               },
               { key: 'note', header: 'Note', truncate: true, render: (s) => fieldValue(s.note) },
             ]}
@@ -404,8 +404,8 @@ export function AcademicProgressPage() {
                 header: 'Grade / Trend',
                 render: (s) => (
                   <>
-                    {fieldValue(s.averageGrade)}
-                    {s.gradeTrend != null && ` (${Number(s.gradeTrend) > 0 ? '+' : ''}${s.gradeTrend}/period)`}
+                    {fieldValue(formatGrade(s.averageGrade))}
+                    {s.gradeTrend != null && ` (${formatTrend(s.gradeTrend)}/period)`}
                     <TrendIcon trend={s.gradeTrend} />
                   </>
                 ),

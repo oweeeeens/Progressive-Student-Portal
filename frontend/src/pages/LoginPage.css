@@ -1,31 +1,28 @@
 .login-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--page-bg-wash);
-  padding: var(--space-4);
+  min-height: 100dvh;
+  background: var(--color-surface);
 }
 
+/* The sign-in screen is the one surface that is pure first impression, and
+   it used to be a 780px dialog adrift in the middle of an empty gray
+   window — the single most "unfinished" screen in the product. It is now
+   the whole viewport: the school's navy and seal on one side, the task on
+   the other. Same markup, same four pages (AuthCard backs login, forgot,
+   reset and forced change-password) — only the composition changed. */
 .login-card {
-  width: 100%;
-  /* The card is the only thing on this screen, so it is allowed to carry
-     some weight: at 720 x ~320 it sat in the middle of a 1440px window
-     looking like a dialog someone forgot to close. */
-  max-width: 780px;
-  display: flex;
+  min-height: 100dvh;
+  display: grid;
+  /* The brand side is given the larger share on purpose: this is the only
+     screen in the app where identity outranks density. */
+  grid-template-columns: 1.15fr 1fr;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
 }
 
 /* Brand panel: the same navy gradient the sidebar already commits to
    everywhere else in the app — the login page is the one screen that
    previously opted out of it. */
 .login-card__brand {
-  flex: 1 1 260px;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -38,58 +35,95 @@
     var(--color-primary-gradient-end) 100%
   );
   color: var(--color-text-on-primary);
-  padding: var(--space-7) var(--space-5);
+  padding: var(--space-7) var(--space-6);
+  overflow: hidden;
+}
+
+/* A single wide glow behind the seal, in the seal's own gold. It is the
+   sunburst in the school's logo read as light rather than redrawn as
+   geometry — at 6% it registers as the panel having a light source, not as
+   a shape sitting on top of it. */
+.login-card__brand::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 34%, rgba(247, 198, 0, 0.16) 0%, transparent 58%);
+  pointer-events: none;
+}
+
+.login-card__brand > * {
+  position: relative; /* above the glow */
 }
 
 .login-card__logo {
-  width: 74px;
-  height: 74px;
+  width: 132px;
+  height: 132px;
   border-radius: 50%;
   object-fit: cover;
   background: #fff;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: var(--space-4);
+  /* A thin gold ring instead of a drop shadow: on a dark panel a shadow is
+     invisible, and the ring ties the seal to the accent rule below it. */
+  border: 3px solid rgba(247, 198, 0, 0.55);
+  margin-bottom: var(--space-5);
 }
 
 .login-card__title {
   color: var(--color-text-on-primary);
+  font-size: var(--font-size-4xl);
   margin: 0;
+}
+/* The page-title gold tab is suppressed here — this panel already carries
+   the same mark as its own element a few lines down, and two of them read
+   as a mistake. */
+.login-card__title::after {
+  display: none;
 }
 
 .login-card__subtitle {
   color: var(--color-text-on-primary-muted);
   font-size: var(--font-size-sm);
-  margin: 0;
+  /* Spaced small caps under a serif title: the one typographic move that
+     says "institution" rather than "app". */
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  margin: var(--space-2) 0 0;
 }
 
 /* Same gold accent-bar motif as the sidebar's active-link indicator,
    reused here as the brand panel's one deliberate highlight. */
 .login-card__accent-rule {
   display: block;
-  width: 40px;
+  width: 56px;
   height: 3px;
   border-radius: 2px;
   background: var(--color-accent);
-  margin: var(--space-4) 0;
+  margin: var(--space-5) 0;
 }
 
 .login-card__tagline {
   color: var(--color-text-on-primary-muted);
-  font-size: var(--font-size-xs);
-  line-height: 1.5;
+  font-size: var(--font-size-base);
+  line-height: 1.6;
   margin: 0;
   /* Wide enough that the school's name doesn't break after the em dash,
-     and balanced so the three lines come out even rather than ragged. */
-  max-width: 26ch;
+     and balanced so the lines come out even rather than ragged. */
+  max-width: 30ch;
   text-wrap: balance;
 }
 
 .login-card__form-panel {
-  flex: 1 1 320px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: var(--space-7) var(--space-6);
+}
+
+/* The form keeps a readable column however wide the panel gets, centered
+   in it rather than stretched across it. */
+.login-card__form-panel > * {
+  width: 100%;
+  max-width: 380px;
+  margin-inline: auto;
 }
 
 .login-card__form-heading {
@@ -185,19 +219,40 @@
   text-align: center;
 }
 
-/* Brand panel becomes a compact top banner on narrow screens so the form
-   — the actual task — stays the priority instead of competing for space. */
-@media (max-width: 640px) {
+/* Below this width two columns would give the form about 300px to live in,
+   so the brand panel stops being a column and becomes a banner above the
+   task. The seal shrinks rather than disappearing — it is the one piece of
+   the identity worth keeping on a phone. */
+@media (max-width: 860px) {
   .login-card {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
   }
   .login-card__brand {
-    padding: var(--space-5) var(--space-5) var(--space-4);
+    padding: var(--space-6) var(--space-5);
   }
   .login-card__logo {
-    width: 54px;
-    height: 54px;
+    width: 76px;
+    height: 76px;
+    margin-bottom: var(--space-4);
+  }
+  .login-card__title {
+    font-size: var(--font-size-3xl);
+  }
+  .login-card__form-panel {
+    justify-content: flex-start;
+    padding: var(--space-6) var(--space-5) var(--space-7);
+  }
+}
+
+@media (max-width: 640px) {
+  .login-card__logo {
+    width: 62px;
+    height: 62px;
     margin-bottom: var(--space-3);
+  }
+  .login-card__title {
+    font-size: var(--font-size-2xl);
   }
   .login-card__tagline {
     display: none;

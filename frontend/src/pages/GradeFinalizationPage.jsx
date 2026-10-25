@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import './GradesShared.css'
+import { formatGrade } from '../utils/formatNumber'
 import { Alert } from '../components/Alert'
 
 // The final stage of CLAUDE.md's 3-stage grade approval chain, done by
@@ -193,7 +194,7 @@ export function GradeFinalizationPage() {
                       {g.last_name}, {g.first_name}
                     </td>
                     <td>{g.subject_name}</td>
-                    <td>{g.grade_value}</td>
+                    <td>{formatGrade(g.grade_value)}</td>
                     <td>{g.recorded_by_name}</td>
                     <td>{g.verified_by_name}</td>
                   </tr>

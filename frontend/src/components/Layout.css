@@ -25,7 +25,15 @@
      the two feel like one connected scroll area instead of independent
      ones. */
   overscroll-behavior: contain;
-  padding: var(--space-6) var(--space-6);
+  /* No padding here any more: the top bar is a full-bleed strip pinned to
+     the top of this scroll container (see TopBar.css), so the page's own
+     gutters moved down onto .app-shell__page. Padding on the scroller
+     would have inset that strip and left a gap above it when scrolled. */
+  padding: 0;
+}
+
+.app-shell__page {
+  padding: var(--space-5) var(--space-6) var(--space-6);
 }
 
 /* The app's one authored motion: a page rises a few pixels into place as
@@ -38,7 +46,7 @@
 }
 
 @media (max-width: 720px) {
-  .app-shell__content {
-    padding: var(--space-5) var(--space-4);
+  .app-shell__page {
+    padding: var(--space-4) var(--space-4) var(--space-5);
   }
 }

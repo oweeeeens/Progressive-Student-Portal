@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import './GradesShared.css'
+import { formatGrade } from '../utils/formatNumber'
 import { Alert } from '../components/Alert'
 
 const PAGE_SIZE = 20
@@ -236,7 +237,7 @@ export function VerifyGradesPage() {
                         Grade {r.grade_level} - {r.section_name}
                       </td>
                       <td>{r.subject_name}</td>
-                      <td>{r.grade_value}</td>
+                      <td>{formatGrade(r.grade_value)}</td>
                       <td>{r.recorded_by_name}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
