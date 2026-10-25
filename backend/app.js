@@ -3,11 +3,13 @@
 // can import the exact same app or request chain the real server uses,
 // instead of re-mounting routes a second time and risking the two
 // definitions drifting apart.
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const healthRoutes = require('./routes/healthRoutes');
 const authRoutes = require('./routes/authRoutes');
 const studentRoutes = require('./routes/studentRoutes');
+const studentBulkImportRoutes = require('./routes/studentBulkImportRoutes');
 const sectionRoutes = require('./routes/sectionRoutes');
 const subjectRoutes = require('./routes/subjectRoutes');
 const classOfferingRoutes = require('./routes/classOfferingRoutes');
@@ -17,7 +19,9 @@ const subjectAttendanceRoutes = require('./routes/subjectAttendanceRoutes');
 const studentAttendanceRoutes = require('./routes/studentAttendanceRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
 const studentGradeRoutes = require('./routes/studentGradeRoutes');
-const riskDashboardRoutes = require('./routes/riskDashboardRoutes');
+const academicProgressRoutes = require('./routes/academicProgressRoutes');
+const myProgressRoutes = require('./routes/myProgressRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const gradingPeriodRoutes = require('./routes/gradingPeriodRoutes');
 const studentInterventionRoutes = require('./routes/studentInterventionRoutes');
 const interventionRoutes = require('./routes/interventionRoutes');
@@ -26,12 +30,26 @@ const announcementRoutes = require('./routes/announcementRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
-app.use(cors());
+
+// In production the API and the frontend are ONE service on ONE origin (see
+// the static block at the bottom of this file), so the browser never makes a
+// cross-origin request and CORS is simply not needed — leaving it wide open
+// there would permit any site on the internet to call this API with a user's
+// token. In development Vite serves the frontend on its own port, so it is
+// genuinely cross-origin and CORS has to allow it. ALLOWED_ORIGIN covers the
+// third case: a frontend deployed somewhere separate, named explicitly.
+if (process.env.ALLOWED_ORIGIN) {
+  app.use(cors({ origin: process.env.ALLOWED_ORIGIN }));
+} else if (process.env.SERVE_FRONTEND !== 'true') {
+  app.use(cors());
+}
+
 app.use(express.json());
 
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/students/bulk-import', studentBulkImportRoutes);
 app.use('/api/students/:studentId/attendance', studentAttendanceRoutes);
 app.use('/api/sections', sectionRoutes);
 app.use('/api/subjects', subjectRoutes);
@@ -41,13 +59,46 @@ app.use('/api/attendance/daily', dailyAttendanceRoutes);
 app.use('/api/attendance/subject', subjectAttendanceRoutes);
 app.use('/api/students/:studentId/grades', studentGradeRoutes);
 app.use('/api/grades', gradeRoutes);
-app.use('/api/risk-dashboard', riskDashboardRoutes);
+app.use('/api/academic-progress', academicProgressRoutes);
+app.use('/api/my-progress', myProgressRoutes);
+app.use('/api/analytics', analyticsRoutes);
 app.use('/api/grading-periods', gradingPeriodRoutes);
 app.use('/api/students/:studentId/interventions', studentInterventionRoutes);
 app.use('/api/interventions', interventionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+
+// An unknown /api path is an API call, so it gets an API answer. Without
+// this it falls through to the SPA fallback below and a mistyped endpoint
+// returns index.html with a 200, which looks like success to fetch().
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Not found.' });
+});
+
+// --- The built frontend, served by this same service ------------------------
+// One Railway service, one origin: the frontend calls /api/... with no host
+// (see frontend/src/api/client.js), which only works if both come from the
+// same place. It also halves the hosting bill, since Railway charges per
+// service by memory and CPU.
+//
+// Off by default. In development Vite serves the frontend with hot reload
+// and proxies /api here (frontend/vite.config.js), and pointing Express at a
+// possibly-stale or missing dist/ would shadow that.
+if (process.env.SERVE_FRONTEND === 'true') {
+  const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+
+  app.use(express.static(frontendDist));
+
+  // Client-side routes (/my-grades, /students/42) are not files on disk, so
+  // anything that reached here without matching a static file is handed
+  // index.html for React Router to resolve. Written as middleware rather
+  // than app.get('*') because Express 5's path parser rejects a bare '*'.
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
 
 // Catches errors thrown/rejected from any route handler (Express 5 forwards
 // async rejections here automatically) so the API always replies with JSON,

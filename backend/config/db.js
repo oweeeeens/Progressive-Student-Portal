@@ -17,6 +17,14 @@ const pool = new Pool({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
+  // Reached over a provider's PRIVATE network (Railway's *.railway.internal,
+  // or localhost in development) no TLS is used or needed. Over a public
+  // proxy host it is required, and managed providers commonly present a
+  // certificate signed by their own authority, which Node rejects by
+  // default — hence rejectUnauthorized: false, which keeps the connection
+  // encrypted while not verifying who is on the other end. Prefer the
+  // private host and leave this unset; see DEPLOYMENT.md.
+  ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : undefined,
 });
 
 // Simple connectivity check used by the /api/health endpoint to confirm the

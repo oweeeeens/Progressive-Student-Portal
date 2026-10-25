@@ -2,6 +2,9 @@
 
 Full-stack scaffold: React (Vite) frontend, Node/Express backend, PostgreSQL database.
 
+Deploying it? See **[DEPLOYMENT.md](DEPLOYMENT.md)** — this page covers local
+development only.
+
 ## Structure
 ```
 backend/

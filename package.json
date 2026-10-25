@@ -1,0 +1,17 @@
+{
+  "name": "student-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Student Portal System with Trend-Based Academic Risk and Intervention Tracking — DepEd Progressive Senior High School, Bacoor City",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm --prefix frontend ci && npm --prefix frontend run build && npm --prefix backend ci --omit=dev",
+    "start": "node backend/server.js",
+    "migrate:up": "npm --prefix backend run migrate:up",
+    "seed:admin": "npm --prefix backend run seed:admin",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  }
+}
