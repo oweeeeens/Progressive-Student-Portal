@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
+import { moduleForPath } from '../utils/moduleTheme'
 import './Layout.css'
 
 const SIDEBAR_COLLAPSED_KEY = 'studentPortal.sidebarCollapsed'
@@ -51,7 +52,10 @@ export function Layout() {
   return (
     <div className="app-shell">
       <Sidebar collapsed={sidebarCollapsed} />
-      <main className="app-shell__content" ref={contentRef}>
+      {/* data-module colours everything below it — the page's header wash,
+          its icon tiles, its table header. Set here, once, from the route,
+          so no page component has to know which hue it belongs to. */}
+      <main className="app-shell__content" ref={contentRef} data-module={moduleForPath(pathname)}>
         <TopBar sidebarCollapsed={sidebarCollapsed} onToggleSidebar={toggleSidebar} />
         {/* Keyed by route so the entrance animation replays on navigation —
             without the key this element persists across routes and the

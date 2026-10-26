@@ -25,6 +25,11 @@
      the two feel like one connected scroll area instead of independent
      ones. */
   overscroll-behavior: contain;
+  /* Belt and braces against a wide table or a mis-sized decoration ever
+     turning the whole shell into a horizontal scroller. `clip` rather than
+     `hidden` because clip does not turn this into a second scroll
+     container, which would break the top bar's sticky positioning. */
+  overflow-x: clip;
   /* No padding here any more: the top bar is a full-bleed strip pinned to
      the top of this scroll container (see TopBar.css), so the page's own
      gutters moved down onto .app-shell__page. Padding on the scroller

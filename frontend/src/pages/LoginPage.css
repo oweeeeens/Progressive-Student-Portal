@@ -47,7 +47,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 34%, rgba(247, 198, 0, 0.16) 0%, transparent 58%);
+  background: radial-gradient(circle at 50% 34%, color-mix(in srgb, var(--color-accent) 16%, transparent) 0%, transparent 58%);
   pointer-events: none;
 }
 
@@ -63,7 +63,7 @@
   background: #fff;
   /* A thin gold ring instead of a drop shadow: on a dark panel a shadow is
      invisible, and the ring ties the seal to the accent rule below it. */
-  border: 3px solid rgba(247, 198, 0, 0.55);
+  border: 3px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
   margin-bottom: var(--space-5);
 }
 

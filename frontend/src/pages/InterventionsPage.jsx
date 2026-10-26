@@ -169,7 +169,7 @@ export function InterventionsPage() {
       {!interventions ? (
         <p>Loading interventions…</p>
       ) : (
-        <DataTable
+        <DataTable illustration="support"
           columns={[
             { key: 'student', header: 'Student', render: (i) => `${i.student_last_name}, ${i.student_first_name}` },
             { key: 'type', header: 'Type', render: (i) => INTERVENTION_TYPE_LABELS[i.intervention_type] },

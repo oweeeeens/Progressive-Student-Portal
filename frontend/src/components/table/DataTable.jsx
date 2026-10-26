@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
+import { SpotIllustration } from '../illustrations/SpotIllustration'
 import { RowMenu } from './RowMenu'
 
 // The value shown wherever a field is missing — ONE spelling, used by every
@@ -32,6 +33,10 @@ function SortAffordance({ state }) {
 // The one list component for the whole app.
 //
 // `columns`: [{ key, header, sortable, align, width, render(row), muted }]
+// `illustration`: which spot drawing tops the empty state — see
+//   components/illustrations/SpotIllustration.jsx. Defaults to the roster
+//   sheet, which suits a list of people; pages showing marks, a register
+//   or a queue should name theirs.
 // `rows`, `rowKey(row)`
 // `onRowClick(row)`        — whole row becomes clickable + keyboard-operable
 // `rowActions(row)`        — array for the trailing "⋮" menu
@@ -62,6 +67,7 @@ export function DataTable({
   isFiltered = false,
   emptyState,
   noResultsState,
+  illustration = 'roster',
   // Set when the request behind this table failed. An empty table then
   // means "nothing could be read", which is a different statement from
   // "there is nothing here" or "nothing matches your filters" — and the
@@ -98,11 +104,21 @@ export function DataTable({
     if (error) {
       return (
         <div className="empty-state">
+          <SpotIllustration name="search" />
           <p>This list could not be loaded.</p>
         </div>
       )
     }
-    return <div className="empty-state">{isFiltered ? noResultsState : emptyState}</div>
+    // A filtered-to-nothing list and a genuinely empty one are different
+    // situations and get different drawings: one is "look again", the other
+    // is "there is nothing here yet". `illustration` lets a page name a more
+    // specific one (a register, a mark sheet) than the roster default.
+    return (
+      <div className="empty-state">
+        <SpotIllustration name={isFiltered ? 'search' : illustration} />
+        {isFiltered ? noResultsState : emptyState}
+      </div>
+    )
   }
 
   const from = page && pageSize ? (page - 1) * pageSize + 1 : 1

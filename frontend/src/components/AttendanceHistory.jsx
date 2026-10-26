@@ -117,7 +117,7 @@ export function AttendanceHistory({ studentId, kind, title }) {
         // was last viewed even after the underlying data changes period.
         <AttendanceCalendar key={periodId} records={calendarRecords} />
       ) : (
-        <DataTable
+        <DataTable illustration="calendar"
           columns={[
             { key: 'date', header: 'Date', render: (r) => r.attendance_date },
             ...(kind === 'subject'

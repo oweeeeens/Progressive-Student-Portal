@@ -186,14 +186,73 @@
   --space-6: 1.625rem; /* 26px */
   --space-7: 2.375rem; /* 38px */
 
+  /* ---------------------------------------------------------------------
+     Module palette — the colour of WHERE YOU ARE.
+
+     Every area of the work owns one hue, carried by its page header band,
+     its sidebar group and its icon tiles. The point is orientation: a
+     teacher three clicks into the week should know they are in Attendance
+     without reading the title. Before this existed, 27 screens were the
+     same navy-on-white and only the words told them apart.
+
+     These are SUPPORTING colours. Navy and gold remain the brand
+     (CLAUDE.md), and the risk ramp above remains reserved — nothing here
+     goes near its reds, salmon or green, because a hue that means "an area
+     of the app" must never be mistaken for one that means "this child is
+     failing".
+
+     Validated with the dataviz skill's validate_palette.js, both modes,
+     the same way the risk ramp was — not chosen by eye:
+       light #4f46e5,#0d9488,#b45309,#a21caf -> ALL CHECKS PASS
+       dark  #6366f1,#0f9488,#d97706,#c026d3 -> ALL CHECKS PASS
+     Two results worth keeping:
+       - Accounts & Setup deliberately has NO hue. The first candidate gave
+         it slate #475569, which failed the chroma floor (it reads grey) and
+         sat at deltaE 6.5 from plum under deuteranopia. A neutral area beats
+         a fifth colour that is both invisible and nearly plum.
+       - In dark mode amber<->teal is deltaE 6.3 under tritanopia, inside the
+         6-8 band that is legal ONLY alongside secondary encoding. These hues
+         never appear without their area's label and icon, which satisfies
+         that — so they must never be used as colour alone. */
+  --module-records: #4f46e5; /* Students & Records — indigo */
+  --module-records-soft: #eef0fd;
+  --module-records-ink: #312ca3;
+  --module-attendance: #0d9488; /* Attendance — teal */
+  --module-attendance-soft: #e6f5f3;
+  --module-attendance-ink: #0a6a62;
+  --module-grades: #b45309; /* Grades — burnt amber, not the brand gold */
+  --module-grades-soft: #fdf1e3;
+  --module-grades-ink: #8a3f07;
+  --module-progress: #a21caf; /* Progress & Interventions — plum */
+  --module-progress-soft: #fbeafc;
+  --module-progress-ink: #7d1587;
+  /* The neutral area. Accounts and Academic Setup are plumbing, not a part
+     of the school year, and they read as calmer for having no colour. */
+  --module-admin: var(--color-text-muted);
+  --module-admin-soft: var(--color-neutral-bg);
+  --module-admin-ink: var(--color-text);
+
+  /* ---------------------------------------------------------------------
+     Motion. Three durations and two curves, so the whole product moves at
+     one pace instead of the 28 separately-guessed transition values this
+     replaces. --ease-out is exponential: fast to start, long settle, which
+     is what makes a thing read as arriving rather than sliding.
+     Everything here is disabled wholesale by the prefers-reduced-motion
+     block at the end of this file. */
+  --dur-fast: 120ms; /* a press, a tint, a chevron */
+  --dur-base: 220ms; /* the common case: entrances, expands, hovers */
+  --dur-slow: 420ms; /* a chart drawing itself in */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
   --radius-sm: 4px;
   --radius-md: 6px;
   /* Every container that holds page content — panel, table card, chart
      card, figures strip — uses this one radius. They used to be split
      between --radius-md and --radius-lg depending on which was reached for
-     that day, which is visible as soon as two of them sit side by side. */
+     that day, which is visible as soon as two of them sit side by side.
+     (--radius-lg was deleted in the same pass: declared, never once used.) */
   --radius-card: 8px;
-  --radius-lg: 12px;
   --radius-xl: 14px; /* icon tiles (stat cards, avatars) — rounder than a card, not fully circular */
 
   /* Tinted to the brand navy rather than neutral black, so elevation reads
@@ -201,6 +260,25 @@
   --shadow-sm: 0 1px 2px rgba(26, 58, 107, 0.08);
   --shadow-md: 0 4px 16px rgba(26, 58, 107, 0.12);
   --shadow-lg: 0 16px 40px rgba(26, 58, 107, 0.18);
+  /* The sticky action bar throws its shadow UPWARD, over the content it is
+     covering. It had been hand-rolling this value with a second hand-rolled
+     copy for dark mode; now it is a token like the other three. */
+  --shadow-up: 0 -4px 12px rgba(26, 58, 107, 0.08);
+
+  /* ---------------------------------------------------------------------
+     Ink and fill on the fixed navy chrome (sidebar, sign-in panel). That
+     chrome stays dark in BOTH themes, so it cannot use --color-text and
+     friends — and before this it was nineteen separate rgba(255,255,255,a)
+     literals in Sidebar.css, an undocumented parallel scale that nothing
+     named and nothing could keep consistent. */
+  --on-navy-text: rgba(255, 255, 255, 0.82); /* a resting nav label */
+  --on-navy-text-strong: #ffffff; /* hovered, active, or a heading */
+  --on-navy-text-muted: rgba(255, 255, 255, 0.55); /* a group label */
+  --on-navy-text-dim: rgba(255, 255, 255, 0.68); /* a nested child link */
+  --on-navy-fill: rgba(255, 255, 255, 0.08); /* hover wash */
+  --on-navy-fill-strong: rgba(255, 255, 255, 0.16); /* active wash */
+  --on-navy-rule: rgba(255, 255, 255, 0.12); /* a divider */
+  --on-navy-rule-strong: rgba(255, 255, 255, 0.4);
 
   /* 216, not 200: at 200 the longest nav label in the product,
      "Academic Progress Tracking", truncated to "Academic Progres..." —
@@ -213,6 +291,20 @@
      keep these as one token rather than two copies that can drift apart. */
   --page-wash-start: #fbfcfe;
   --page-bg-wash: radial-gradient(ellipse 1400px 800px at 50% -10%, var(--page-wash-start) 0%, var(--color-bg) 55%);
+
+  /* The school seal's sunburst, read as light rather than redrawn as
+     geometry — the same idea as the glow behind the seal on the sign-in
+     screen, turned into a texture a header band can carry.
+     Rays radiate from a point below the band, so only their spreading ends
+     cross it. Built from a repeating-conic-gradient rather than an SVG data
+     URI: it costs no bytes, scales to any width without resampling, and the
+     ray colour stays a variable the band can set to its own module hue. */
+  --texture-ray-color: rgba(255, 255, 255, 0.07);
+  --texture-rays: repeating-conic-gradient(
+    from 184deg at 50% 148%,
+    var(--texture-ray-color) 0deg 1.6deg,
+    transparent 1.6deg 7deg
+  );
 
   color-scheme: light;
 }
@@ -354,8 +446,34 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32);
   --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-up: 0 -4px 12px rgba(0, 0, 0, 0.3);
+
+  /* Module hues, dark. Brighter and slightly less saturated than their
+     light counterparts — the same inversion the band palette above makes,
+     for the same reason: a colour that carries on white disappears on
+     #1e2530. Validated as a set with validate_palette.js --mode dark
+     (ALL CHECKS PASS); see the light block for the two caveats.
+     The -soft fills become translucent rather than opaque, so a tinted
+     header band reads as the surface being lit rather than painted. */
+  --module-records: #6366f1;
+  --module-records-soft: rgba(99, 102, 241, 0.14);
+  --module-records-ink: #aab0fb;
+  --module-attendance: #0f9488;
+  --module-attendance-soft: rgba(15, 148, 136, 0.16);
+  --module-attendance-ink: #5fcfc3;
+  --module-grades: #d97706;
+  --module-grades-soft: rgba(217, 119, 6, 0.15);
+  --module-grades-ink: #efb366;
+  --module-progress: #c026d3;
+  --module-progress-soft: rgba(192, 38, 211, 0.15);
+  --module-progress-ink: #e9a0f2;
+
+  /* The navy chrome does not change between themes, so --on-navy-* is NOT
+     overridden here — see the note at the top of this block. */
 
   --page-wash-start: #1b222c;
+  /* The rays need more presence on a dark surface to register at all. */
+  --texture-ray-color: rgba(255, 255, 255, 0.05);
 
   color-scheme: dark;
 }
@@ -717,9 +835,104 @@ th {
    header/table/status treatment.
    ========================================================================== */
 
+/* =============================================================================
+   Where you are, in colour
+   =============================================================================
+   Layout.jsx puts data-module on the scroll container from the route (see
+   utils/moduleTheme.js). These five blocks are the only place that attribute
+   is turned into colour; everything downstream reads --module and never
+   names a hue itself, which is what keeps a header band, an icon tile and a
+   table header in agreement.
+   Home has no hue on purpose — it belongs to the whole school rather than to
+   one area, and it is what makes the coloured areas register when you leave
+   it. */
+[data-module='home'] {
+  --module: var(--color-primary);
+  --module-soft: var(--color-primary-light);
+  --module-ink: var(--color-primary);
+}
+[data-module='records'] {
+  --module: var(--module-records);
+  --module-soft: var(--module-records-soft);
+  --module-ink: var(--module-records-ink);
+}
+[data-module='attendance'] {
+  --module: var(--module-attendance);
+  --module-soft: var(--module-attendance-soft);
+  --module-ink: var(--module-attendance-ink);
+}
+[data-module='grades'] {
+  --module: var(--module-grades);
+  --module-soft: var(--module-grades-soft);
+  --module-ink: var(--module-grades-ink);
+}
+[data-module='progress'] {
+  --module: var(--module-progress);
+  --module-soft: var(--module-progress-soft);
+  --module-ink: var(--module-progress-ink);
+}
+[data-module='admin'] {
+  --module: var(--module-admin);
+  --module-soft: var(--module-admin-soft);
+  --module-ink: var(--module-admin-ink);
+}
+
+/* The header wash. Drawn as a backdrop behind the top of the page rather
+   than as a box around the title, for one practical reason and one design
+   one: six pages render a bare <h1> with no wrapper to put a box on, and a
+   wash that fades out belongs to the page instead of sitting on it as one
+   more container. It carries the seal's sunburst at very low strength, so
+   the texture reads as light falling on the page.
+   Full-bleed horizontally via negative insets that cancel .app-shell__page's
+   gutters. */
+.app-shell__page {
+  position: relative;
+}
+.app-shell__page::before {
+  content: '';
+  position: absolute;
+  /* inset 0, not a negative bleed: an absolutely positioned box is laid
+     out against its ancestor's PADDING box, so 0 already reaches the
+     outer edge of .app-shell__page's gutters. The negative version did
+     the same thing visually while adding 26px of clipped overflow to
+     the scroll container on every page. */
+  inset: 0 0 auto;
+  height: 13rem;
+  /* Mixed from --module against the surface rather than using the pale
+     --module-soft token: at soft strength over a fade this was invisible,
+     and a wash nobody can see is worse than none — it reads as a rendering
+     artefact rather than a decision. */
+  background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--module) 17%, var(--color-surface)) 0%,
+      color-mix(in srgb, var(--module) 5%, transparent) 55%,
+      transparent 100%
+    ),
+    var(--texture-rays);
+  /* The rays take the area's own hue rather than white, or they vanish on a
+     pale tint in light mode. */
+  --texture-ray-color: color-mix(in srgb, var(--module) 16%, transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+/* The page's own content sits above the wash. */
+.app-shell__page > * {
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 720px) {
+  .app-shell__page::before {
+    height: 12rem;
+  }
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
+  /* Closed by a rule in the area's colour, so the header reads as a band
+     with an edge rather than a title that happens to sit on a tint. */
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--module) 35%, transparent);
   /* flex-end, not center: the title block now ends in its gold tab, and
      aligning the page's controls to that line reads as deliberate, where
      centering them against the taller block floats them above the title. */
@@ -768,10 +981,15 @@ th {
   margin: 0;
 }
 .table-card th {
-  background: var(--color-bg);
+  /* The area's colour, at the strength a header band can carry behind
+     small spaced capitals. A list page is mostly its table, so this is
+     where "which part of the school is this" has to be legible. */
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 9%, var(--color-surface));
+  color: var(--module-ink, var(--color-text-muted));
+  border-bottom-color: color-mix(in srgb, var(--module, var(--color-primary)) 30%, var(--color-border-strong));
 }
 .table-card tbody tr:hover {
-  background: var(--color-primary-light);
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 6%, var(--color-surface));
 }
 .table-card tbody tr:last-child td {
   border-bottom: none;
@@ -2594,9 +2812,30 @@ th {
 }
 
 .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   padding: var(--space-7) var(--space-4);
   color: var(--color-text-muted);
+}
+/* The drawing above an empty state. It arrives a beat after the page does —
+   the one place in the product where motion is pure warmth rather than
+   feedback, and it is affordable here because an empty state is a moment
+   with nothing else happening in it. */
+.spot-illustration {
+  margin-bottom: var(--space-4);
+  animation: spot-arrive var(--dur-slow) var(--ease-out) both;
+}
+@keyframes spot-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .empty-state p {
   margin: 0;
@@ -2692,10 +2931,7 @@ th {
   gap: var(--space-4);
   background: var(--color-surface);
   border-top: 1px solid var(--color-border);
-  box-shadow: 0 -4px 12px rgba(26, 58, 107, 0.08);
-}
-:root[data-theme='dark'] .sticky-action-bar {
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-up);
 }
 .sticky-action-bar__status {
   font-size: var(--font-size-sm);
@@ -3473,10 +3709,16 @@ th {
   height: 40px;
   border-radius: var(--radius-xl);
   flex-shrink: 0;
-  /* Defaults to the brand navy; variants below override for semantic figures.
-     A soft two-tone gradient within each hue rather than a flat tint. */
-  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));
-  color: var(--color-primary);
+  /* Defaults to the area's own colour; the semantic variants below still
+     override it, because a figure that means "at risk" has to keep meaning
+     that whichever part of the app it appears in. A soft two-tone gradient
+     within the hue rather than a flat tint. */
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--module, var(--color-primary)) 14%, var(--color-surface)),
+    color-mix(in srgb, var(--module, var(--color-primary)) 24%, var(--color-surface))
+  );
+  color: var(--module-ink, var(--color-primary));
 }
 /* Lets the label beside it actually shrink enough for text-overflow:
    ellipsis to engage — a flex item's default min-width:auto otherwise
@@ -3547,7 +3789,7 @@ th {
 /* The one place gold earns a spot in content: a single highlighted figure
    worth drawing the eye to, used sparingly and never more than once a row. */
 .stat-card--accent .stat-card__icon {
-  background: linear-gradient(135deg, rgba(247, 198, 0, 0.18), rgba(247, 198, 0, 0.3));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 18%, transparent), color-mix(in srgb, var(--color-accent) 30%, transparent));
   color: var(--color-accent-text);
 }
 

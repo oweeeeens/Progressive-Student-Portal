@@ -90,7 +90,7 @@ export function InterventionHistory({ studentId }) {
         </button>
       </form>
 
-              <DataTable
+              <DataTable illustration="support"
           columns={[
             { key: 'type', header: 'Type', render: (i) => INTERVENTION_TYPE_LABELS[i.intervention_type] },
             { key: 'date', header: 'Date logged', render: (i) => fieldValue(i.date_logged) },

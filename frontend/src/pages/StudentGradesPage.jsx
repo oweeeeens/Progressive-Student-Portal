@@ -326,7 +326,7 @@ export function StudentGradesPage() {
 
       <div className="record-section">
         <h2>Your Subjects &amp; Grades</h2>
-        <DataTable
+        <DataTable illustration="grades"
           columns={[
             {
               key: 'subject',

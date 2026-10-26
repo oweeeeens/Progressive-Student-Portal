@@ -5,6 +5,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
+import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 
 const PAGE_SIZE = 15
 const emptyForm = { name: '', code: '', gradeLevel: '' }
@@ -175,7 +176,15 @@ export function SubjectsPage() {
         <p>Loading…</p>
       ) : rows.length === 0 ? (
         <div className="empty-state">
-          <p>{error ? 'This list could not be loaded.' : 'No subjects found.'}</p>
+          <SpotIllustration name={error ? 'search' : 'roster'} />
+          {error ? (
+            <p>This list could not be loaded.</p>
+          ) : (
+            <>
+              <p>No subjects yet.</p>
+              <p>Add the subjects this school teaches before setting up classes.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="table-card">

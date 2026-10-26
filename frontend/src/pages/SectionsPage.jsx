@@ -5,6 +5,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
+import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 
 const PAGE_SIZE = 15
 const emptyForm = { schoolYearId: '', gradeLevel: 11, strand: '', name: '', adviserId: '' }
@@ -223,7 +224,15 @@ export function SectionsPage() {
         <p>Loading…</p>
       ) : rows.length === 0 ? (
         <div className="empty-state">
-          <p>{error ? 'This list could not be loaded.' : 'No sections found.'}</p>
+          <SpotIllustration name={error ? 'search' : 'roster'} />
+          {error ? (
+            <p>This list could not be loaded.</p>
+          ) : (
+            <>
+              <p>No sections yet.</p>
+              <p>Create one to start assigning students and advisers.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="table-card">

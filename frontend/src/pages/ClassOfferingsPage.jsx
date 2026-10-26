@@ -5,6 +5,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
+import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 
 const PAGE_SIZE = 15
 const emptyForm = { schoolYearId: '', sectionId: '', subjectId: '', teacherId: '' }
@@ -237,7 +238,15 @@ export function ClassOfferingsPage() {
         <p>Loading…</p>
       ) : rows.length === 0 ? (
         <div className="empty-state">
-          <p>{error ? 'This list could not be loaded.' : 'No class offerings found.'}</p>
+          <SpotIllustration name={error ? 'search' : 'roster'} />
+          {error ? (
+            <p>This list could not be loaded.</p>
+          ) : (
+            <>
+              <p>No class offerings yet.</p>
+              <p>A class offering is one subject taught to one section — create one so a teacher can enter grades.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="table-card">

@@ -204,7 +204,7 @@ export function StudentAttendancePage() {
           attendance rate is worked out from.
         </p>
 
-        <DataTable
+        <DataTable illustration="calendar"
           columns={[
             { key: 'period', header: 'Grading Period', render: (p) => p.periodName },
             { key: 'present', header: 'Present', align: 'right', render: (p) => p.present },
@@ -249,7 +249,7 @@ export function StudentAttendancePage() {
           Taken by each subject teacher for their own class. These counts can differ from the daily record above — you can
           be marked present in homeroom and still miss a subject period.
         </p>
-        <DataTable
+        <DataTable illustration="calendar"
           columns={[
             {
               key: 'subject',

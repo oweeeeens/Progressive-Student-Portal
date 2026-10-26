@@ -44,7 +44,7 @@ export function GradeHistory({ studentId }) {
         </div>
       )}
 
-              <DataTable
+              <DataTable illustration="grades"
           columns={[
             { key: 'subject', header: 'Subject', render: (g) => g.subject_name },
             { key: 'period', header: 'Period', render: (g) => g.grading_period_name },
