@@ -242,8 +242,11 @@
   --dur-fast: 120ms; /* a press, a tint, a chevron */
   --dur-base: 220ms; /* the common case: entrances, expands, hovers */
   --dur-slow: 420ms; /* a chart drawing itself in */
+  /* One curve, and deliberately only one. An overshoot/"spring" curve was
+     added here alongside it and removed the same day: nothing used it, and
+     a curve that travels past its target and springs back is the dated
+     default this product should not reach for. Real things decelerate. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
   --radius-sm: 4px;
   --radius-md: 6px;
