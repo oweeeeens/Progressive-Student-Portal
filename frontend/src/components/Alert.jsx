@@ -21,14 +21,14 @@ const VARIANT_ICONS = {
   info: Info,
 }
 
-export function Alert({ variant = 'danger', title, children, actions }) {
+export function Alert({ variant = 'danger', title, children, actions, className = '' }) {
   const Icon = VARIANT_ICONS[variant] || Info
 
   return (
     // role="alert" only for failures: it interrupts a screen reader
     // mid-sentence, which is right for "this didn't work" and wrong for a
     // success note, which is announced politely instead.
-    <div className={`alert alert--${variant}`} role={variant === 'danger' ? 'alert' : 'status'}>
+    <div className={`alert alert--${variant} ${className}`.trim()} role={variant === 'danger' ? 'alert' : 'status'}>
       <Icon className="alert__icon" size={18} strokeWidth={2} aria-hidden="true" />
       <div className="alert__body">
         {title && <p className="alert__title">{title}</p>}

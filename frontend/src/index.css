@@ -794,6 +794,74 @@ button:focus-visible {
   transform: translateY(-1px);
   text-decoration: none;
 }
+/* A confirmation that has just arrived. Used only where the message
+   follows real effort — a roster marked, a term's grades submitted,
+   verified, finalised — so it reads as the system acknowledging work
+   rather than congratulating a click. It settles once and then sits
+   there: the message stays until the state changes, as every Alert does.
+   Opacity and transform only, and the global reduced-motion switch turns
+   it off entirely. */
+.alert--settles {
+  animation: alert-settle var(--dur-base) var(--ease-out) both;
+}
+@keyframes alert-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* =============================================================================
+   Press and focus
+   =============================================================================
+   Before this, `:active` appeared exactly once in 5,000 lines of CSS — the
+   rule just below — and most components that reset their own border and
+   background relied on the generic button focus ring happening to land on
+   them. A control that does not answer a press feels broken in a way nobody
+   reports and everybody notices; it is the cheapest liveliness there is.
+
+   A press is a 1px settle, not a bounce: the control moves toward the
+   finger and stops. */
+.btn-subtle:active:not(:disabled),
+.btn-danger:active:not(:disabled),
+.btn-danger-subtle:active:not(:disabled),
+.icon-btn:active:not(:disabled),
+.btn-icon:active:not(:disabled),
+.quick-actions__item:active,
+.pagination-nav__page:active:not(:disabled),
+.pagination-nav__arrow:active:not(:disabled),
+.view-toggle button:active:not(:disabled),
+.filter-chip:active,
+.chart-toggle:active,
+.row-menu__trigger:active:not(:disabled),
+.tabs__item:active {
+  transform: translateY(1px);
+}
+
+/* The components that strip their own chrome have to own their focus ring,
+   rather than inheriting one drawn for a bordered box. */
+.tabs__item:focus-visible,
+.row-menu__item:focus-visible,
+.account-menu__item:focus-visible,
+.link-button:focus-visible,
+.sortable-header:focus-visible,
+.risk-badge__toggle:focus-visible,
+.table-toolbar__clear:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+/* Inside a menu sheet the ring sits within the item's own bounds, or the
+   sheet's rounded corners clip it on the first and last row. */
+.row-menu__item:focus-visible,
+.account-menu__item:focus-visible {
+  outline-offset: -2px;
+}
+
 .btn-primary:active:not(:disabled) {
   transform: translateY(0);
   box-shadow: var(--shadow-sm);
@@ -2048,7 +2116,28 @@ th {
   fill: var(--color-text-muted);
 }
 .column-chart__bar {
-  transition: opacity 0.15s ease;
+  /* Columns rise from the baseline on first paint. transform-box: fill-box
+     makes the origin the bar's own box rather than the whole SVG canvas,
+     which is what lets "bottom" mean the baseline. Transform and opacity
+     only, so this stays on the compositor. */
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transition: opacity 0.15s ease, transform var(--dur-slow) var(--ease-out);
+}
+.column-chart__bar.is-collapsed {
+  transform: scaleY(0);
+}
+
+/* A line draws itself along its own length. pathLength={1} on the element
+   normalises the geometry, so one dash of length 1 covers the whole path
+   whatever its real shape. */
+.chart-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset var(--dur-slow) var(--ease-out);
+}
+.chart-line.is-undrawn {
+  stroke-dashoffset: 1;
 }
 /* Hovering one column dims the others rather than recolouring the hovered
    one: changing a bar's colour on hover would contradict the one thing its
@@ -3865,6 +3954,50 @@ th {
   background: var(--color-border);
   border-radius: var(--radius-sm);
   animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* A table that has not arrived yet, drawn at the real row height so the page
+   does not jump when it does. Column widths match the table system's own
+   padding, which is what makes this read as the table rather than as a
+   loading graphic parked where the table will go. */
+.skeleton-table {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+.skeleton-table__head,
+.skeleton-table__row {
+  display: grid;
+  grid-template-columns: 2fr 1.4fr 1.4fr 1fr;
+  gap: var(--space-5);
+  align-items: center;
+  padding: var(--space-3);
+}
+.skeleton-table__head {
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 9%, var(--color-surface));
+  border-bottom: 1px solid var(--color-border-strong);
+}
+.skeleton-table__row + .skeleton-table__row,
+.skeleton-table__head + .skeleton-table__row {
+  border-top: 1px solid var(--color-border);
+}
+/* Each row starts its shimmer a beat after the one above, so the block
+   reads as filling in from the top rather than pulsing as one slab. */
+.skeleton-table__row:nth-child(2) .skeleton {
+  animation-delay: 0.05s;
+}
+.skeleton-table__row:nth-child(3) .skeleton {
+  animation-delay: 0.1s;
+}
+.skeleton-table__row:nth-child(4) .skeleton {
+  animation-delay: 0.15s;
+}
+.skeleton-table__row:nth-child(5) .skeleton {
+  animation-delay: 0.2s;
+}
+.skeleton-table__row:nth-child(n + 6) .skeleton {
+  animation-delay: 0.25s;
 }
 @keyframes skeleton-pulse {
   0%, 100% {

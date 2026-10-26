@@ -1,4 +1,5 @@
 import { useChartWidth } from '../../hooks/useChartWidth'
+import { useDrawIn } from '../../hooks/useDrawIn'
 import { ChartTooltip, useChartTooltip } from './ChartTooltip'
 
 // Vertical bars over time, measured against a threshold — the form for
@@ -63,6 +64,8 @@ export function ColumnChart({
 }) {
   const [widthRef, width] = useChartWidth(480)
   const { containerRef, tooltip, show, hide } = useChartTooltip()
+  // Columns rise from the baseline on first paint (see .column-chart__bar).
+  const drawn = useDrawIn()
 
   const plotHeight = HEIGHT - PADDING.top - PADDING.bottom
   const plotWidth = Math.max(width - PADDING.left - PADDING.right, 60)
@@ -225,7 +228,12 @@ export function ColumnChart({
                     <path
                       d={barPath(x, baseY - height, barWidth, height)}
                       fill={colorFor(point.value)}
-                      className={`column-chart__bar${activeIndex === index ? ' is-hovered' : ''}`}
+                      className={`column-chart__bar${activeIndex === index ? ' is-hovered' : ''}${
+                        drawn ? '' : ' is-collapsed'
+                      }`}
+                      // Each column follows the one before it, so a term
+                      // reads left to right the way it was lived.
+                      style={{ transitionDelay: `${Math.min(index, 8) * 45}ms` }}
                     />
                     <text x={centerX(index)} y={baseY - height - 7} textAnchor="middle" className="chart-value-label">
                       {formatValue(point.value)}

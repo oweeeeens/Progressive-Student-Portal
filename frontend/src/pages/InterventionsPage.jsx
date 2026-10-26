@@ -166,40 +166,39 @@ export function InterventionsPage() {
         }
       />
 
-      {!interventions ? (
-        <p>Loading interventions…</p>
-      ) : (
-        <DataTable illustration="support"
-          columns={[
-            { key: 'student', header: 'Student', render: (i) => `${i.student_last_name}, ${i.student_first_name}` },
-            { key: 'type', header: 'Type', render: (i) => INTERVENTION_TYPE_LABELS[i.intervention_type] },
-            {
-              key: 'risk',
-              header: 'Risk at logging',
-              uniformValue: (i) => i.risk_level_at_intervention,
-              render: (i) => (
-                <StatusPill label={i.risk_level_at_intervention} variant={RISK_VARIANTS[i.risk_level_at_intervention]} />
-              ),
-            },
-            { key: 'logged', header: 'Date logged', render: (i) => fieldValue(i.date_logged) },
-            { key: 'by', header: 'Logged by', render: (i) => fieldValue(i.logged_by_name) },
-            {
-              key: 'status',
-              header: 'Status',
-              uniformValue: (i) => i.status,
-              render: (i) => <StatusPill label={i.status} variant={INTERVENTION_STATUS_VARIANTS[i.status]} />,
-            },
-          ]}
-          rows={interventions}
-          rowKey={(i) => i.id}
-          onRowClick={(i) => toggleExpanded(i.id)}
-          renderExpanded={(i) =>
-            expandedId === i.id ? (
-              <InterventionDetailPanel
-                intervention={i}
-                studentName={`${i.student_last_name}, ${i.student_first_name}`}
-                onStatusChange={handleStatusChange}
-              />
+      <DataTable
+      illustration="support"
+      loading={!interventions}
+      columns={[
+          { key: 'student', header: 'Student', render: (i) => `${i.student_last_name}, ${i.student_first_name}` },
+          { key: 'type', header: 'Type', render: (i) => INTERVENTION_TYPE_LABELS[i.intervention_type] },
+          {
+            key: 'risk',
+            header: 'Risk at logging',
+            uniformValue: (i) => i.risk_level_at_intervention,
+            render: (i) => (
+              <StatusPill label={i.risk_level_at_intervention} variant={RISK_VARIANTS[i.risk_level_at_intervention]} />
+            ),
+          },
+          { key: 'logged', header: 'Date logged', render: (i) => fieldValue(i.date_logged) },
+          { key: 'by', header: 'Logged by', render: (i) => fieldValue(i.logged_by_name) },
+          {
+            key: 'status',
+            header: 'Status',
+            uniformValue: (i) => i.status,
+            render: (i) => <StatusPill label={i.status} variant={INTERVENTION_STATUS_VARIANTS[i.status]} />,
+          },
+        ]}
+        rows={interventions ?? []}
+        rowKey={(i) => i.id}
+        onRowClick={(i) => toggleExpanded(i.id)}
+        renderExpanded={(i) =>
+          expandedId === i.id ? (
+            <InterventionDetailPanel
+              intervention={i}
+              studentName={`${i.student_last_name}, ${i.student_first_name}`}
+              onStatusChange={handleStatusChange}
+            />
             ) : null
           }
           rowActions={(i) => [
@@ -239,9 +238,7 @@ export function InterventionsPage() {
               </p>
             </>
           }
-        />
-      )}
-
+      />
     </div>
   )
 }

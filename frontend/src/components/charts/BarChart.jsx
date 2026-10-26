@@ -1,4 +1,5 @@
 import { ChartTooltip, useChartTooltip } from './ChartTooltip'
+import { useDrawIn } from '../../hooks/useDrawIn'
 
 // Horizontal bars — the ONE form for comparing categories. One row per
 // category: label left, bar middle, value right. Never stacked, never
@@ -21,6 +22,10 @@ import { ChartTooltip, useChartTooltip } from './ChartTooltip'
 // look identical can mean completely different numbers.
 export function BarChart({ rows, maxValue, formatValue = (v) => String(v), color = 'var(--chart-blue)' }) {
   const { containerRef, tooltip, show, hide } = useChartTooltip()
+  // Mounts collapsed and releases on the next frame, so the clip-path
+  // transition on .bar-chart__fill finally has something to animate from.
+  // It was always the right technique; it just never fired.
+  const drawn = useDrawIn()
   const max = maxValue ?? Math.max(1, ...rows.map((r) => r.value))
   // The stylesheet's 180px floor keeps a bar chart as tall as a line chart
   // next to it, which is right from about five rows up. Below that the
@@ -73,7 +78,7 @@ export function BarChart({ rows, maxValue, formatValue = (v) => String(v), color
                   isZero
                     ? undefined
                     : {
-                        clipPath: `inset(0 ${100 - percent}% 0 0 round var(--radius-sm))`,
+                        clipPath: `inset(0 ${drawn ? 100 - percent : 100}% 0 0 round var(--radius-sm))`,
                         background: row.color || color,
                       }
                 }

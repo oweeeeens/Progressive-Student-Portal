@@ -1,4 +1,5 @@
 import { useChartWidth } from '../../hooks/useChartWidth'
+import { useDrawIn } from '../../hooks/useDrawIn'
 import { ChartTooltip, useChartTooltip } from './ChartTooltip'
 
 // Line chart — the ONE form for anything over time. Up to 3 series; past
@@ -43,6 +44,8 @@ export function LineChart({
 }) {
   const [widthRef, width] = useChartWidth(480)
   const { containerRef, tooltip, show, hide } = useChartTooltip()
+  // The line draws along its own length on first paint (see .chart-line).
+  const drawn = useDrawIn()
   const plotHeight = HEIGHT - PADDING.top - PADDING.bottom
 
   const seriesList = series && series.length > 0 ? series : [{ label: null, color, points }]
@@ -165,7 +168,19 @@ export function LineChart({
             const strokeColor = s.color || color
             return (
               <g key={s.label || 'series'}>
-                <path d={pathFor(s.points)} fill="none" stroke={strokeColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d={pathFor(s.points)}
+                  fill="none"
+                  stroke={strokeColor}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  /* pathLength normalises the path to 1 unit, so the dash
+                     can be expressed without measuring the real geometry —
+                     which would need a layout read per series per render. */
+                  pathLength={1}
+                  className={`chart-line${drawn ? '' : ' is-undrawn'}`}
+                />
                 {s.points.map((p, i) =>
                   p.value == null ? null : (
                     <g key={p.label}>

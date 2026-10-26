@@ -270,75 +270,72 @@ export function StudentListPage() {
         }
       />
 
-      {loading ? (
-        <p>Loading students…</p>
-      ) : (
-        <DataTable
-          columns={columns}
-          rows={students}
-          rowKey={(s) => s.id}
-          onRowClick={(s) => navigate(`/students/${s.id}`)}
-          rowActions={(s) => [
-            { key: 'view', label: 'View profile', icon: Eye, onSelect: () => navigate(`/students/${s.id}`) },
-            canWrite(user?.role) && {
-              key: 'edit',
-              label: 'Edit details',
-              icon: Pencil,
-              onSelect: () => navigate(`/students/${s.id}/edit`),
-            },
-          ]}
-          sort={{ by: sortBy, dir: sortDir }}
-          onSortChange={toggleSort}
-          // The dot beside a name now says what it means, right above the
-          // table. It takes three different colours, so the legend names
-          // all three rather than implying one — an unexplained coloured
-          // mark next to a person is never acceptable. Each dot also keeps
-          // its title tooltip, and colour is never the only signal (the
-          // student's own page states the band in words).
-          legend={
-            anyFlagged && (
-              <>
-                <span className="data-table__legend-item">Flagged at risk this grading period:</span>
-                {['low', 'medium', 'high'].map((level) => (
-                  <span key={level} className="data-table__legend-item">
-                    <span className={`risk-dot risk-dot--${level}`} />
-                    {RISK_LABELS[level]}
-                  </span>
-                ))}
-              </>
-            )
-          }
-          isFiltered={filtersActive}
-          error={error}
-          page={page}
-          pageSize={PAGE_SIZE}
-          total={total}
-          onPageChange={setPage}
-          emptyState={
-            canWrite(user?.role) ? (
-              <>
-                <p>No students yet.</p>
-                <p>
-                  <Link to="/students/new">Add the first student</Link> to get started.
-                </p>
-              </>
-            ) : (
-              <p>No students in your roster yet.</p>
-            )
-          }
-          noResultsState={
+      <DataTable
+        loading={loading}
+        columns={columns}
+        rows={students}
+        rowKey={(s) => s.id}
+        onRowClick={(s) => navigate(`/students/${s.id}`)}
+        rowActions={(s) => [
+          { key: 'view', label: 'View profile', icon: Eye, onSelect: () => navigate(`/students/${s.id}`) },
+          canWrite(user?.role) && {
+            key: 'edit',
+            label: 'Edit details',
+            icon: Pencil,
+            onSelect: () => navigate(`/students/${s.id}/edit`),
+          },
+        ]}
+        sort={{ by: sortBy, dir: sortDir }}
+        onSortChange={toggleSort}
+        // The dot beside a name now says what it means, right above the
+        // table. It takes three different colours, so the legend names
+        // all three rather than implying one — an unexplained coloured
+        // mark next to a person is never acceptable. Each dot also keeps
+        // its title tooltip, and colour is never the only signal (the
+        // student's own page states the band in words).
+        legend={
+          anyFlagged && (
             <>
-              <p>No students match your filters.</p>
+              <span className="data-table__legend-item">Flagged at risk this grading period:</span>
+              {['low', 'medium', 'high'].map((level) => (
+                <span key={level} className="data-table__legend-item">
+                  <span className={`risk-dot risk-dot--${level}`} />
+                  {RISK_LABELS[level]}
+                </span>
+              ))}
+            </>
+          )
+        }
+        isFiltered={filtersActive}
+        error={error}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+        emptyState={
+          canWrite(user?.role) ? (
+            <>
+              <p>No students yet.</p>
               <p>
-                <button type="button" className="link-button" onClick={clearFilters}>
-                  Clear filters
-                </button>{' '}
-                to see the full roster.
+                <Link to="/students/new">Add the first student</Link> to get started.
               </p>
             </>
-          }
-        />
-      )}
+          ) : (
+            <p>No students in your roster yet.</p>
+          )
+        }
+        noResultsState={
+          <>
+            <p>No students match your filters.</p>
+            <p>
+              <button type="button" className="link-button" onClick={clearFilters}>
+                Clear filters
+              </button>{' '}
+              to see the full roster.
+            </p>
+          </>
+        }
+    />
     </div>
   )
 }

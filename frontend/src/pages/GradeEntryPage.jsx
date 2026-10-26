@@ -166,7 +166,15 @@ export function GradeEntryPage() {
       </div>
 
       {error && <Alert>{error}</Alert>}
-      {message && <p style={{ color: 'var(--color-success)' }}>{message}</p>}
+      {/* These four screens are where the real work of a school week gets
+          done — a roster marked, a term's grades submitted, verified, put
+          into the official record. Each used to answer with a bare green
+          sentence, the exact pattern Alert was introduced to replace. */}
+      {message && (
+        <Alert variant="success" className="alert--settles">
+          {message}
+        </Alert>
+      )}
 
       {!ready ? (
         <div className="empty-state">

@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
 import { SpotIllustration } from '../illustrations/SpotIllustration'
+import { SkeletonTable, LoadingAnnouncement } from '../Skeleton'
 import { RowMenu } from './RowMenu'
 
 // The value shown wherever a field is missing — ONE spelling, used by every
@@ -68,6 +69,11 @@ export function DataTable({
   emptyState,
   noResultsState,
   illustration = 'roster',
+  // While the first request is in flight the table draws itself at the
+  // right size instead of the page swapping a sentence for a table and
+  // jumping. Pages that already branch to their own loading text can
+  // simply pass this through and delete the branch.
+  loading = false,
   // Set when the request behind this table failed. An empty table then
   // means "nothing could be read", which is a different statement from
   // "there is nothing here" or "nothing matches your filters" — and the
@@ -99,6 +105,15 @@ export function DataTable({
           .map((col) => col.key)
       : []
   )
+
+  if (loading && rows.length === 0) {
+    return (
+      <div className="data-table">
+        <SkeletonTable rows={6} columns={Math.min(columns.length, 4)} />
+        <LoadingAnnouncement />
+      </div>
+    )
+  }
 
   if (rows.length === 0) {
     if (error) {
