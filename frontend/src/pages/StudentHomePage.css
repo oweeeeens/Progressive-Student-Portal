@@ -93,3 +93,131 @@
   transform: translateX(2px);
   color: var(--color-primary);
 }
+
+/* =============================================================================
+   The hero
+   =============================================================================
+   A student's own standing, first, on the school's navy. This is the one
+   screen in the product where the brand is allowed to take a whole band of
+   the page: the portal belongs to them, and opening on a tinted wash like
+   every staff list would have said the opposite.
+
+   Same gradient the sidebar and the sign-in panel use, so the three read as
+   one chrome, with the seal's sunburst over it at low strength. */
+.student-hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--space-5);
+  padding: var(--space-7) var(--space-6);
+  border-radius: var(--radius-card);
+  background: linear-gradient(
+    152deg,
+    var(--color-primary-gradient-start) 0%,
+    var(--color-primary-gradient-mid) 55%,
+    var(--color-primary-gradient-end) 100%
+  );
+  color: var(--on-navy-text-strong);
+}
+.student-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--texture-rays);
+  /* Low enough to read as light falling across the panel rather than as
+     a starburst drawn on top of it. At 11% it was a graphic. */
+  --texture-ray-color: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  pointer-events: none;
+}
+.student-hero__body {
+  position: relative; /* above the rays */
+  max-width: 54ch;
+}
+
+.student-hero__greeting {
+  margin: 0;
+  font-size: var(--font-size-base);
+  color: var(--on-navy-text-muted);
+}
+/* The name carries the display face at the page-title step. It is an h1:
+   the student IS the subject of this page. */
+.student-hero__name {
+  margin: var(--space-1) 0 0;
+  color: var(--on-navy-text-strong);
+  font-size: var(--font-size-4xl);
+}
+/* The gold tab under every page title would sit oddly here, where the name
+   is followed immediately by its own meta line. */
+.student-hero__name::after {
+  display: none;
+}
+
+.student-hero__meta {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--on-navy-text-muted);
+}
+
+.student-hero__standing {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--on-navy-rule);
+}
+.student-hero__summary {
+  margin: 0;
+  flex: 1 1 24ch;
+  font-size: var(--font-size-md);
+  line-height: 1.55;
+  color: var(--on-navy-text);
+}
+
+@media (max-width: 720px) {
+  .student-hero {
+    padding: var(--space-6) var(--space-5);
+  }
+  .student-hero__name {
+    font-size: var(--font-size-3xl);
+  }
+}
+
+/* The record panel's header. It is a section label now, not an identity bar
+   — the hero names the student — so it drops the navy fill and sits as a
+   quiet heading over the fields it introduces. */
+.namecard__bar--quiet {
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+.namecard__bar--quiet h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+}
+.namecard__bar--quiet .namecard__bar-meta {
+  color: var(--color-text-muted);
+}
+
+/* Recognition. The gold ring and medal appear only for Performing Well —
+   the one standing a student earns rather than simply holds — so the
+   school's accent colour means something on this page instead of being
+   decoration. Every other band leaves the hero exactly as it is. */
+.student-hero--recognised {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+.student-hero--recognised::before {
+  --texture-ray-color: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+.student-hero__medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+}

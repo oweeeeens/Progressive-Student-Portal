@@ -136,6 +136,16 @@ function getStudentMessages(factors) {
 // (fewer points), which is why each is listed separately rather than merged
 // into one sentence. The caller is responsible for saying so — see
 // MyProgressPage's wording.
+// These strings are read by a student, not by the formula. The values behind
+// them are Postgres NUMERICs carrying their full declared scale, so a trend
+// arrives as 5.885 and an average as "60.80" — printed verbatim that reads as
+// a readout from a database rather than a report about a person, and implies
+// a precision the measurement does not have. Rounded for DISPLAY only: every
+// comparison in the scoring still uses the full value.
+function forDisplay(value) {
+  return String(Math.round(Number(value) * 10) / 10);
+}
+
 function buildBandExitTargets({ averageGrade, gradeTrend, attendanceRate, attendanceTrend }) {
   const factors = evaluateFactors({
     currentGrade: averageGrade,
@@ -167,14 +177,14 @@ function buildBandExitTargets({ averageGrade, gradeTrend, attendanceRate, attend
     declining_grade: () => ({
       measure: 'Grade trend',
       current: gradeTrend,
-      currentText: gradeTrend != null ? `falling ${Math.abs(gradeTrend)} points a period` : null,
+      currentText: gradeTrend != null ? `falling ${forDisplay(Math.abs(gradeTrend))} points a period` : null,
       target: GRADE_TREND_DECLINE_THRESHOLD,
       text: `Stop your average grade falling by more than ${Math.abs(GRADE_TREND_DECLINE_THRESHOLD)} points a grading period`,
     }),
     declining_attendance: () => ({
       measure: 'Attendance trend',
       current: attendanceTrend,
-      currentText: attendanceTrend != null ? `falling ${Math.abs(attendanceTrend)} points a period` : null,
+      currentText: attendanceTrend != null ? `falling ${forDisplay(Math.abs(attendanceTrend))} points a period` : null,
       target: ATTENDANCE_TREND_DECLINE_THRESHOLD,
       text: `Stop your attendance falling by more than ${Math.abs(ATTENDANCE_TREND_DECLINE_THRESHOLD)} points a grading period`,
     }),
@@ -202,15 +212,6 @@ function buildBandExitTargets({ averageGrade, gradeTrend, attendanceRate, attend
 // SCORE and the per-factor weights remain internal and are still never sent.
 function buildRiskChecks({ factors, averageGrade, gradeTrend, attendanceRate, attendanceTrend }) {
   const triggered = new Set(factors.map((f) => f.key));
-
-  // These strings are read by a student, not by the formula. The values
-  // behind them are Postgres NUMERICs carrying their full declared scale,
-  // so a trend arrives as 5.885 and an average as "60.80" — printed
-  // verbatim that reads as a readout from a database rather than a report
-  // about a person, and implies a precision the measurement does not have.
-  // Rounded for DISPLAY only: every comparison in the scoring above still
-  // uses the full value.
-  const forDisplay = (value) => String(Math.round(Number(value) * 10) / 10);
 
   const describeFall = (value, unit) => {
     if (value == null) return 'Needs two grading periods';

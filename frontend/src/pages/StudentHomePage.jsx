@@ -3,9 +3,6 @@ import { Link, useLocation } from 'react-router-dom'
 import {
   GraduationCap,
   CalendarCheck,
-  CalendarRange,
-  BookOpenCheck,
-  BadgeCheck,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -26,8 +23,7 @@ import { StatExplainer } from '../components/StatExplainer'
 import { CheckStrip } from '../components/CheckStrip'
 import { TargetBar } from '../components/TargetBar'
 import { TrendIcon } from '../components/TrendIcon'
-import { ContextCard, ContextCardRow } from '../components/ContextCard'
-import { AnnouncementBanner } from '../components/AnnouncementBanner'
+import { StudentHero } from '../components/StudentHero'
 import { AnnouncementsPanel } from '../components/AnnouncementsPanel'
 import { ChartCard, ChartCardRow } from '../components/charts/ChartCard'
 import { ColumnChart } from '../components/charts/ColumnChart'
@@ -74,15 +70,6 @@ function humanize(value) {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-// "SUPAN, MARK CYRUS S." — surname first with the middle name reduced to an
-// initial, the DepEd form convention. It matches how the student's name is
-// printed on the paper records this portal mirrors (SF10, report card), so
-// the two can be read side by side without translation.
-function formalName(student) {
-  const middleInitial = student.middle_name ? ` ${student.middle_name.trim()[0].toUpperCase()}.` : ''
-  return `${student.last_name}, ${student.first_name}${middleInitial}`
-}
-
 // The student's ENTIRE portal, on one scrolling page: the school's
 // announcements, who they are, how they are doing, what to do about it, then
 // the supporting detail. There is no student sub-navigation anywhere — this
@@ -112,7 +99,6 @@ export function StudentHomePage() {
   // here or from the top bar's account menu.
   const [showRecord, setShowRecord] = useState(false)
   const [currentPeriod, setCurrentPeriod] = useState(null)
-  const [latestAnnouncement, setLatestAnnouncement] = useState(null)
   const [announcements, setAnnouncements] = useState(null)
   const [announcementTotal, setAnnouncementTotal] = useState(0)
   const [announcementPage, setAnnouncementPage] = useState(1)
@@ -182,15 +168,6 @@ export function StudentHomePage() {
   }, [location.state?.openRecord])
 
   // The banner always shows the newest announcement, so it is fetched on its
-  // own rather than read off the panel's current page — otherwise paging the
-  // panel would change, or empty, the banner above it.
-  useEffect(() => {
-    api
-      .get('/announcements?page=1&pageSize=1')
-      .then((data) => setLatestAnnouncement(data.announcements[0] || null))
-      .catch((err) => setError(err.message))
-  }, [])
-
   useEffect(() => {
     api
       .get(`/announcements?page=${announcementPage}&pageSize=${ANNOUNCEMENTS_PAGE_SIZE}`)
@@ -245,13 +222,6 @@ export function StudentHomePage() {
     setOpenStat((current) => (current === key ? null : key))
   }
 
-  // Opening the banner's announcement means opening it in the panel below,
-  // which is only guaranteed to hold the newest post on its first page.
-  function handleBannerViewDetails(id) {
-    setAnnouncementPage(1)
-    setExpandedAnnouncementId(id)
-  }
-
   if (loading) return <p>Loading your record…</p>
   if (error) return <Alert>{error}</Alert>
   if (!student) {
@@ -267,201 +237,101 @@ export function StudentHomePage() {
     <div className="student-home">
       <Breadcrumbs items={[{ label: 'Home' }]} />
 
-      {/* 1. The newest announcement, full width — the one thing on this page
-          that is not about the student personally, so it sits above their
-          record rather than competing with it. */}
-      <AnnouncementBanner announcement={latestAnnouncement} onViewDetails={handleBannerViewDetails} />
+      {/* 1. The student, and how they are doing. This page used to open with
+          the school's newest announcement and a row of context cards, which
+          pushed the one thing a student comes here for below the fold. The
+          noticeboard and the record on file are further down now — they are
+          reference, not the headline. */}
+      <StudentHero
+        student={student}
+        progress={progress}
+        currentPeriod={currentPeriod}
+        riskLabels={RISK_LABELS}
+        riskVariants={RISK_VARIANTS}
+      />
 
-      {/* 2. Standing context: which year, which period, am I enrolled. */}
-      <ContextCardRow>
-        <ContextCard
-          icon={CalendarRange}
-          label="Current School Year"
-          value={currentPeriod?.schoolYearLabel || '—'}
-          tone="primary"
-        />
-        <ContextCard icon={BookOpenCheck} label="Current Grading Period" value={currentPeriod?.name || '—'} tone="accent" />
-        <ContextCard icon={BadgeCheck} label="Enrollment Status" value={humanize(student.enrollment_status)} tone="success" />
-      </ContextCardRow>
+      {/* 2. The four figures the whole page is about, full width.
+          They used to sit in the left column of a split, sharing the row
+          with the school's noticeboard. */}
+        {progress && (
+          <>
+            {/* Each figure opens the arithmetic behind it. A number a
+                student cannot interrogate is one they can only take on
+                trust — and "why am I High Risk?" is the question this
+                page exists to answer. */}
+            <StatRow compact>
+              <StatCard
+                icon={GraduationCap}
+                value={
+                  <>
+                    {progress.averageGrade ?? '—'} <TrendIcon trend={progress.gradeTrend} />
+                  </>
+                }
+                label="Average grade"
+                onClick={() => toggleStat('average')}
+                isExpanded={openStat === 'average'}
+                controls={STAT_EXPLAINER_ID}
+              />
+              <StatCard
+                icon={CalendarCheck}
+                value={
+                  <>
+                    {formatPercent(progress.attendanceRate)} <TrendIcon trend={progress.attendanceTrend} />
+                  </>
+                }
+                label="Attendance rate"
+                onClick={() => toggleStat('attendance')}
+                isExpanded={openStat === 'attendance'}
+                controls={STAT_EXPLAINER_ID}
+              />
+              <StatCard
+                icon={trendSummary.icon}
+                value={trendSummary.label}
+                label="Grade trend"
+                variant={trendSummary.variant}
+                onClick={() => toggleStat('gradeTrend')}
+                isExpanded={openStat === 'gradeTrend'}
+                controls={STAT_EXPLAINER_ID}
+              />
+              <StatCard
+                icon={BandIcon || Activity}
+                value={progress.riskLevel ? RISK_LABELS[progress.riskLevel] : progress.bandLabel}
+                label={progress.riskLevel ? 'Risk level' : 'Standing'}
+                variant={
+                  progress.riskLevel
+                    ? RISK_VARIANTS[progress.riskLevel]
+                    : progress.band === 'performing_well'
+                      ? 'positive'
+                      : 'info'
+                }
+                onClick={() => toggleStat('standing')}
+                isExpanded={openStat === 'standing'}
+                controls={STAT_EXPLAINER_ID}
+              />
+            </StatRow>
 
-      {/* 3. Who you are and how you are doing on the left, the school's
-          noticeboard on the right. */}
-      <div className="student-home__split">
-        <div className="student-home__identity">
-          {/* The namecard identifies, it does not re-print a form. A student
-              already knows their own address and guardian's phone number;
-              reprinting all of it just pushes the advice they came for down
-              the page. */}
-          <section className="namecard" ref={namecardRef}>
-            <header className="namecard__bar">
-              <h1>{formalName(student)}</h1>
-              <span className="namecard__bar-meta">
-                {[student.strand, student.section_name].filter(Boolean).join(' · ') || 'No section assigned'}
-              </span>
-            </header>
-            <dl className="field-grid namecard__fields">
-              <div>
-                <dt>LRN</dt>
-                <dd>{fieldValue(student.lrn)}</dd>
-              </div>
-              <div>
-                <dt>Grade &amp; Section</dt>
-                <dd>{student.section_name ? `Grade ${student.grade_level} – ${student.section_name}` : fieldValue(null)}</dd>
-              </div>
-              <div>
-                <dt>Adviser</dt>
-                <dd>{fieldValue(student.adviser_name)}</dd>
-              </div>
-              <div>
-                <dt>Personal email</dt>
-                <dd>{fieldValue(student.email)}</dd>
-              </div>
-            </dl>
-
-            {/* The rest of what the school holds, behind a disclosure: a
-                student rarely needs to re-read their own address, but they
-                DO need a way to check it is right and spot what to ask the
-                registrar to correct. Read-only by design — corrections go
-                through the registrar, who owns the record. */}
-            <div className="namecard__more">
-              <button
-                type="button"
-                className="btn-subtle"
-                onClick={() => setShowRecord((v) => !v)}
-                aria-expanded={showRecord}
-              >
-                <IdCard size={14} strokeWidth={1.75} />
-                {showRecord ? 'Hide record on file' : 'Your record on file'}
-                {showRecord ? <ChevronUp size={14} strokeWidth={1.75} /> : <ChevronDown size={14} strokeWidth={1.75} />}
-              </button>
-
-              {showRecord && (
-                <>
-                  <dl className="field-grid namecard__fields">
-                    <div>
-                      <dt>Date of birth</dt>
-                      <dd>{formatDate(student.date_of_birth)}</dd>
-                    </div>
-                    <div>
-                      <dt>Sex</dt>
-                      <dd>{fieldValue(humanize(student.sex))}</dd>
-                    </div>
-                    <div>
-                      <dt>Address</dt>
-                      <dd>{fieldValue(student.address)}</dd>
-                    </div>
-                    <div>
-                      <dt>Guardian</dt>
-                      <dd>{fieldValue(student.guardian_name)}</dd>
-                    </div>
-                    <div>
-                      <dt>Guardian contact</dt>
-                      <dd>{fieldValue(student.guardian_contact_number)}</dd>
-                    </div>
-                    <div>
-                      <dt>Enrollment status</dt>
-                      <dd>{humanize(student.enrollment_status)}</dd>
-                    </div>
-                  </dl>
-                  <p className="form-note namecard__note">
-                    Something wrong here? Ask the registrar to correct it — records are edited by the school, not from this
-                    page.
-                  </p>
-                </>
-              )}
-            </div>
-          </section>
-
-          {progress && (
-            <>
-              {/* Each figure opens the arithmetic behind it. A number a
-                  student cannot interrogate is one they can only take on
-                  trust — and "why am I High Risk?" is the question this
-                  page exists to answer. */}
-              <StatRow compact>
-                <StatCard
-                  icon={GraduationCap}
-                  value={
-                    <>
-                      {progress.averageGrade ?? '—'} <TrendIcon trend={progress.gradeTrend} />
-                    </>
-                  }
-                  label="Average grade"
-                  onClick={() => toggleStat('average')}
-                  isExpanded={openStat === 'average'}
-                  controls={STAT_EXPLAINER_ID}
-                />
-                <StatCard
-                  icon={CalendarCheck}
-                  value={
-                    <>
-                      {formatPercent(progress.attendanceRate)} <TrendIcon trend={progress.attendanceTrend} />
-                    </>
-                  }
-                  label="Attendance rate"
-                  onClick={() => toggleStat('attendance')}
-                  isExpanded={openStat === 'attendance'}
-                  controls={STAT_EXPLAINER_ID}
-                />
-                <StatCard
-                  icon={trendSummary.icon}
-                  value={trendSummary.label}
-                  label="Grade trend"
-                  variant={trendSummary.variant}
-                  onClick={() => toggleStat('gradeTrend')}
-                  isExpanded={openStat === 'gradeTrend'}
-                  controls={STAT_EXPLAINER_ID}
-                />
-                <StatCard
-                  icon={BandIcon || Activity}
-                  value={progress.riskLevel ? RISK_LABELS[progress.riskLevel] : progress.bandLabel}
-                  label={progress.riskLevel ? 'Risk level' : 'Standing'}
-                  variant={
-                    progress.riskLevel
-                      ? RISK_VARIANTS[progress.riskLevel]
-                      : progress.band === 'performing_well'
-                        ? 'positive'
-                        : 'info'
-                  }
-                  onClick={() => toggleStat('standing')}
-                  isExpanded={openStat === 'standing'}
-                  controls={STAT_EXPLAINER_ID}
-                />
-              </StatRow>
-
-              {openStat && (
-                <StatExplainer
-                  id={STAT_EXPLAINER_ID}
-                  statKey={openStat}
-                  onClose={() => setOpenStat(null)}
-                  grades={grades}
-                  attendanceDetail={attendanceDetail}
-                  trend={trend}
-                  currentPeriodName={currentPeriod?.name}
-                  passingGrade={passingGrade}
-                  requiredAttendance={requiredAttendance}
-                  averageGrade={progress.averageGrade}
-                  attendanceRate={progress.attendanceRate}
-                  gradeTrend={progress.gradeTrend}
-                  checks={progress.checks}
-                  levelsByTriggeredCount={progress.levelsByTriggeredCount}
-                  bandLabel={progress.bandLabel}
-                  riskLevelLabel={progress.riskLevel ? RISK_LABELS[progress.riskLevel] : null}
-                />
-              )}
-            </>
-          )}
-        </div>
-
-        <AnnouncementsPanel
-          announcements={announcements}
-          page={announcementPage}
-          totalPages={announcementPages}
-          onPageChange={setAnnouncementPage}
-          expandedId={expandedAnnouncementId}
-          onToggle={(id) => setExpandedAnnouncementId((current) => (current === id ? null : id))}
-        />
-      </div>
+            {openStat && (
+              <StatExplainer
+                id={STAT_EXPLAINER_ID}
+                statKey={openStat}
+                onClose={() => setOpenStat(null)}
+                grades={grades}
+                attendanceDetail={attendanceDetail}
+                trend={trend}
+                currentPeriodName={currentPeriod?.name}
+                passingGrade={passingGrade}
+                requiredAttendance={requiredAttendance}
+                averageGrade={progress.averageGrade}
+                attendanceRate={progress.attendanceRate}
+                gradeTrend={progress.gradeTrend}
+                checks={progress.checks}
+                levelsByTriggeredCount={progress.levelsByTriggeredCount}
+                bandLabel={progress.bandLabel}
+                riskLevelLabel={progress.riskLevel ? RISK_LABELS[progress.riskLevel] : null}
+              />
+            )}
+          </>
+        )}
 
       {/* 4. Advice — the one card a flagged student actually needs. Flagged
           items and the concrete way out live together because they are the
@@ -636,6 +506,109 @@ export function StudentHomePage() {
           </span>
           <ChevronRight size={16} strokeWidth={2} />
         </Link>
+      </div>
+
+
+      {/* 6. Reference: the record the school holds, and the school's
+          noticeboard. Both were above the fold before, which put a
+          student's own guardian contact number ahead of the advice they
+          came here for. */}
+      <div className="student-home__split">
+        <div className="student-home__identity">
+          {/* The namecard identifies, it does not re-print a form. A student
+              already knows their own address and guardian's phone number;
+              reprinting all of it just pushes the advice they came for down
+              the page. */}
+          <section className="namecard" ref={namecardRef}>
+            {/* No name bar here: the hero at the top of the page already
+                says whose record this is, and printing it again two blocks
+                later read as a second page starting. */}
+            <header className="namecard__bar namecard__bar--quiet">
+              <h2>Your record on file</h2>
+              <span className="namecard__bar-meta">Held by the school</span>
+            </header>
+            <dl className="field-grid namecard__fields">
+              <div>
+                <dt>LRN</dt>
+                <dd>{fieldValue(student.lrn)}</dd>
+              </div>
+              <div>
+                <dt>Grade &amp; Section</dt>
+                <dd>{student.section_name ? `Grade ${student.grade_level} – ${student.section_name}` : fieldValue(null)}</dd>
+              </div>
+              <div>
+                <dt>Adviser</dt>
+                <dd>{fieldValue(student.adviser_name)}</dd>
+              </div>
+              <div>
+                <dt>Personal email</dt>
+                <dd>{fieldValue(student.email)}</dd>
+              </div>
+            </dl>
+
+            {/* The rest of what the school holds, behind a disclosure: a
+                student rarely needs to re-read their own address, but they
+                DO need a way to check it is right and spot what to ask the
+                registrar to correct. Read-only by design — corrections go
+                through the registrar, who owns the record. */}
+            <div className="namecard__more">
+              <button
+                type="button"
+                className="btn-subtle"
+                onClick={() => setShowRecord((v) => !v)}
+                aria-expanded={showRecord}
+              >
+                <IdCard size={14} strokeWidth={1.75} />
+                {showRecord ? 'Hide record on file' : 'Your record on file'}
+                {showRecord ? <ChevronUp size={14} strokeWidth={1.75} /> : <ChevronDown size={14} strokeWidth={1.75} />}
+              </button>
+
+              {showRecord && (
+                <>
+                  <dl className="field-grid namecard__fields">
+                    <div>
+                      <dt>Date of birth</dt>
+                      <dd>{formatDate(student.date_of_birth)}</dd>
+                    </div>
+                    <div>
+                      <dt>Sex</dt>
+                      <dd>{fieldValue(humanize(student.sex))}</dd>
+                    </div>
+                    <div>
+                      <dt>Address</dt>
+                      <dd>{fieldValue(student.address)}</dd>
+                    </div>
+                    <div>
+                      <dt>Guardian</dt>
+                      <dd>{fieldValue(student.guardian_name)}</dd>
+                    </div>
+                    <div>
+                      <dt>Guardian contact</dt>
+                      <dd>{fieldValue(student.guardian_contact_number)}</dd>
+                    </div>
+                    <div>
+                      <dt>Enrollment status</dt>
+                      <dd>{humanize(student.enrollment_status)}</dd>
+                    </div>
+                  </dl>
+                  <p className="form-note namecard__note">
+                    Something wrong here? Ask the registrar to correct it — records are edited by the school, not from this
+                    page.
+                  </p>
+                </>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <AnnouncementsPanel
+          announcements={announcements}
+          page={announcementPage}
+          totalPages={announcementPages}
+          onPageChange={setAnnouncementPage}
+          expandedId={expandedAnnouncementId}
+          onToggle={(id) => setExpandedAnnouncementId((current) => (current === id ? null : id))}
+        />
       </div>
 
       {/* 7. Interventions */}
