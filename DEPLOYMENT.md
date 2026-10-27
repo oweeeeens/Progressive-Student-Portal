@@ -85,6 +85,13 @@ connect over a public proxy host.
 Do **not** set `DEV_PLACEHOLDER_PASSWORD` on a deployment: it gives every newly
 created account the same known password.
 
+Do **not** set `LOGIN_RATE_LIMIT_MAX` on a deployment either. It raises the
+cap on sign-in attempts per IP, which exists to slow password guessing. It is
+a development convenience — scripted work against a local server exhausts the
+real limit of 10 per 15 minutes almost immediately — and the server logs a
+warning at boot whenever it is set, so check the deploy logs if you are
+unsure. Leaving it unset gives the strict default.
+
 ## 4. Add a volume for uploaded files
 
 Announcement attachments are written to disk, and a deployed container's

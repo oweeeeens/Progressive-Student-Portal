@@ -11,23 +11,28 @@ const {
 } = require('../controllers/authController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+const rateLimits = require('../config/rateLimits');
 
 const router = express.Router();
 
-// Slows down password-guessing: 10 attempts per IP per 15 minutes.
+// Slows down password-guessing. The ceiling defaults to 10 attempts per IP
+// per 15 minutes and can only be raised by setting LOGIN_RATE_LIMIT_MAX on
+// the machine running the server — see config/rateLimits.js for why, and
+// DEPLOYMENT.md for why that variable must not exist on a deployment.
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+  windowMs: rateLimits.login.windowMs,
+  max: rateLimits.login.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many login attempts. Please try again later.' },
 });
 
 // Slows down both email-bombing a target inbox and brute-forcing the
-// request side of the flow: 5 requests per IP per 15 minutes.
+// request side of the flow: 5 requests per IP per 15 minutes. Not
+// configurable — this one protects someone else's inbox.
 const forgotPasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: rateLimits.forgotPassword.windowMs,
+  max: rateLimits.forgotPassword.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many password reset requests. Please try again later.' },
