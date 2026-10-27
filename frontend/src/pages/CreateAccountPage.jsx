@@ -98,20 +98,22 @@ export function CreateAccountPage() {
   const canSubmit = isStudentRole ? Boolean(selectedStudent && selectedStudent.email) : Boolean(email && fullName)
 
   return (
-    <div style={{ maxWidth: 480 }}>
+    <div className="account-form-page">
       <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'User Management', to: '/users' }, { label: 'New' }]} />
-      <h1>{isStudentRole ? 'New Student Account' : 'New Staff Account'}</h1>
+      <div className="page-header">
+        <h1>{isStudentRole ? 'New Student Account' : 'New Staff Account'}</h1>
+      </div>
 
       {created && (
         <div className="alert alert--success">
-          <p style={{ fontWeight: 500 }}>
+          <p className="account-form__created">
             Account created for {created.user.fullName} ({ROLE_LABELS[created.user.role]}).
           </p>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+          <p className="form-note">
             Share this temporary password with them now — it will not be shown again. They'll be
             required to change it on first login.
           </p>
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+          <div className="account-form__password">
             <code className="alert__code">{created.tempPassword}</code>
             <button type="button" onClick={handleCopy}>
               {copied ? 'Copied' : 'Copy'}
@@ -120,10 +122,10 @@ export function CreateAccountPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <form onSubmit={handleSubmit} className="panel account-form">
         <label>
           Role
-          <select value={role} onChange={(e) => setRole(e.target.value)} style={{ width: '100%' }}>
+          <select value={role} onChange={(e) => setRole(e.target.value)}>
             {Object.entries(ROLE_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -166,7 +168,7 @@ export function CreateAccountPage() {
               )}
             </label>
             {!selectedStudent && studentOptions.length > 0 && (
-              <div className="table-card" style={{ maxHeight: 220, overflowY: 'auto' }}>
+              <div className="table-card account-form__results">
                 <table>
                   <tbody>
                     {studentOptions.map((s) => (
@@ -204,11 +206,11 @@ export function CreateAccountPage() {
           <>
             <label>
               Full name
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} required style={{ width: '100%' }} />
+              <input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
             </label>
             <label>
               Email
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: '100%' }} />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
           </>
         )}

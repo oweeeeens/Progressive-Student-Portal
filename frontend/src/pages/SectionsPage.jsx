@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Plus, Search, Layers, CheckCircle2, XCircle, Pencil } from 'lucide-react'
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
-import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { SpotIllustration } from '../components/illustrations/SpotIllustration'
@@ -155,9 +154,15 @@ export function SectionsPage() {
         </div>
       </div>
 
-      <StatRow>
-        <StatCard icon={Layers} value={activeTotal} label="Active sections" />
-      </StatRow>
+      {/* The count sits on the table it counts. A figures strip holding
+          one tile is the marooned single card that was taken off Verify
+          and Finalize Grades for the same reason. */}
+      <p className="live-summary-bar">
+        <Layers size={15} strokeWidth={1.75} aria-hidden="true" />
+        <span className="live-summary-bar__lead">
+          {activeTotal} active sections
+        </span>
+      </p>
 
       {error && <Alert>{error}</Alert>}
 
