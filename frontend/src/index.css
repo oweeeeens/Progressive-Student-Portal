@@ -2834,6 +2834,16 @@ th {
 /* Stacked related-record panels (grades, attendance, documents,
    interventions on a student's page) — divided by a hairline rule with
    consistent rhythm, not individually boxed/shadowed cards. */
+/* A record read as one document: the groups inside are divided by
+   hairlines rather than each being its own bordered card. The first
+   section carries no rule or top margin, so the document starts at its
+   first heading instead of under a stray line. */
+.record-document > .record-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .record-section {
   margin-top: var(--space-6);
   padding-top: var(--space-5);

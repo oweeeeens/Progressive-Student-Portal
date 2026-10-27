@@ -32,6 +32,7 @@ import { INTERVENTION_TYPE_LABELS, INTERVENTION_STATUS_VARIANTS } from '../compo
 import { describeTrendAgainstThreshold } from '../utils/chartInterpretation'
 import './StudentHomePage.css'
 import { Alert } from '../components/Alert'
+import { humanize } from '../utils/humanize'
 
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
 const RISK_LABELS = { low: 'Low', medium: 'Medium', high: 'High' }
@@ -65,10 +66,6 @@ function formatPercent(v) {
 }
 
 // Turns an enum value into display text ("enrolled" -> "Enrolled").
-function humanize(value) {
-  if (!value) return '—'
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
 
 // The student's ENTIRE portal, on one scrolling page: the school's
 // announcements, who they are, how they are doing, what to do about it, then
@@ -507,7 +504,6 @@ export function StudentHomePage() {
           <ChevronRight size={16} strokeWidth={2} />
         </Link>
       </div>
-
 
       {/* 6. Reference: the record the school holds, and the school's
           noticeboard. Both were above the fold before, which put a

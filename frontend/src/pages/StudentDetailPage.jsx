@@ -24,6 +24,7 @@ import { GradeHistory } from '../components/GradeHistory'
 import { InterventionHistory } from '../components/InterventionHistory'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { Alert } from '../components/Alert'
+import { humanize } from '../utils/humanize'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
 // Academic standing is more sensitive than a roster entry, so both of
@@ -113,7 +114,7 @@ function buildFieldGroups(student) {
     {
       title: 'Enrollment',
       fields: [
-        ['Enrollment status', student.enrollment_status],
+        ['Enrollment status', humanize(student.enrollment_status)],
         ['Record status', student.is_active ? 'Active' : 'Inactive'],
         ['Grade level', student.grade_level != null ? `Grade ${student.grade_level}` : null],
         ['Section', student.section_name],
@@ -284,27 +285,36 @@ export function StudentDetailPage() {
 
   const overviewTab = (
     <div>
-      {buildFieldGroups(student)
-        .filter((group) => group.fields.length > 0)
-        .map((group) => (
-        <div key={group.title} className="panel" style={{ marginBottom: 'var(--space-4)' }}>
-          <h2>{group.title}</h2>
-          {group.note && <p className="panel__note">{group.note}</p>}
-          <dl className="field-grid field-grid--two-col">
-            {group.fields.map(([label, value]) => (
-              <div key={label}>
-                <dt>{label}</dt>
-                {/* One spelling for a missing value across the whole app —
-                    tables and detail pages alike (see DataTable's
-                    fieldValue). This page used to say italic "Not provided"
-                    while every table said an em-dash, so the same absent
-                    field looked like two different states. */}
-                <dd>{fieldValue(value)}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ))}
+      {/* One document, not four cards. These groups are all the same record
+          — personal details, enrolment, learner status, guardian — and
+          stacking four identically bordered panels made the page read as
+          four unrelated things that happened to be about one student.
+          Hairline-divided sections inside one container is what the design
+          system already uses for exactly this (see .record-section), and a
+          record is the most literal case of it there is. */}
+      <div className="panel record-document">
+        {buildFieldGroups(student)
+          .filter((group) => group.fields.length > 0)
+          .map((group) => (
+            <section key={group.title} className="record-section">
+              <h2>{group.title}</h2>
+              {group.note && <p className="panel__note">{group.note}</p>}
+              <dl className="field-grid field-grid--two-col">
+                {group.fields.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    {/* One spelling for a missing value across the whole app —
+                        tables and detail pages alike (see DataTable's
+                        fieldValue). This page used to say italic "Not provided"
+                        while every table said an em-dash, so the same absent
+                        field looked like two different states. */}
+                    <dd>{fieldValue(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ))}
+      </div>
 
       {/* The subjects they're actually taking — the schema has no times or
           days on a class offering, so this is a subject list with who

@@ -9,6 +9,7 @@ import { DataTable } from '../components/table/DataTable'
 import { AttendanceCalendar } from '../components/AttendanceCalendar'
 import { InlineRateBar } from '../components/InlineRateBar'
 import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
+import { humanize } from '../utils/humanize'
 
 // The student's attendance, on its own page: the official daily record per
 // grading period, the month calendar behind a toggle, and the separate
@@ -24,11 +25,6 @@ const ATTENDANCE_STATUSES = ['present', 'late', 'absent', 'excused']
 // One panel serves all four figures, so one id covers every card's
 // aria-controls — they all point at the same region.
 const ATTENDANCE_EXPLAINER_ID = 'attendance-stat-explainer'
-
-function humanize(value) {
-  if (!value) return '—'
-  return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
 
 // "1 Days present" is the kind of detail that makes a page look unfinished.
 function dayWord(count) {
