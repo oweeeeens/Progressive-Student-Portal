@@ -24,6 +24,51 @@ export function setToken(token, remember = true) {
   }
 }
 
+// What to do when the server says the token is no longer good.
+//
+// Tokens last 8 hours (backend/config/auth.js), so a tab left open overnight
+// comes back to an app where every request 401s. Nothing used to handle
+// that: the 48 fetches that have no .catch simply never resolved, so the
+// page rendered with empty dropdowns, no message, and no hint that signing
+// in again was the answer.
+//
+// Deactivation lands here too — authMiddleware re-checks is_active on every
+// request — which is the behaviour we want: access ends immediately and the
+// person is told, rather than being left on a page that quietly does
+// nothing.
+//
+// A hard assignment rather than a router navigate: this module is outside
+// the React tree and has no access to the router, and a full load is right
+// anyway since every piece of in-memory state belongs to the signed-out
+// session.
+export const SESSION_ENDED_KEY = 'studentPortal.sessionEnded';
+
+function handleUnauthorized() {
+  // Guard against a burst of parallel requests each triggering their own
+  // redirect, which would cancel the first navigation partway.
+  if (handleUnauthorized.redirecting) return;
+  handleUnauthorized.redirecting = true;
+
+  setToken(null);
+
+  // A flag rather than a query string. Clearing the token also empties the
+  // auth context, so ProtectedRoute's own <Navigate to="/login"> can win the
+  // race and land the user on a bare /login with no query to read. A stored
+  // marker survives whichever redirect gets there first; LoginPage reads it
+  // once and removes it. sessionStorage, so it cannot outlive the tab and
+  // greet someone with a stale explanation tomorrow.
+  try {
+    sessionStorage.setItem(SESSION_ENDED_KEY, '1');
+  } catch {
+    // Private mode or blocked storage: the redirect still happens, the
+    // explanation is simply missing. Not worth failing over.
+  }
+
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+}
+
 async function request(path, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   const token = getToken();
@@ -34,6 +79,11 @@ async function request(path, { method = 'GET', body } = {}) {
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
+
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new Error('Your session has expired. Please sign in again.');
+  }
 
   if (response.status === 204) return null;
 
@@ -55,6 +105,10 @@ async function upload(path, formData, method = 'POST') {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const response = await fetch(`/api${path}`, { method, headers, body: formData });
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new Error('Your session has expired. Please sign in again.');
+  }
   const data = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(data?.error || `Request failed with status ${response.status}`);
@@ -83,6 +137,10 @@ async function downloadFile(path, filename) {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const response = await fetch(`/api${path}`, { headers });
+  if (response.status === 401) {
+    handleUnauthorized();
+    throw new Error('Your session has expired. Please sign in again.');
+  }
   if (!response.ok) {
     const data = await response.json().catch(() => null);
     throw new Error(data?.error || `Request failed with status ${response.status}`);

@@ -104,11 +104,15 @@ export function CreateAccountPage() {
         <h1>{isStudentRole ? 'New Student Account' : 'New Staff Account'}</h1>
       </div>
 
+      {/* The Alert component rather than a bare .alert div: .alert is a flex
+          row, so loose block children lay out side by side. This is a
+          temporary password someone has to read and copy — it needs to sit
+          under its heading, not beside it. */}
       {created && (
-        <div className="alert alert--success">
-          <p className="account-form__created">
-            Account created for {created.user.fullName} ({ROLE_LABELS[created.user.role]}).
-          </p>
+        <Alert
+          variant="success"
+          title={`Account created for ${created.user.fullName} (${ROLE_LABELS[created.user.role]}).`}
+        >
           <p className="form-note">
             Share this temporary password with them now — it will not be shown again. They'll be
             required to change it on first login.
@@ -119,7 +123,7 @@ export function CreateAccountPage() {
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
-        </div>
+        </Alert>
       )}
 
       <form onSubmit={handleSubmit} className="panel account-form">

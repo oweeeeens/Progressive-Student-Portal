@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { SESSION_ENDED_KEY } from '../api/client'
 import { Alert } from '../components/Alert'
 import { AuthCard } from '../components/AuthCard'
 import './LoginPage.css'
@@ -16,6 +17,27 @@ export function LoginPage() {
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  // Read on mount, cleared in an effect — NOT in the initializer. React's
+  // StrictMode double-invokes a useState initializer in development, so a
+  // side effect in there runs twice: the first call read the flag and
+  // removed it, the second found nothing, and the notice never appeared.
+  // The initializer is now a pure read; the removal happens once, after the
+  // value has been captured, so the notice shows for this arrival only.
+  const [sessionEnded] = useState(() => {
+    try {
+      return sessionStorage.getItem(SESSION_ENDED_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(SESSION_ENDED_KEY)
+    } catch {
+      // Blocked storage — nothing to clean up.
+    }
+  }, [])
 
   if (user) return <Navigate to="/" replace />
 
@@ -37,6 +59,14 @@ export function LoginPage() {
     <AuthCard heading="Log in">
       {location.state?.resetComplete && (
         <Alert variant="success">Password reset. Log in with your new password.</Alert>
+      )}
+
+      {/* Set by api/client.js when the server rejects the stored token —
+          an 8-hour session that ran out, or an account that was
+          deactivated. Without it, being signed out mid-task looked like
+          the app had simply stopped working. */}
+      {sessionEnded && (
+        <Alert variant="info">Your session has ended. Please log in again to continue.</Alert>
       )}
 
       <form onSubmit={handleSubmit} className="login-card__form">

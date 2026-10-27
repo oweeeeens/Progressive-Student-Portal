@@ -255,17 +255,18 @@ function AllAccountsTab() {
 
       {error && <Alert>{error}</Alert>}
 
+      {/* The Alert component rather than a bare .alert div: .alert is a flex
+          row, so loose block children lay out side by side. This is a
+          temporary password someone has to read and copy — it needs to sit
+          under its heading, not beside it. */}
       {resetResult && (
-        <div className="alert alert--success">
-          <p>
-            Password reset for <strong>{resetResult.email}</strong>.
-          </p>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+        <Alert variant="success" title={`Password reset for ${resetResult.email}.`}>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
             Share this temporary password with them now — it will not be shown again. They'll be
             required to change it on next login.
           </p>
           <code className="alert__code">{resetResult.tempPassword}</code>
-        </div>
+        </Alert>
       )}
 
       {editingId && (
@@ -472,13 +473,19 @@ function PendingStudentAccountsTab() {
 
       {error && <Alert>{error}</Alert>}
 
+      {/* The Alert component rather than a bare .alert div: .alert is a flex
+          row, so loose block children lay out side by side. This is a
+          temporary password someone has to read and copy — it needs to sit
+          under its heading, not beside it. */}
       {result && (
-        <div className="alert alert--success">
-          <p style={{ fontWeight: 500 }}>
-            Created {result.created.length} account{result.created.length === 1 ? '' : 's'}
-            {result.failures.length > 0 ? `, ${result.failures.length} failed` : ''}.
-          </p>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+        <Alert
+          variant="success"
+          className="alert--block"
+          title={`Created ${result.created.length} account${result.created.length === 1 ? '' : 's'}${
+            result.failures.length > 0 ? `, ${result.failures.length} failed` : ''
+          }.`}
+        >
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
             Share each temporary password with that student now — they will not be shown again. Every
             student will be required to change their password on first login.
           </p>
@@ -526,7 +533,7 @@ function PendingStudentAccountsTab() {
               </table>
             </div>
           )}
-        </div>
+        </Alert>
       )}
 
       {loading ? (

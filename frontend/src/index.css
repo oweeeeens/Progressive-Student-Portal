@@ -3196,6 +3196,12 @@ th {
   gap: var(--space-2);
   flex-shrink: 0;
 }
+/* An alert whose body carries a table rather than a sentence. The 78ch
+   measure above is right for prose and far too narrow for a three-column
+   list of temporary passwords, which is exactly what these alerts hold. */
+.alert--block {
+  max-width: none;
+}
 /* Borders are mixed from the hue rather than using it at full strength: a
    solid danger-red outline around a pale pink box reads as a second,
    louder alert drawn around the first. */
@@ -4600,4 +4606,62 @@ th {
 }
 .attendance-history__source svg {
   flex-shrink: 0;
+}
+
+/* The error boundary's fallback. Deliberately self-contained: it renders
+   when the app tree has failed, so it cannot rely on the shell, the sidebar
+   or anything a provider supplies. */
+.error-boundary {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background: var(--color-bg);
+}
+.error-boundary__card {
+  max-width: 34rem;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 10px);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.error-boundary__icon {
+  color: var(--color-danger);
+  margin-bottom: var(--space-3);
+}
+.error-boundary__card h1 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xl);
+}
+/* The global h1 brand underline is drawn on the heading itself (see the
+   h1::after rule), which left-aligns it inside this centred card and reads
+   as a stray mark beside the paragraph. Centred here rather than removed —
+   the card should still look like it belongs to this product. */
+.error-boundary__card h1::after {
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: var(--space-3);
+}
+.error-boundary__card p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+.error-boundary__actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: var(--space-5) 0 var(--space-4);
+}
+/* The raw message: available to whoever is helping, never the headline. */
+.error-boundary__detail {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+  word-break: break-word;
 }

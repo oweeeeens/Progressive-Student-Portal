@@ -400,17 +400,20 @@ export function BulkImportStudentsPage() {
 
       {step === 'result' && result && (
         <div className="record-section">
-          <div className="alert alert--success">
-            <p style={{ fontWeight: 500 }}>
-              Imported {result.insertedCount} student{result.insertedCount === 1 ? '' : 's'} successfully.
-            </p>
+          {/* The Alert component, not a bare .alert div: .alert is a flex
+              row (icon beside body), so loose <p> children lay out as
+              side-by-side columns instead of stacked paragraphs. */}
+          <Alert
+            variant="success"
+            title={`Imported ${result.insertedCount} student${result.insertedCount === 1 ? '' : 's'} successfully.`}
+          >
             {result.failures.length > 0 && (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
                 {result.failures.length} row{result.failures.length === 1 ? '' : 's'} failed unexpectedly while
                 saving — see below.
               </p>
             )}
-          </div>
+          </Alert>
 
           {result.failures.length > 0 && (
             <div className="table-card" style={{ marginTop: 'var(--space-3)' }}>
@@ -448,12 +451,14 @@ export function BulkImportStudentsPage() {
           )}
 
           {accountResult && (
-            <div className="alert alert--success" style={{ marginTop: 'var(--space-4)' }}>
-              <p style={{ fontWeight: 500 }}>
-                Created {accountResult.created.length} account{accountResult.created.length === 1 ? '' : 's'}
-                {accountResult.failures.length > 0 ? `, ${accountResult.failures.length} failed` : ''}.
-              </p>
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+            <Alert
+              variant="success"
+              className="alert--block"
+              title={`Created ${accountResult.created.length} account${
+                accountResult.created.length === 1 ? '' : 's'
+              }${accountResult.failures.length > 0 ? `, ${accountResult.failures.length} failed` : ''}.`}
+            >
+              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
                 Share each temporary password with that student now — they will not be shown again.
               </p>
               {accountResult.created.length > 0 && (
@@ -480,7 +485,7 @@ export function BulkImportStudentsPage() {
                   </table>
                 </div>
               )}
-            </div>
+            </Alert>
           )}
 
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>

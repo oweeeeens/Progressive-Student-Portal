@@ -374,15 +374,18 @@ export function StudentDetailPage() {
         </div>
       )}
 
+      {/* The Alert component rather than a bare .alert div: .alert is a flex
+          row, so loose block children lay out side by side. This is a
+          temporary password someone has to read and copy — it needs to sit
+          under its heading, not beside it. */}
       {resetResult && (
-        <div className="alert alert--success" style={{ marginTop: 'var(--space-4)', marginBottom: 0 }}>
-          <p>Password reset for this student's portal account.</p>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+        <Alert variant="success" title="Password reset for this student's portal account.">
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
             Share this temporary password with them now — it will not be shown again. They'll be
             required to change it on next login.
           </p>
           <code className="alert__code">{resetResult}</code>
-        </div>
+        </Alert>
       )}
     </div>
   )

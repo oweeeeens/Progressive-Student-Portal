@@ -19,6 +19,12 @@
   );
   color: var(--color-text-on-primary);
   box-shadow: var(--shadow-lg);
+  /* Animating `width` rather than `transform`, against the usual advice.
+     The sidebar is a flex sibling the page content sits beside, so a
+     transform would slide it OVER the content instead of reflowing the page
+     around it — the collapse is a layout change, and has to be animated as
+     one. One element, 150ms. The design detector's layout-transition rule is
+     ignored for this file only (see .impeccable/config.json). */
   transition: width 0.15s ease;
 }
 

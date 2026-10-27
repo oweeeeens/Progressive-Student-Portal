@@ -29,70 +29,75 @@ import { StudentGradesPage } from './pages/StudentGradesPage'
 import { StudentAttendancePage } from './pages/StudentAttendancePage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route
-              path="/change-password"
-              element={
-                <ProtectedRoute>
-                  <ChangePasswordPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="/" element={<HomePage />} />
-              <Route path="/users" element={<UserManagementPage />} />
-              <Route path="/users/new" element={<CreateAccountPage />} />
-              <Route path="/students" element={<StudentListPage />} />
-              <Route path="/students/new" element={<StudentFormPage />} />
-              <Route path="/students/bulk-import" element={<BulkImportStudentsPage />} />
-              <Route path="/students/:id" element={<StudentDetailPage />} />
-              <Route path="/students/:id/edit" element={<StudentFormPage />} />
-              {/* A student has three pages and no deeper nesting: Home
-                  carries the figures, the advice and the trends — what a
-                  flagged student must see on arrival — while the detail
-                  they come looking for on purpose lives on its own page.
-                  This replaced six routes behind two collapsible sidebar
-                  parents, and then a single four-screen page once that page
-                  had grown. Every old path still redirects so existing
-                  links and bookmarks keep working. */}
-              <Route path="/my-grades" element={<StudentGradesPage />} />
-              <Route path="/my-attendance" element={<StudentAttendancePage />} />
-              <Route path="/my-record" element={<Navigate to="/" replace />} />
-              <Route path="/my-profile/*" element={<Navigate to="/" replace />} />
-              <Route path="/my-progress/*" element={<Navigate to="/" replace />} />
-              <Route path="/attendance/daily" element={<DailyAttendancePage />} />
-              <Route path="/attendance/subject" element={<SubjectAttendancePage />} />
-              <Route path="/attendance/bulk-import" element={<BulkImportAttendancePage />} />
-              <Route path="/grades/entry" element={<GradeEntryPage />} />
-              <Route path="/grades/verify" element={<VerifyGradesPage />} />
-              <Route path="/grades/finalize" element={<GradeFinalizationPage />} />
-              <Route path="/academic-progress" element={<AcademicProgressPage />} />
-              <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/interventions" element={<InterventionsPage />} />
-              <Route path="/academic-setup/school-years" element={<SchoolYearsPage />} />
-              <Route path="/academic-setup/sections" element={<SectionsPage />} />
-              <Route path="/academic-setup/subjects" element={<SubjectsPage />} />
-              <Route path="/academic-setup/class-offerings" element={<ClassOfferingsPage />} />
-            </Route>
-          </Routes>
-        </Router>
-      </AuthProvider>
-    </ThemeProvider>
+    // Outermost on purpose: a throw anywhere below — including inside a
+    // provider — would otherwise unmount the entire app to a blank page.
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route
+                path="/change-password"
+                element={
+                  <ProtectedRoute>
+                    <ChangePasswordPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="/" element={<HomePage />} />
+                <Route path="/users" element={<UserManagementPage />} />
+                <Route path="/users/new" element={<CreateAccountPage />} />
+                <Route path="/students" element={<StudentListPage />} />
+                <Route path="/students/new" element={<StudentFormPage />} />
+                <Route path="/students/bulk-import" element={<BulkImportStudentsPage />} />
+                <Route path="/students/:id" element={<StudentDetailPage />} />
+                <Route path="/students/:id/edit" element={<StudentFormPage />} />
+                {/* A student has three pages and no deeper nesting: Home
+                    carries the figures, the advice and the trends — what a
+                    flagged student must see on arrival — while the detail
+                    they come looking for on purpose lives on its own page.
+                    This replaced six routes behind two collapsible sidebar
+                    parents, and then a single four-screen page once that page
+                    had grown. Every old path still redirects so existing
+                    links and bookmarks keep working. */}
+                <Route path="/my-grades" element={<StudentGradesPage />} />
+                <Route path="/my-attendance" element={<StudentAttendancePage />} />
+                <Route path="/my-record" element={<Navigate to="/" replace />} />
+                <Route path="/my-profile/*" element={<Navigate to="/" replace />} />
+                <Route path="/my-progress/*" element={<Navigate to="/" replace />} />
+                <Route path="/attendance/daily" element={<DailyAttendancePage />} />
+                <Route path="/attendance/subject" element={<SubjectAttendancePage />} />
+                <Route path="/attendance/bulk-import" element={<BulkImportAttendancePage />} />
+                <Route path="/grades/entry" element={<GradeEntryPage />} />
+                <Route path="/grades/verify" element={<VerifyGradesPage />} />
+                <Route path="/grades/finalize" element={<GradeFinalizationPage />} />
+                <Route path="/academic-progress" element={<AcademicProgressPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/interventions" element={<InterventionsPage />} />
+                <Route path="/academic-setup/school-years" element={<SchoolYearsPage />} />
+                <Route path="/academic-setup/sections" element={<SectionsPage />} />
+                <Route path="/academic-setup/subjects" element={<SubjectsPage />} />
+                <Route path="/academic-setup/class-offerings" element={<ClassOfferingsPage />} />
+              </Route>
+            </Routes>
+          </Router>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   )
 }
 
