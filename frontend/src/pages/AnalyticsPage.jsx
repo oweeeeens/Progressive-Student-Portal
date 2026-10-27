@@ -15,6 +15,7 @@ import {
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { SkeletonChart, SkeletonTable, LoadingAnnouncement } from '../components/Skeleton'
 import { StatusPill } from '../components/StatusPill'
 import { Tabs } from '../components/Tabs'
 import { TrendIcon } from '../components/TrendIcon'
@@ -554,7 +555,10 @@ export function AnalyticsPage() {
 
       <div className="record-section">
         {loading || !distribution ? (
-          <p>Loading…</p>
+          <>
+            <SkeletonChart />
+            <LoadingAnnouncement />
+          </>
         ) : (
           <div className={frameClass}>
             {/* One row per band — no stacked segments, so each band is read
@@ -652,7 +656,10 @@ export function AnalyticsPage() {
           One chart per grading period, sharing a scale — so a band's bar can be compared straight across.
         </p>
         {!trend ? (
-          <p>Loading…</p>
+          <>
+            <SkeletonChart />
+            <LoadingAnnouncement />
+          </>
         ) : trend.length === 0 ? (
           <ChartEmptyState message="No grading periods with data yet." isFiltered={isFiltered} onClear={clearFilters} />
         ) : (
@@ -705,7 +712,10 @@ export function AnalyticsPage() {
     <div>
       <div className="record-section">
         {!attendance ? (
-          <p>Loading…</p>
+          <>
+            <SkeletonChart />
+            <LoadingAnnouncement />
+          </>
         ) : (
           <div className={frameClass}>
             <ChartCard
@@ -773,7 +783,10 @@ export function AnalyticsPage() {
 
       <div className="record-section">
         {!lowestSections ? (
-          <p>Loading…</p>
+          <>
+            <SkeletonChart />
+            <LoadingAnnouncement />
+          </>
         ) : (
           <div className={frameClass}>
             {/* A comparison across sections, so bars rather than a table of
@@ -811,7 +824,10 @@ export function AnalyticsPage() {
       <div className="record-section">
         <h2>Intervention Effectiveness</h2>
         {!effectiveness ? (
-          <p>Loading…</p>
+          <>
+            <SkeletonTable rows={4} columns={4} />
+            <LoadingAnnouncement />
+          </>
         ) : effectiveness.overall.total === 0 ? (
           <ChartEmptyState message="No interventions have been logged yet." isFiltered={isFiltered} onClear={clearFilters} />
         ) : (
@@ -922,7 +938,10 @@ export function AnalyticsPage() {
     <div>
       <div className="record-section">
         {loading || !factors ? (
-          <p>Loading…</p>
+          <>
+            <SkeletonChart />
+            <LoadingAnnouncement />
+          </>
         ) : (
           <div className={frameClass}>
             <ChartCard
@@ -957,7 +976,10 @@ export function AnalyticsPage() {
         <h2>Factors Over Time</h2>
         <p style={{ color: 'var(--color-text-muted)', marginTop: 0 }}>Whether each factor is becoming more or less common period over period.</p>
         {!factorsTrendData ? (
-          <p>Loading…</p>
+          <>
+            <SkeletonChart />
+            <LoadingAnnouncement />
+          </>
         ) : factorSparklines.length === 0 ? (
           <ChartEmptyState
             message="Need at least two grading periods of data to show a trend."
@@ -994,7 +1016,10 @@ export function AnalyticsPage() {
         <h2>Factors by Section</h2>
         <p style={{ color: 'var(--color-text-muted)', marginTop: 0 }}>Which section a given factor concentrates in, this grading period.</p>
         {!factorsBySection ? (
-          <p>Loading…</p>
+          <>
+            <SkeletonTable rows={4} columns={4} />
+            <LoadingAnnouncement />
+          </>
         ) : factorsBySection.length === 0 ? (
           <ChartEmptyState message="No sections with assessed students this period." isFiltered={isFiltered} onClear={clearFilters} />
         ) : (
@@ -1028,71 +1053,76 @@ export function AnalyticsPage() {
 
       <div className="page-header">
         <h1>Analytics</h1>
-        <div className="page-header__actions">
-          <label>
-            Grading Period
-            <select value={filters.gradingPeriodId} onChange={(e) => setFilter('gradingPeriodId', e.target.value)}>
-              <option value="">Current</option>
-              {periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Section
-            <select value={filters.sectionId} onChange={(e) => setFilter('sectionId', e.target.value)}>
-              <option value="">All sections</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  Grade {s.grade_level} - {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Grade Level
-            <select value={filters.gradeLevel} onChange={(e) => setFilter('gradeLevel', e.target.value)}>
-              <option value="">All grades</option>
-              {gradeLevels.map((g) => (
-                <option key={g} value={g}>
-                  Grade {g}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Strand
-            <select value={filters.strand} onChange={(e) => setFilter('strand', e.target.value)}>
-              <option value="">All strands</option>
-              {strands.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Risk Band
-            <select value={filters.riskBand} onChange={(e) => setFilter('riskBand', e.target.value)}>
-              <option value="">All bands</option>
-              {RISK_BAND_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Break down by
-            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
-              <option value="">Whole school</option>
-              <option value="section">Section</option>
-              <option value="gradeLevel">Grade level</option>
-            </select>
-          </label>
-        </div>
+      </div>
+
+      {/* The scope controls, in their own bar. Six selects had been
+          crammed into page-header__actions, which is the row the page
+          title sits in — so the title of the busiest screen in the app
+          was sharing its line with six dropdowns. */}
+      <div className="filter-bar">
+        <label>
+          Grading Period
+          <select value={filters.gradingPeriodId} onChange={(e) => setFilter('gradingPeriodId', e.target.value)}>
+            <option value="">Current</option>
+            {periods.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Section
+          <select value={filters.sectionId} onChange={(e) => setFilter('sectionId', e.target.value)}>
+            <option value="">All sections</option>
+            {sections.map((s) => (
+              <option key={s.id} value={s.id}>
+                Grade {s.grade_level} - {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Grade Level
+          <select value={filters.gradeLevel} onChange={(e) => setFilter('gradeLevel', e.target.value)}>
+            <option value="">All grades</option>
+            {gradeLevels.map((g) => (
+              <option key={g} value={g}>
+                Grade {g}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Strand
+          <select value={filters.strand} onChange={(e) => setFilter('strand', e.target.value)}>
+            <option value="">All strands</option>
+            {strands.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Risk Band
+          <select value={filters.riskBand} onChange={(e) => setFilter('riskBand', e.target.value)}>
+            <option value="">All bands</option>
+            {RISK_BAND_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Break down by
+          <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
+            <option value="">Whole school</option>
+            <option value="section">Section</option>
+            <option value="gradeLevel">Grade level</option>
+          </select>
+        </label>
       </div>
 
       {/* Scope on the left, exports on the right — deliberately the same row,

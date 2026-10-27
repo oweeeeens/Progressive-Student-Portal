@@ -48,6 +48,20 @@ export function SkeletonTable({ rows = 6, columns = 4 }) {
   )
 }
 
+// A stand-in for a chart. Heights step down across the bars so the block
+// reads as data arriving rather than as a progress graphic.
+const CHART_HEIGHTS = ['62%', '88%', '47%', '73%', '35%', '80%', '55%']
+
+export function SkeletonChart({ bars = 7 }) {
+  return (
+    <div className="skeleton-chart" aria-hidden="true">
+      {Array.from({ length: bars }, (_, i) => (
+        <Skeleton key={i} h={CHART_HEIGHTS[i % CHART_HEIGHTS.length]} w="100%" />
+      ))}
+    </div>
+  )
+}
+
 // The accessible half. A shimmer is decoration — it says nothing to a screen
 // reader, which is why every skeleton above is aria-hidden. This announces
 // the state once, politely, and renders nothing visible.

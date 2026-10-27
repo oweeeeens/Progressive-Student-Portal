@@ -4205,3 +4205,56 @@ th {
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
+
+/* =============================================================================
+   The scope bar
+   =============================================================================
+   Analytics narrows by six dimensions, and those six selects used to sit in
+   .page-header__actions — the row the page title lives in. A title sharing
+   its line with six dropdowns reads as a toolbar that happens to have a
+   heading in it.
+   They are their own surface now: a bounded strip in the area's colour,
+   labels as small capitals above compact controls, wrapping to as many rows
+   as the viewport needs. */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 5%, var(--color-surface));
+}
+.filter-bar label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+}
+.filter-bar select {
+  margin-top: 0;
+  min-width: 10rem;
+}
+
+/* A chart that has not arrived yet, drawn at the height a chart occupies so
+   the card does not resize under the reader when it does. The bars step
+   down rather than being uniform, because a row of identical blocks reads
+   as a loading graphic while uneven ones read as data. */
+.skeleton-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  height: 180px;
+  padding: var(--space-3) 0;
+}
+.skeleton-chart .skeleton {
+  flex: 1;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
