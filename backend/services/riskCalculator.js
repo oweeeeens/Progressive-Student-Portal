@@ -55,11 +55,18 @@ function calculateTrend(orderedValues) {
 function evaluateFactors({ currentGrade, gradeTrend, currentAttendanceRate, attendanceTrend }) {
   const factors = [];
   const points = riskConfig.POINTS_PER_TRIGGERED_FACTOR;
+  // These labels are read by advisers, counselors and the principal on
+  // their dashboards. The two trend labels already rounded for display; the
+  // two LEVEL labels did not, so an average computed over three subjects
+  // arrived as "(74.33)" and an attendance rate as "(66.66667%)". Rounding
+  // is for the sentence only — the comparisons above and every score below
+  // still use the full value.
+  const shown = (value) => String(Math.round(Number(value) * 10) / 10);
 
   if (currentGrade != null && currentGrade < riskConfig.GRADE_AT_RISK_THRESHOLD) {
     factors.push({
       key: 'low_grade',
-      label: `Current grade (${currentGrade}) is below the at-risk threshold of ${riskConfig.GRADE_AT_RISK_THRESHOLD}`,
+      label: `Current grade (${shown(currentGrade)}) is below the at-risk threshold of ${riskConfig.GRADE_AT_RISK_THRESHOLD}`,
       points,
     });
   }
@@ -75,7 +82,7 @@ function evaluateFactors({ currentGrade, gradeTrend, currentAttendanceRate, atte
   if (currentAttendanceRate != null && currentAttendanceRate < riskConfig.ATTENDANCE_RISK_THRESHOLD) {
     factors.push({
       key: 'low_attendance',
-      label: `Attendance rate (${currentAttendanceRate}%) is below the at-risk threshold of ${riskConfig.ATTENDANCE_RISK_THRESHOLD}%`,
+      label: `Attendance rate (${shown(currentAttendanceRate)}%) is below the at-risk threshold of ${riskConfig.ATTENDANCE_RISK_THRESHOLD}%`,
       points,
     });
   }

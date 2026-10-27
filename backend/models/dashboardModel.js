@@ -10,7 +10,7 @@ const sectionModel = require('./sectionModel');
 const riskAssessmentModel = require('./riskAssessmentModel');
 const riskCalculator = require('../services/riskCalculator');
 
-const ATTENTION_WIDGET_ROLES = ['admin', 'adviser', 'guidance_counselor'];
+const ATTENTION_WIDGET_ROLES = ['admin', 'principal', 'adviser', 'guidance_counselor'];
 
 async function countVisibleStudents(user) {
   const clauses = ['s.is_active = TRUE'];
@@ -74,7 +74,31 @@ async function getStats(user) {
     stats.openInterventions = await countOpenInterventions(user);
   }
 
+  // The principal had no figures at all, which left the one role with a
+  // school-wide queue looking at a home page with nothing on it. They
+  // already see the school-wide risk rollup on Analytics and the per-student
+  // drill-down from it, so withholding the headline count here protected
+  // nothing — and the grades waiting on them are the single most useful
+  // number this person can be shown.
+  if (['admin', 'principal'].includes(user.role) && currentPeriod) {
+    stats.gradesAwaitingVerification = await countSubmittedGrades(currentPeriod.id);
+  }
+  if (user.role === 'principal') {
+    stats.students = await countVisibleStudents(user);
+    stats.atRiskStudents = await countAtRiskStudents(user, currentPeriod?.id);
+  }
+
   return stats;
+}
+
+// Grades sitting in `submitted` for the current period — the principal's
+// queue, counted the same way VerifyGradesPage's own list counts it.
+async function countSubmittedGrades(gradingPeriodId) {
+  const result = await pool.query(
+    `SELECT COUNT(*) FROM grades WHERE status = 'submitted' AND grading_period_id = $1`,
+    [gradingPeriodId]
+  );
+  return Number(result.rows[0].count);
 }
 
 // "Students Needing Attention" widget — the top N highest-risk students in

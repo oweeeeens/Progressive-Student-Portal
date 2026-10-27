@@ -42,21 +42,21 @@ export function StudentHero({ student, progress, currentPeriod, riskLabels, risk
   const recognised = band === 'performing_well'
 
   return (
-    <section className={`student-hero${recognised ? ' student-hero--recognised' : ''}`}>
-      <div className="student-hero__body">
-        <p className="student-hero__greeting">{greeting()}</p>
-        <h1 className="student-hero__name">{firstName}</h1>
+    <section className={`portal-hero${recognised ? ' portal-hero--recognised' : ''}`}>
+      <div className="portal-hero__body">
+        <p className="portal-hero__greeting">{greeting()}</p>
+        <h1 className="portal-hero__name">{firstName}</h1>
 
-        <p className="student-hero__meta">
+        <p className="portal-hero__meta">
           {[section || 'No section assigned', currentPeriod?.name, currentPeriod?.schoolYearLabel]
             .filter(Boolean)
             .join('  ·  ')}
         </p>
 
         {progress && (
-          <div className="student-hero__standing">
+          <div className="portal-hero__standing">
             {recognised && (
-              <span className="student-hero__medal" aria-hidden="true">
+              <span className="portal-hero__medal" aria-hidden="true">
                 <Award size={20} strokeWidth={1.75} />
               </span>
             )}
@@ -70,7 +70,7 @@ export function StudentHero({ student, progress, currentPeriod, riskLabels, risk
                     : 'neutral'
               }
             />
-            <p className="student-hero__summary">
+            <p className="portal-hero__summary">
               {(recognised && progress.note) || BAND_SUMMARY[band] || progress.bandLabel}
             </p>
           </div>
@@ -81,8 +81,8 @@ export function StudentHero({ student, progress, currentPeriod, riskLabels, risk
             that looks like something failed to load — and it names what has
             to happen before the rest of this page fills in. */}
         {!progress && (
-          <div className="student-hero__standing">
-            <p className="student-hero__summary">
+          <div className="portal-hero__standing">
+            <p className="portal-hero__summary">
               Your standing appears here once your adviser enters this grading period&rsquo;s marks into the
               official record.
             </p>

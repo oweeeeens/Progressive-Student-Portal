@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   ClipboardList,
   CheckCircle2,
+  ShieldCheck,
   CalendarCheck,
   PenLine,
   UserCog,
@@ -22,7 +23,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
-import { UserInfoCard } from '../components/UserInfoCard'
+import { StaffHero } from '../components/StaffHero'
 import { Pagination } from '../components/Pagination'
 import { QuickActions } from '../components/QuickActions'
 import { StudentsNeedingAttention } from '../components/StudentsNeedingAttention'
@@ -54,7 +55,20 @@ function getQuickActions(role, onPostAnnouncement) {
         { label: 'Create Account', to: '/users/new', icon: UserCog },
       ]
     case 'guidance_counselor':
-      return [{ label: 'View Flagged Students', to: '/academic-progress', icon: AlertTriangle }]
+      return [
+        { label: 'View Flagged Students', to: '/academic-progress', icon: AlertTriangle },
+        { label: 'Interventions', to: '/interventions', icon: ClipboardList },
+      ]
+    // These two roles previously fell through to no actions at all, which
+    // left them with a greeting and an announcement feed as their entire
+    // home page. Both have real work to come back to.
+    case 'principal':
+      return [
+        { label: 'Verify Grades', to: '/grades/verify', icon: CheckCircle2 },
+        { label: 'Analytics', to: '/analytics', icon: AlertTriangle },
+      ]
+    case 'ict_faculty':
+      return [{ label: 'Post Announcement', onClick: onPostAnnouncement, icon: Plus }]
     case 'admin':
       return [
         { label: 'Manage User Accounts', to: '/users', icon: UserCog },
@@ -130,6 +144,7 @@ function AnnouncementForm({ initial, onCancel, onSubmit, submitLabel }) {
 // This is the page every logged-in user lands on after login (see App.jsx's
 // "/" route) — the announcements feed is its main content, per the brief.
 export function DashboardPage() {
+  const [currentPeriod, setCurrentPeriod] = useState(null)
   const { user } = useAuth()
   const [announcements, setAnnouncements] = useState(null)
   const [total, setTotal] = useState(0)
@@ -156,6 +171,14 @@ export function DashboardPage() {
   // Role-scoped — the backend returns only the figures this role is already
   // allowed to see elsewhere, so roles like student get an empty object and
   // simply render no stat row.
+  // The term the greeting names. Same endpoint the top bar already uses.
+  useEffect(() => {
+    api
+      .get('/grading-periods/current')
+      .then((data) => setCurrentPeriod(data.gradingPeriod))
+      .catch(() => setCurrentPeriod(null))
+  }, [])
+
   useEffect(() => {
     api
       .get('/dashboard/stats')
@@ -208,20 +231,7 @@ export function DashboardPage() {
     <div className="dashboard-page">
       <Breadcrumbs items={[{ label: 'Home' }]} />
 
-      <div className="page-header">
-        <div>
-          <h1 className="dashboard-greeting">Welcome, {user.fullName.split(' ')[0]}</h1>
-          <p className="dashboard-greeting__subtitle">School announcements and a quick overview of your account.</p>
-        </div>
-        {canAuthor(user.role) && !creating && (
-          <div className="page-header__actions">
-            <button type="button" className="btn-primary" onClick={() => setCreating(true)}>
-              <Plus size={16} strokeWidth={1.75} />
-              New Announcement
-            </button>
-          </div>
-        )}
-      </div>
+      <StaffHero user={user} currentPeriod={currentPeriod} />
 
       <QuickActions actions={quickActions} />
 
@@ -236,6 +246,16 @@ export function DashboardPage() {
           {stats.openInterventions !== undefined && (
             <StatCard icon={ClipboardList} value={stats.openInterventions} label="Open interventions" variant="accent" />
           )}
+          {/* The principal's own queue. Shown to them and to admin only —
+              nobody else can act on it. */}
+          {stats.gradesAwaitingVerification !== undefined && (
+            <StatCard
+              icon={ShieldCheck}
+              value={stats.gradesAwaitingVerification}
+              label="Grades awaiting verification"
+              variant={stats.gradesAwaitingVerification > 0 ? 'warning' : 'positive'}
+            />
+          )}
         </StatRow>
       )}
 
@@ -244,7 +264,15 @@ export function DashboardPage() {
       <div className="dashboard-main">
         <div className="dashboard-primary">
           <div className="panel">
-            <h2>Announcements</h2>
+            <div className="panel__head">
+              <h2>Announcements</h2>
+              {canAuthor(user.role) && !creating && (
+                <button type="button" className="btn-primary" onClick={() => setCreating(true)}>
+                  <Plus size={16} strokeWidth={1.75} />
+                  New Announcement
+                </button>
+              )}
+            </div>
 
             {creating && (
               <AnnouncementForm
@@ -341,12 +369,11 @@ export function DashboardPage() {
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           </div>
 
-          <ActivityFeed />
         </div>
 
         <div className="dashboard-side">
-          <UserInfoCard stats={stats} />
           <StudentsNeedingAttention />
+          <ActivityFeed />
         </div>
       </div>
     </div>

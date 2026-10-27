@@ -53,3 +53,18 @@
   gap: var(--space-4);
   min-width: 0;
 }
+
+/* A panel whose heading shares its line with the action that acts on it.
+   The "New Announcement" button used to live in the page header; with the
+   header now a hero, it belongs on the thing it adds to. */
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.panel__head h2 {
+  margin: 0;
+}
