@@ -4295,3 +4295,120 @@ th {
   max-height: 13.75rem;
   overflow-y: auto;
 }
+
+/* =============================================================================
+   Step indicator
+   =============================================================================
+   Shared by the student form wizard and the bulk-import flow. It lived in
+   StudentFormPage.css, which bulk import does not load — so the second page
+   to want it would have rendered an unstyled list. */
+/* Multi-step progress indicator — a step's circle fills in once it's
+   behind the current one; clicking any step jumps straight to it (handy
+   on an edit, where every step is already filled in). */
+.form-steps {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+}
+.form-steps__item {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+ran between steps 1 and 2 and then simply stopped. */
+.form-steps__item:last-child {
+  flex: 1;
+}
+.form-steps__connector {
+  flex: 1;
+  height: 2px;
+  background: var(--color-border);
+  margin: 0 var(--space-3);
+}
+.form-steps__connector.is-done {
+  background: var(--color-primary);
+}
+.form-steps__step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.form-steps__step:hover {
+  background: none;
+  color: var(--color-primary);
+}
+.form-steps__index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.form-steps__step.is-active {
+  color: var(--color-primary);
+}
+.form-steps__step.is-active .form-steps__index {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.form-steps__step.is-done .form-steps__index {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* A step indicator nobody can click. The bulk-import flow shows where you
+   are, but its stages are not reachable out of order — you cannot review
+   rows before a file has been read — so they are spans, not buttons. */
+.form-steps--static .form-steps__step {
+  cursor: default;
+}
+.form-steps--static .form-steps__step:hover {
+  color: inherit;
+}
+
+/* The first screen of the import: a drawing, a heading, one sentence and
+   two buttons. It used to be those last three on bare page background with
+   700px of nothing under them. */
+.import-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-7) var(--space-5);
+}
+.import-upload h2 {
+  margin-bottom: var(--space-2);
+}
+.import-upload .form-note {
+  max-width: 48ch;
+}
+.import-upload__actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--space-5);
+}
+.import-upload__file {
+  cursor: pointer;
+}

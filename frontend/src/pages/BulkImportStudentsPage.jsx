@@ -1,15 +1,23 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Download, Upload, CheckCircle2, XCircle, ArrowLeft, Users } from 'lucide-react'
+import { Check, Download, Upload, CheckCircle2, XCircle, ArrowLeft, Users } from 'lucide-react'
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { Alert } from '../components/Alert'
+import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 
 // The step name is held as plain component state rather than a route — the
 // parsed spreadsheet data only matters within one import attempt and never
 // needs a URL of its own (refreshing mid-import is meant to start over, not
 // resume).
+const IMPORT_STEPS = [
+  { key: 'upload', label: 'Upload' },
+  { key: 'mapping', label: 'Match columns' },
+  { key: 'preview', label: 'Review' },
+  { key: 'result', label: 'Done' },
+]
+
 export function BulkImportStudentsPage() {
   const [step, setStep] = useState('upload')
   const [loading, setLoading] = useState(false)
@@ -156,23 +164,51 @@ export function BulkImportStudentsPage() {
         <h1>Bulk Import Students</h1>
       </div>
 
+      {/* Where you are in the import. The flow has always had four stages
+          held in component state, but nothing on screen said so — you found
+          out there was a mapping step by arriving at it. Read-only, unlike
+          the student form's: you cannot jump to Review before a file has
+          been read. */}
+      <ol className="form-steps form-steps--static">
+        {IMPORT_STEPS.map((s, index) => {
+          const current = IMPORT_STEPS.findIndex((x) => x.key === step)
+          return (
+            <li className="form-steps__item" key={s.key}>
+              {index > 0 && <span className={`form-steps__connector${index <= current ? ' is-done' : ''}`} />}
+              <span
+                className={`form-steps__step${index === current ? ' is-active' : ''}${
+                  index < current ? ' is-done' : ''
+                }`}
+                aria-current={index === current ? 'step' : undefined}
+              >
+                <span className="form-steps__index">
+                  {index < current ? <Check size={14} strokeWidth={2} /> : index + 1}
+                </span>
+                {s.label}
+              </span>
+            </li>
+          )
+        })}
+      </ol>
+
       {error && (
         <Alert>{error}</Alert>
       )}
 
       {step === 'upload' && (
-        <div className="record-section">
-          <h2>1. Upload a spreadsheet</h2>
-          <p style={{ color: 'var(--color-text-muted)' }}>
-            Upload an .xlsx file with your students' records. Any column layout works — you'll match your
-            columns to our fields on the next step.
+        <div className="panel import-upload">
+          <SpotIllustration name="roster" />
+          <h2>Upload a spreadsheet</h2>
+          <p className="form-note">
+            An .xlsx file with your students' records. Any column layout works — you'll match your columns
+            to our fields on the next step.
           </p>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
+          <div className="import-upload__actions">
             <button type="button" onClick={handleDownloadTemplate}>
               <Download size={16} strokeWidth={1.75} />
               Download Template
             </button>
-            <label className="btn-primary" style={{ cursor: 'pointer' }}>
+            <label className="btn-primary import-upload__file">
               <Upload size={16} strokeWidth={1.75} />
               {loading ? 'Uploading…' : 'Choose File'}
               <input
