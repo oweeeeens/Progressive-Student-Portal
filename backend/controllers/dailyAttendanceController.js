@@ -45,9 +45,13 @@ async function recordDailyAttendance(req, res) {
     return res.status(400).json({ error: `Student ${unknownStudent.studentId} is not currently in this section.` });
   }
 
-  const gradingPeriod = await gradingPeriodModel.findByDate(attendanceDate);
+  // Scoped to this section's own school year. The unscoped findByDate searches
+  // every year's periods and breaks ties by lowest id, so a date covered by
+  // two years' ranges could be stored under the wrong one — and an
+  // attendance row carries no way to tell afterwards.
+  const gradingPeriod = await gradingPeriodModel.findByDateInSchoolYear(attendanceDate, section.school_year_id);
   if (!gradingPeriod) {
-    return res.status(400).json({ error: 'No grading period is configured for that date.' });
+    return res.status(400).json({ error: 'No grading period is configured for that date in this school year.' });
   }
 
   const saved = await dailyAttendanceModel.recordAttendance({
@@ -98,4 +102,7 @@ async function getHistoryForStudent(req, res) {
   res.json(history);
 }
 
-module.exports = { recordDailyAttendance, getRosterForDate, getHistoryForStudent };
+// assertCanWriteSection is exported so the bulk importer enforces the
+// identical ownership rule rather than restating it — "it isn't literally
+// 'adviser' that earns write access, it's being that section's adviser_id".
+module.exports = { recordDailyAttendance, getRosterForDate, getHistoryForStudent, assertCanWriteSection };

@@ -19,6 +19,34 @@ async function findByDate(date) {
   return result.rows[0] || null;
 }
 
+// findByDate, but confined to one school year's periods.
+//
+// findByDate above searches every period in the table and breaks ties with
+// ORDER BY id, so when two school years have overlapping date ranges the
+// older one silently wins. Nothing in the schema prevents that overlap:
+// grading_periods only constrains UNIQUE (school_year_id, sequence_number),
+// never the dates. That is harmless for the "what period is today" readers,
+// but a write filed under the wrong year is permanent — so every caller
+// that STORES a row and already knows its school year (from the section or
+// the class offering) resolves the date through here instead.
+//
+// Periods with no dates configured yet are excluded rather than matched:
+// BETWEEN with a NULL bound is never true anyway, and saying so makes the
+// intent readable.
+async function findByDateInSchoolYear(date, schoolYearId) {
+  const result = await pool.query(
+    `SELECT id, school_year_id, name, sequence_number
+     FROM grading_periods
+     WHERE school_year_id = $2
+       AND start_date IS NOT NULL AND end_date IS NOT NULL
+       AND $1::date BETWEEN start_date AND end_date
+     ORDER BY sequence_number
+     LIMIT 1`,
+    [date, schoolYearId]
+  );
+  return result.rows[0] || null;
+}
+
 // Same lookup as findByDate, but also carries the school year's label
 // (e.g. "2026-2027") for the dashboard's "current period" indicator — no
 // existing caller needed both together, so neither function did this join.
@@ -94,6 +122,7 @@ async function updateGradingPeriod(id, { name, sequenceNumber, startDate, endDat
 
 module.exports = {
   findByDate,
+  findByDateInSchoolYear,
   findCurrentWithSchoolYear,
   getById,
   listForCurrentSchoolYear,

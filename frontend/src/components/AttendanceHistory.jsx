@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Calendar, List } from 'lucide-react'
+import { Calendar, List, FileUp } from 'lucide-react'
 import { api } from '../api/client'
 import { StatusPill } from './StatusPill'
 import { DataTable, fieldValue } from './table/DataTable'
@@ -131,7 +131,25 @@ export function AttendanceHistory({ studentId, kind, title }) {
                 ]
               : []),
             { key: 'notes', header: 'Notes', truncate: true, render: (r) => fieldValue(r.notes) },
-            { key: 'by', header: 'Recorded by', render: (r) => fieldValue(r.recorded_by_name) },
+            {
+              // Who recorded it, and — for a row that came from a bulk
+              // import rather than the marking sheet — which file it came
+              // from. `imported_from` is null on every hand-marked row, so
+              // the second line appears only where it means something.
+              key: 'by',
+              header: 'Recorded by',
+              render: (r) => (
+                <>
+                  {fieldValue(r.recorded_by_name)}
+                  {r.imported_from && (
+                    <span className="attendance-history__source" title={`Imported from ${r.imported_from}`}>
+                      <FileUp size={12} strokeWidth={1.75} aria-hidden="true" />
+                      {r.imported_from}
+                    </span>
+                  )}
+                </>
+              ),
+            },
             {
               key: 'status',
               header: 'Status',

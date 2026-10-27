@@ -178,7 +178,7 @@ async function appendFollowingPeriod(schoolYearId, { name, lengthDays = 14 }) {
 // `schoolYearId`/`ownSchoolYear` are used only for the final step: the
 // school_years row (and its original periods) is deleted only when this
 // suite created that school year itself.
-async function teardown({
+async function deleteFixtures({
   schoolYearId,
   ownSchoolYear = true,
   gradingPeriodIds = [],
@@ -218,17 +218,31 @@ async function teardown({
     await pool.query('DELETE FROM grading_periods WHERE school_year_id = $1', [schoolYearId]);
     await pool.query('DELETE FROM school_years WHERE id = $1', [schoolYearId]);
   }
+  // bulk_imports.performed_by is ON DELETE RESTRICT (it's an institutional
+  // audit record, kept even if the staff account is later deactivated), so
+  // any test that actually performs an import leaves a row blocking its own
+  // users' deletion. Cleared here rather than in that one test file, since
+  // the rule applies to every user this helper deletes.
   if (userIds.length > 0) {
+    await pool.query('DELETE FROM bulk_imports WHERE performed_by = ANY($1::int[])', [userIds]);
     await pool.query('DELETE FROM users WHERE id = ANY($1::int[])', [userIds]);
   }
+}
 
-  // config/db.js's pool is never explicitly closed by the running app (it's
-  // meant to live for the server process's whole lifetime) — but a pg.Pool
-  // with open/idle connections keeps Node's event loop alive forever, which
-  // otherwise hangs this test file's process after its last test finishes.
-  // Ending it here, once, as the final teardown step is what lets `node
-  // --test` actually exit.
-  await pool.end();
+// config/db.js's pool is never explicitly closed by the running app (it's
+// meant to live for the server process's whole lifetime) — but a pg.Pool with
+// open/idle connections keeps Node's event loop alive forever, which
+// otherwise hangs a test file's process after its last test finishes. So the
+// pool is always ended, even when a DELETE above fails: a teardown error
+// should report itself and move on, not leave `node --test` hanging with no
+// output at all (which is exactly what happened the first time an import test
+// hit the FK above).
+async function teardown(options) {
+  try {
+    await deleteFixtures(options);
+  } finally {
+    await pool.end();
+  }
 }
 
 module.exports = {

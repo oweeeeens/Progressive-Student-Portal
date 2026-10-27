@@ -19,11 +19,11 @@ async function getActiveStudentsInSection(sectionId) {
 // Upserts one row per student for the given date. Re-submitting the same
 // date just overwrites the previous entries (e.g. the adviser fixing a typo),
 // rather than erroring on the UNIQUE(student_id, attendance_date) constraint.
-async function recordAttendance({ gradingPeriodId, attendanceDate, recordedBy, entries }) {
-  const columns = ['student_id', 'grading_period_id', 'attendance_date', 'status', 'recorded_by', 'notes'];
+async function recordAttendance({ gradingPeriodId, attendanceDate, recordedBy, entries, client, importId = null }) {
+  const columns = ['student_id', 'grading_period_id', 'attendance_date', 'status', 'recorded_by', 'notes', 'import_id'];
   const params = [];
   const valueGroups = entries.map((entry) => {
-    const row = [entry.studentId, gradingPeriodId, attendanceDate, entry.status, recordedBy, entry.notes || null];
+    const row = [entry.studentId, gradingPeriodId, attendanceDate, entry.status, recordedBy, entry.notes || null, importId];
     const placeholders = row.map((value) => {
       params.push(value);
       return `$${params.length}`;
@@ -31,12 +31,24 @@ async function recordAttendance({ gradingPeriodId, attendanceDate, recordedBy, e
     return `(${placeholders.join(', ')})`;
   });
 
-  const result = await pool.query(
+  // The bulk importer passes its transaction client so every date in an
+  // import commits or rolls back together, plus the id of the import that
+  // is writing these rows; every other caller passes neither and runs on
+  // the shared pool with import_id NULL, exactly as before.
+  //
+  // import_id is in the DO UPDATE SET list on purpose. An adviser later
+  // correcting an imported day from the marking sheet passes no importId,
+  // so the row is set back to NULL and stops claiming an origin it no
+  // longer has. Leaving it out of the SET would quietly keep the old
+  // pointer on a row that is now hand-entered.
+  const runner = client || pool;
+  const result = await runner.query(
     `INSERT INTO daily_attendance_records (${columns.join(', ')})
      VALUES ${valueGroups.join(', ')}
      ON CONFLICT (student_id, attendance_date)
      DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes,
-                   recorded_by = EXCLUDED.recorded_by, grading_period_id = EXCLUDED.grading_period_id
+                   recorded_by = EXCLUDED.recorded_by, grading_period_id = EXCLUDED.grading_period_id,
+                   import_id = EXCLUDED.import_id
      RETURNING id, student_id, attendance_date, status`,
     params
   );
@@ -73,10 +85,16 @@ async function getHistoryForStudent(studentId, { from, to } = {}) {
 
   const result = await pool.query(
     `SELECT dar.id, dar.attendance_date, dar.status, dar.notes, dar.grading_period_id,
-            gp.name AS grading_period_name, u.full_name AS recorded_by_name
+            gp.name AS grading_period_name, u.full_name AS recorded_by_name,
+            -- LEFT JOIN, not JOIN: import_id is NULL on every hand-marked
+            -- row, which is most of them. A non-null file name is what tells
+            -- the reader this day came from a bulk import rather than the
+            -- marking sheet.
+            bi.file_name AS imported_from
      FROM daily_attendance_records dar
      JOIN grading_periods gp ON gp.id = dar.grading_period_id
      JOIN users u ON u.id = dar.recorded_by
+     LEFT JOIN bulk_imports bi ON bi.id = dar.import_id
      WHERE ${clauses.join(' AND ')}
      ORDER BY dar.attendance_date DESC`,
     params

@@ -91,6 +91,11 @@ function getNavSections(role) {
       items: [
         { to: '/attendance/daily', label: 'Daily Attendance', icon: CalendarCheck, show: canMarkDaily(role) },
         { to: '/attendance/subject', label: 'Subject Attendance', icon: ClipboardList, show: canMarkSubject(role) },
+        // Shown to any staff role, same as the two marking pages above: the
+        // register a person may import into is decided by their actual
+        // section/class assignment, which the sidebar can't know without a
+        // round-trip. The page's own picker is empty if they hold none.
+        { to: '/attendance/bulk-import', label: 'Bulk Import', icon: FileUp, show: isStaffRole(role) },
       ],
     },
     {

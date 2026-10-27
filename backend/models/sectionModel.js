@@ -23,7 +23,14 @@ async function listSections() {
 // the report card feature for the same ownership check (who may generate
 // one for a student in this section).
 async function getSectionById(id) {
-  const result = await pool.query('SELECT id, adviser_id, name, grade_level FROM sections WHERE id = $1', [id]);
+  // school_year_id travels with the section so the attendance writers can
+  // resolve a date to a grading period within THIS section's year rather
+  // than across every year in the table — see
+  // gradingPeriodModel.findByDateInSchoolYear.
+  const result = await pool.query(
+    'SELECT id, adviser_id, name, grade_level, school_year_id FROM sections WHERE id = $1',
+    [id]
+  );
   return result.rows[0] || null;
 }
 

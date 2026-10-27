@@ -16,11 +16,11 @@ async function getActiveStudentsInOffering(classOfferingId) {
   return result.rows;
 }
 
-async function recordAttendance({ classOfferingId, gradingPeriodId, attendanceDate, recordedBy, entries }) {
-  const columns = ['student_id', 'class_offering_id', 'grading_period_id', 'attendance_date', 'status', 'recorded_by', 'notes'];
+async function recordAttendance({ classOfferingId, gradingPeriodId, attendanceDate, recordedBy, entries, client, importId = null }) {
+  const columns = ['student_id', 'class_offering_id', 'grading_period_id', 'attendance_date', 'status', 'recorded_by', 'notes', 'import_id'];
   const params = [];
   const valueGroups = entries.map((entry) => {
-    const row = [entry.studentId, classOfferingId, gradingPeriodId, attendanceDate, entry.status, recordedBy, entry.notes || null];
+    const row = [entry.studentId, classOfferingId, gradingPeriodId, attendanceDate, entry.status, recordedBy, entry.notes || null, importId];
     const placeholders = row.map((value) => {
       params.push(value);
       return `$${params.length}`;
@@ -28,12 +28,24 @@ async function recordAttendance({ classOfferingId, gradingPeriodId, attendanceDa
     return `(${placeholders.join(', ')})`;
   });
 
-  const result = await pool.query(
+  // The bulk importer passes its transaction client so every date in an
+  // import commits or rolls back together, plus the id of the import that
+  // is writing these rows; every other caller passes neither and runs on
+  // the shared pool with import_id NULL, exactly as before.
+  //
+  // import_id is in the DO UPDATE SET list on purpose. An adviser later
+  // correcting an imported day from the marking sheet passes no importId,
+  // so the row is set back to NULL and stops claiming an origin it no
+  // longer has. Leaving it out of the SET would quietly keep the old
+  // pointer on a row that is now hand-entered.
+  const runner = client || pool;
+  const result = await runner.query(
     `INSERT INTO subject_attendance_records (${columns.join(', ')})
      VALUES ${valueGroups.join(', ')}
      ON CONFLICT (student_id, class_offering_id, attendance_date)
      DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes,
-                   recorded_by = EXCLUDED.recorded_by, grading_period_id = EXCLUDED.grading_period_id
+                   recorded_by = EXCLUDED.recorded_by, grading_period_id = EXCLUDED.grading_period_id,
+                   import_id = EXCLUDED.import_id
      RETURNING id, student_id, attendance_date, status`,
     params
   );
@@ -73,10 +85,14 @@ async function getHistoryForStudent(studentId, { classOfferingId, from, to } = {
   const result = await pool.query(
     `SELECT sar.id, sar.attendance_date, sar.status, sar.notes, sar.grading_period_id,
             gp.name AS grading_period_name, u.full_name AS recorded_by_name,
-            subj.name AS subject_name, sec.name AS section_name
+            subj.name AS subject_name, sec.name AS section_name,
+            -- LEFT JOIN below, so this is NULL on every hand-marked row —
+            -- a file name is what says the day came from a bulk import.
+            bi.file_name AS imported_from
      FROM subject_attendance_records sar
      JOIN grading_periods gp ON gp.id = sar.grading_period_id
      JOIN users u ON u.id = sar.recorded_by
+     LEFT JOIN bulk_imports bi ON bi.id = sar.import_id
      JOIN class_offerings co ON co.id = sar.class_offering_id
      JOIN subjects subj ON subj.id = co.subject_id
      JOIN sections sec ON sec.id = co.section_id

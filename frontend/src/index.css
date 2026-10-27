@@ -4431,3 +4431,173 @@ th {
 .import-upload__file {
   cursor: pointer;
 }
+/* A <label> wrapping a disabled file input can't use :disabled, so the
+   greyed-out state is a class the page sets alongside it. */
+.import-upload__file.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Attendance import — step 1's register choice and target picker. */
+.import-target {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  justify-content: center;
+  text-align: left;
+  margin-top: var(--space-5);
+  width: 100%;
+}
+.import-target__modes {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.import-target__modes legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+/* A card per register rather than two bare radios: which register a sheet
+   belongs to decides who may write it and whether it feeds the risk
+   calculation, so each option gets room to say so. */
+.import-target__mode {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: 24rem;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.import-target__mode:hover {
+  border-color: var(--color-primary);
+}
+.import-target__mode.is-active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+.import-target__mode svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.import-target__mode span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.import-target__mode small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.import-anchors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+/* The "point at the grid" preview: a spreadsheet rendered as a spreadsheet,
+   with clickable column headings and row numbers. Scrolls on both axes
+   because an SF2's month of day columns is wider than any page. */
+.grid-pick {
+  margin-top: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  overflow: auto;
+  max-height: 26rem;
+}
+.grid-pick table {
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+.grid-pick th,
+.grid-pick td {
+  border: 1px solid var(--color-border);
+  padding: 0;
+  white-space: nowrap;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.grid-pick td {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text);
+}
+.grid-pick thead th,
+.grid-pick tbody th {
+  position: sticky;
+  background: var(--color-bg);
+  z-index: 1;
+}
+.grid-pick thead th {
+  top: 0;
+}
+.grid-pick tbody th {
+  left: 0;
+}
+/* The top-left cell is sticky on both axes, so it has to outrank both. */
+.grid-pick__corner {
+  left: 0;
+  z-index: 2;
+  padding: var(--space-1) var(--space-2) !important;
+  color: var(--color-text-muted);
+}
+.grid-pick th button {
+  width: 100%;
+  min-width: 2.25rem;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.grid-pick th button:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+.grid-pick th.is-picked,
+.grid-pick td.is-picked,
+.grid-pick tr.is-picked td {
+  background: var(--color-primary-light);
+}
+.grid-pick th.is-picked button {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.symbol-map__choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.symbol-map__choice select {
+  max-width: 11rem;
+}
+
+/* Provenance under a "Recorded by" name: the file a bulk-imported
+   attendance row came from. Only rendered where import_id is set, so it
+   never adds a second line to the hand-marked rows that are the norm. */
+.attendance-history__source {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+.attendance-history__source svg {
+  flex-shrink: 0;
+}

@@ -59,14 +59,45 @@ async function insertStudentsBatch(validRows) {
   return { insertedCount, insertedIds, failures };
 }
 
-async function logImport({ performedBy, fileName, totalRows, successCount, errorCount, columnMapping }) {
-  const result = await pool.query(
-    `INSERT INTO bulk_imports (performed_by, file_name, total_rows, success_count, error_count, column_mapping)
-     VALUES ($1, $2, $3, $4, $5, $6)
+// `importType` says which importer wrote the row ('students', or one of the
+// attendance grid importer's two modes). It defaults to 'students' so the
+// original caller in bulkImportController did not have to change.
+async function logImport({
+  performedBy,
+  fileName,
+  totalRows,
+  successCount,
+  errorCount,
+  columnMapping,
+  importType = 'students',
+  client,
+}) {
+  // The attendance importer passes its transaction client, because the
+  // attendance rows it writes reference this row's id — the audit record and
+  // the data it describes have to land together or not at all. The student
+  // importer passes nothing and runs on the shared pool as before.
+  const runner = client || pool;
+  const result = await runner.query(
+    `INSERT INTO bulk_imports (performed_by, file_name, total_rows, success_count, error_count, column_mapping, import_type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING id, created_at`,
-    [performedBy, fileName, totalRows, successCount, errorCount, JSON.stringify(columnMapping)]
+    [performedBy, fileName, totalRows, successCount, errorCount, JSON.stringify(columnMapping), importType]
   );
   return result.rows[0];
+}
+
+// Fills in an audit row's counts once the work it describes has finished.
+// Needed because the attendance importer has to insert its row BEFORE the
+// writes (they reference its id) but only knows how many rows succeeded
+// afterwards.
+async function updateImportCounts(id, { successCount, errorCount }, client) {
+  const runner = client || pool;
+  await runner.query(
+    `UPDATE bulk_imports
+     SET success_count = COALESCE($2, success_count), error_count = COALESCE($3, error_count)
+     WHERE id = $1`,
+    [id, successCount ?? null, errorCount ?? null]
+  );
 }
 
 // The most recent import's column mapping — used as the "remember my last
@@ -75,8 +106,15 @@ async function logImport({ performedBy, fileName, totalRows, successCount, error
 // last import at this school used" is the same thing as "whatever this
 // admin/registrar used last," and sharing it means a second staff member
 // doing the next import also benefits from the first one's mapping.
-async function getLastMapping() {
-  const result = await pool.query('SELECT column_mapping FROM bulk_imports ORDER BY created_at DESC LIMIT 1');
+//
+// Filtered by import_type: the attendance grid importer logs to this same
+// table but its mapping is symbol -> status, nothing like a column mapping,
+// so an attendance row must never be handed back here as a default.
+async function getLastMapping(importType = 'students') {
+  const result = await pool.query(
+    'SELECT column_mapping FROM bulk_imports WHERE import_type = $1 ORDER BY created_at DESC LIMIT 1',
+    [importType]
+  );
   return result.rows[0]?.column_mapping || null;
 }
 
@@ -86,5 +124,6 @@ module.exports = {
   getSectionNameMap,
   insertStudentsBatch,
   logImport,
+  updateImportCounts,
   getLastMapping,
 };

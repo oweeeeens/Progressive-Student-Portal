@@ -16,6 +16,7 @@ const classOfferingRoutes = require('./routes/classOfferingRoutes');
 const schoolYearRoutes = require('./routes/schoolYearRoutes');
 const dailyAttendanceRoutes = require('./routes/dailyAttendanceRoutes');
 const subjectAttendanceRoutes = require('./routes/subjectAttendanceRoutes');
+const attendanceImportRoutes = require('./routes/attendanceImportRoutes');
 const studentAttendanceRoutes = require('./routes/studentAttendanceRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
 const studentGradeRoutes = require('./routes/studentGradeRoutes');
@@ -57,6 +58,8 @@ app.use('/api/class-offerings', classOfferingRoutes);
 app.use('/api/school-years', schoolYearRoutes);
 app.use('/api/attendance/daily', dailyAttendanceRoutes);
 app.use('/api/attendance/subject', subjectAttendanceRoutes);
+// Bulk import of SF2-shaped attendance grids, for both registers above.
+app.use('/api/attendance/bulk-import', attendanceImportRoutes);
 app.use('/api/students/:studentId/grades', studentGradeRoutes);
 app.use('/api/grades', gradeRoutes);
 app.use('/api/academic-progress', academicProgressRoutes);
