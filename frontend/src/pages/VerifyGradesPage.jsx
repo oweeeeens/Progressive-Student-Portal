@@ -96,7 +96,10 @@ export function VerifyGradesPage() {
     setMessage(null)
     setActing(true)
     try {
-      const result = await api.post('/grades/verify', { gradeIds })
+      // The period the queue is filtered to travels with the action: the
+      // server bounds the bulk update to it, so a verify can only ever touch
+      // the batch on screen.
+      const result = await api.post('/grades/verify', { gradeIds, gradingPeriodId: Number(gradingPeriodId) })
       setMessage(`Verified ${result.verifiedCount} grade(s). The adviser can now finalize them.`)
       loadQueue()
     } catch (err) {
@@ -117,7 +120,11 @@ export function VerifyGradesPage() {
     setMessage(null)
     setActing(true)
     try {
-      const result = await api.post('/grades/reject', { gradeIds: [rejectingId], note: rejectionNote })
+      const result = await api.post('/grades/reject', {
+        gradeIds: [rejectingId],
+        note: rejectionNote,
+        gradingPeriodId: Number(gradingPeriodId),
+      })
       setMessage(`Rejected ${result.rejectedCount} grade(s). The subject teacher will see your note and can resubmit.`)
       loadQueue()
     } catch (err) {

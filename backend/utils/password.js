@@ -1,6 +1,7 @@
 // Wraps bcrypt so hashing/verification logic lives in exactly one place —
 // nothing outside this file should touch a raw password or call bcrypt directly.
 const crypto = require('crypto');
+const { devOnlyFlag } = require('../config/environment');
 const bcrypt = require('bcryptjs');
 const { BCRYPT_SALT_ROUNDS } = require('../config/auth');
 
@@ -17,21 +18,26 @@ function verifyPassword(plainTextPassword, passwordHash) {
 const TEMP_PASSWORD_CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
 const TEMP_PASSWORD_LENGTH = 12;
 
-// Used for admin/registrar-created staff accounts and auto-created student
-// accounts — both force a password change on first login (see
-// authMiddleware.js), so this only needs to get the user in the door once,
-// not be memorable.
+// Used for admin/registrar-created staff and student accounts — all force a
+// password change on first login (see authMiddleware.js), so this only needs
+// to get the user in the door once, not be memorable.
 //
-// DEV_PLACEHOLDER_PASSWORD (optional, set in backend/.env) overrides this
-// with a fixed string instead of a random one — purely a development/testing
-// convenience so you're not retyping a different random string for every
-// account while building/demoing. The account still forces a password
-// change on first login either way, so this doesn't weaken anything at
-// rest — but it does mean every new account briefly shares a known
-// password, so make sure this is UNSET before any real/shared deployment.
+// DEV_PLACEHOLDER_PASSWORD (optional, backend/.env) returns a fixed string
+// instead of a random one, purely so you are not retyping a different random
+// string for every account while building or demoing.
+//
+// It is REFUSED on a production deployment, because the consequence there is
+// that every account created and every password reset shares one known
+// string — the kind of thing that is only ever discovered afterwards. It used
+// to be guarded by a sentence in DEPLOYMENT.md; now config/environment.js
+// enforces it and warns at boot either way.
+const placeholderPassword = devOnlyFlag('DEV_PLACEHOLDER_PASSWORD', Boolean(process.env.DEV_PLACEHOLDER_PASSWORD))
+  ? process.env.DEV_PLACEHOLDER_PASSWORD
+  : null;
+
 function generateTempPassword() {
-  if (process.env.DEV_PLACEHOLDER_PASSWORD) {
-    return process.env.DEV_PLACEHOLDER_PASSWORD;
+  if (placeholderPassword) {
+    return placeholderPassword;
   }
 
   const bytes = crypto.randomBytes(TEMP_PASSWORD_LENGTH);

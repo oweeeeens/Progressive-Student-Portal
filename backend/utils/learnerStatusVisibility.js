@@ -34,4 +34,30 @@ function allowedFilterKeys(user) {
   return new Set(fieldsVisibleTo(user?.role));
 }
 
-module.exports = { stripLearnerStatus, stripLearnerStatusFromList, allowedFilterKeys };
+// The WRITE side of the same rule: a role that may not see a learner-status
+// field may not set it either. Takes the camelCase shape the write paths use
+// (isPwd / is4ps / isAlsGraduate) and drops any the caller is not allowed to
+// touch, so an unpermitted value in a request body is ignored rather than
+// written.
+//
+// Lives here beside the read-side strippers rather than in one controller,
+// because both the single-student form and the bulk importer have to apply
+// it — the importer used to skip it entirely, which made bulk upload a way
+// around the restriction.
+const WRITE_PARAM_TO_COLUMN = { isPwd: 'is_pwd', is4ps: 'is_4ps', isAlsGraduate: 'is_als_graduate' };
+
+function stripUnwritableLearnerStatusFields(user, data) {
+  const allowed = allowedFilterKeys(user);
+  const result = { ...data };
+  for (const [param, column] of Object.entries(WRITE_PARAM_TO_COLUMN)) {
+    if (!allowed.has(column)) delete result[param];
+  }
+  return result;
+}
+
+module.exports = {
+  stripLearnerStatus,
+  stripLearnerStatusFromList,
+  allowedFilterKeys,
+  stripUnwritableLearnerStatusFields,
+};

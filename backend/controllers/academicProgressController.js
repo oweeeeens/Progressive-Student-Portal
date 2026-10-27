@@ -10,6 +10,7 @@
 // risk-scoring formula is unchanged — this file is a presentation layer on
 // top of it, per CLAUDE.md's Academic Progress Tracking Logic section.
 const riskAssessmentModel = require('../models/riskAssessmentModel');
+const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const sectionModel = require('../models/sectionModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const { buildAcademicProgress } = require('../services/academicProgressCalculator');
@@ -21,7 +22,7 @@ async function getAcademicProgress(req, res) {
   // Default to "today"'s grading period so advisers don't have to know period
   // IDs — same convenience pattern as attendance/grade entry.
   if (!gradingPeriodId) {
-    const currentPeriod = await gradingPeriodModel.findByDate(new Date().toISOString().slice(0, 10));
+    const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
     if (!currentPeriod) {
       return res.status(400).json({ error: 'No grading period is configured for today. Pass gradingPeriodId explicitly.' });
     }

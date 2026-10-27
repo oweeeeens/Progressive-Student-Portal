@@ -48,6 +48,16 @@ function readMode(value) {
 // Step 1 — what is literally in the sheet, plus where the grid probably is.
 // Nothing is interpreted here; the user confirms the anchors next.
 async function parseFile(req, res) {
+  // Checked here too, not just on validate/commit. These first two steps
+  // take a 5 MB upload and run it through the spreadsheet parser, so leaving
+  // them on requireAuth alone let any account in the school — a student
+  // included — drive that parser against a section they have nothing to do
+  // with. Reading someone else's roster shape is not a write, but it is not
+  // theirs to read either.
+  const mode = readMode(req.body.mode);
+  if (!(await assertCanWrite(req, res, { mode, sectionId: req.body.sectionId, classOfferingId: req.body.classOfferingId })))
+    return;
+
   let sheet;
   try {
     sheet = await readSheet(req.file.buffer);
@@ -70,6 +80,10 @@ async function parseFile(req, res) {
 // next step can ask what each mark means.
 async function inspectGrid(req, res) {
   const { lrnColumn, dayRow, month, year } = req.body;
+
+  const mode = readMode(req.body.mode);
+  if (!(await assertCanWrite(req, res, { mode, sectionId: req.body.sectionId, classOfferingId: req.body.classOfferingId })))
+    return;
 
   let sheet;
   try {

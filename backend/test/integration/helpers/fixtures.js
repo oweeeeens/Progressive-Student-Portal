@@ -181,6 +181,7 @@ async function appendFollowingPeriod(schoolYearId, { name, lengthDays = 14 }) {
 async function deleteFixtures({
   schoolYearId,
   ownSchoolYear = true,
+  extraSchoolYearIds = [],
   gradingPeriodIds = [],
   userIds = [],
   studentIds = [],
@@ -214,9 +215,16 @@ async function deleteFixtures({
   if (gradingPeriodIds.length > 0) {
     await pool.query('DELETE FROM grading_periods WHERE id = ANY($1::int[])', [gradingPeriodIds]);
   }
-  if (schoolYearId && ownSchoolYear) {
-    await pool.query('DELETE FROM grading_periods WHERE school_year_id = $1', [schoolYearId]);
-    await pool.query('DELETE FROM school_years WHERE id = $1', [schoolYearId]);
+  // Every school year this suite owns, in one place and at the right point
+  // in the order — after the students, grades, attendance and risk rows that
+  // reference their periods, since every FK here is ON DELETE RESTRICT.
+  // A suite that creates two years (e.g. to prove records do not leak across
+  // a promotion) passes the extras rather than deleting them itself, which
+  // would run before the children were gone.
+  const ownedYearIds = [...(schoolYearId && ownSchoolYear ? [schoolYearId] : []), ...extraSchoolYearIds];
+  if (ownedYearIds.length > 0) {
+    await pool.query('DELETE FROM grading_periods WHERE school_year_id = ANY($1::int[])', [ownedYearIds]);
+    await pool.query('DELETE FROM school_years WHERE id = ANY($1::int[])', [ownedYearIds]);
   }
   // bulk_imports.performed_by is ON DELETE RESTRICT (it's an institutional
   // audit record, kept even if the staff account is later deactivated), so

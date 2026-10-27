@@ -327,7 +327,28 @@ async function countsByEnrollmentStatus(user) {
   return counts;
 }
 
+// Which school year a student's records belong to: the year of the section
+// they are currently in, falling back to the school's current year when they
+// have no section yet.
+//
+// Needed because almost every per-period series (grades, attendance, risk,
+// the report card) keys on grading_periods.sequence_number, which repeats
+// across years — so every one of those queries has to be told WHICH year, and
+// they should all answer that question the same way.
+async function resolveSchoolYearId(studentId) {
+  const result = await pool.query(
+    `SELECT COALESCE(sec.school_year_id, (SELECT id FROM school_years WHERE is_current = TRUE LIMIT 1))
+       AS school_year_id
+     FROM students s
+     LEFT JOIN sections sec ON sec.id = s.current_section_id
+     WHERE s.id = $1`,
+    [studentId]
+  );
+  return result.rows[0]?.school_year_id || null;
+}
+
 module.exports = {
+  resolveSchoolYearId,
   listStudents,
   findById,
   findByIdUnscoped,

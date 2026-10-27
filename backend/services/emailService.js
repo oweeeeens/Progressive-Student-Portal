@@ -15,9 +15,13 @@
 // canSendEmail() below, which the API and the UI both ask before offering
 // the flow at all.
 const { Resend } = require('resend');
+const { devOnlyFlag } = require('../config/environment');
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const devFallbackEnabled = process.env.EMAIL_DEV_FALLBACK === 'true';
+// Refused in production: there, "the link went to a log nobody reads" is
+// indistinguishable to the user from "the link was sent", which is the exact
+// failure this file's header says canSendEmail() exists to prevent.
+const devFallbackEnabled = devOnlyFlag('EMAIL_DEV_FALLBACK', process.env.EMAIL_DEV_FALLBACK === 'true');
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
 // Whether a reset email can reach a person at all: a real provider is

@@ -8,6 +8,7 @@
 // subject_teacher/student never reach it even though that function would
 // also allow them through for other purposes.
 const interventionModel = require('../models/interventionModel');
+const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
 const studentModel = require('../models/studentModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
@@ -29,9 +30,17 @@ async function createIntervention(req, res) {
   const student = await resolveAuthorizedStudent(req, res, studentId);
   if (!student) return;
 
-  const currentPeriod = await gradingPeriodModel.findByDate(new Date().toISOString().slice(0, 10));
+  // Scoped to the student's own school year. This is a WRITE — the resulting
+  // row permanently records which period the intervention was logged against
+  // — and the unscoped findByDate searches every year, breaking ties by
+  // lowest id. That rule is stated in findByDate's own doc comment; this was
+  // the last write path still ignoring it.
+  const schoolYearId = await studentModel.resolveSchoolYearId(studentId);
+  const currentPeriod = schoolYearId
+    ? await gradingPeriodModel.findByDateInSchoolYear(todayInSchoolTimezone(), schoolYearId)
+    : null;
   if (!currentPeriod) {
-    return res.status(400).json({ error: 'No grading period is configured for today.' });
+    return res.status(400).json({ error: 'No grading period is configured for today in this school year.' });
   }
 
   // "When a student is flagged as at-risk" means a risk_assessment must

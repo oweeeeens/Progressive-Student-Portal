@@ -1,3 +1,4 @@
+const { numberInRangeFromEnv } = require('../utils/envNumber');
 // Single source of truth for the risk formula's weights and thresholds, per
 // CLAUDE.md: "Keep the risk formula weights/thresholds in a single config
 // file, not hardcoded throughout — the client or adviser may want to adjust
@@ -19,9 +20,13 @@ const GRADE_TREND_DECLINE_THRESHOLD = -5;
 // expectation, used here only as a reasonable stand-in. Override via the
 // ATTENDANCE_RISK_THRESHOLD env var without touching code once the client
 // confirms the real number — no redeploy of logic required, just the env var.
-const ATTENDANCE_RISK_THRESHOLD = process.env.ATTENDANCE_RISK_THRESHOLD
-  ? Number(process.env.ATTENDANCE_RISK_THRESHOLD)
-  : 90;
+//
+// Validated rather than parsed bare. A typo used to yield NaN, and every
+// comparison against NaN is false — so the low-attendance factor would stop
+// firing for the entire school with nothing logged and nothing visibly
+// broken. It also reached the student-facing advisory text and the chart's
+// reference line, both of which would silently show nothing.
+const ATTENDANCE_RISK_THRESHOLD = numberInRangeFromEnv('ATTENDANCE_RISK_THRESHOLD', 90, { min: 0, max: 100 });
 
 // "Declining fast" for attendance, same -5-per-period shape as grades.
 const ATTENDANCE_TREND_DECLINE_THRESHOLD = -5;

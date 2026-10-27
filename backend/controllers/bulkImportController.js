@@ -8,6 +8,7 @@ const { TEMPLATE_FILENAME, IMPORTABLE_FIELDS } = require('../config/bulkImport')
 const { parseWorkbook, suggestMapping, generateTemplateWorkbook } = require('../services/bulkImportParser');
 const { validateRows } = require('../services/bulkImportValidator');
 const bulkImportModel = require('../models/bulkImportModel');
+const { stripUnwritableLearnerStatusFields } = require('../utils/learnerStatusVisibility');
 
 async function downloadTemplate(req, res) {
   const buffer = await generateTemplateWorkbook();
@@ -81,18 +82,51 @@ async function validateMapping(req, res) {
   });
 }
 
-// Step 3: insert exactly the rows the user confirmed (normally "every
-// currently-valid row," but the frontend may let them deselect individual
-// ones first) — invalid rows are never sent here at all, per CLAUDE.md's
-// chosen behavior of importing what's valid now rather than blocking the
-// whole batch on a few bad rows.
+// Step 3: insert the rows the user confirmed (normally "every currently-valid
+// row," but the frontend may let them deselect individual ones first) —
+// invalid rows are never sent here at all, per CLAUDE.md's chosen behavior of
+// importing what's valid now rather than blocking the whole batch on a few
+// bad rows.
+//
+// Everything is re-validated here rather than taken on trust. Step 2 checked
+// a payload the browser then held and could freely alter before sending it
+// back, so without this the LRN format, the date-of-birth sanity check, the
+// section lookup and the duplicate checks were all enforced only by whatever
+// database constraints happened to exist. The attendance importer makes the
+// same point in its own header; this is the other half of it.
+//
+// The learner-status gate is the sharpest reason. is_pwd / is_4ps /
+// is_als_graduate are restricted fields — studentController runs every
+// single-student write through stripUnwritableLearnerStatus so a caller who
+// may not see them cannot set them either. This path used to skip that
+// entirely, which made bulk import a way around the restriction.
 async function commitImport(req, res) {
   const { rows, mapping, fileName, totalRows } = req.body;
   if (!Array.isArray(rows)) {
     return res.status(400).json({ error: 'rows is required.' });
   }
+  if (!mapping || typeof mapping !== 'object') {
+    return res.status(400).json({ error: 'mapping is required.' });
+  }
 
-  const { insertedCount, insertedIds, failures } = await bulkImportModel.insertStudentsBatch(rows);
+  // Re-read the same lookups step 2 used: they are a moment older now, so a
+  // row that was unique when previewed may collide with one imported since.
+  const [existingLrns, existingEmails, sectionsByName] = await Promise.all([
+    bulkImportModel.getExistingLrns(),
+    bulkImportModel.getExistingEmails(),
+    bulkImportModel.getSectionNameMap(),
+  ]);
+
+  const { validRows, invalidRows } = validateRows({ rows, mapping }, { existingLrns, existingEmails, sectionsByName });
+
+  // Whatever the browser sent, only fields this caller is allowed to write
+  // survive.
+  const writableRows = validRows.map((row) => ({
+    ...row,
+    data: stripUnwritableLearnerStatusFields(req.user, row.data),
+  }));
+
+  const { insertedCount, insertedIds, failures } = await bulkImportModel.insertStudentsBatch(writableRows);
 
   const effectiveTotal = Number.isInteger(totalRows) ? totalRows : rows.length;
   await bulkImportModel.logImport({
@@ -104,7 +138,19 @@ async function commitImport(req, res) {
     columnMapping: mapping || {},
   });
 
-  res.status(201).json({ insertedCount, insertedIds, failures });
+  res.status(201).json({
+    insertedCount,
+    insertedIds,
+    // Rows the server-side re-check rejected, on top of any that failed at
+    // insert time — so a row dropped here is reported rather than vanishing.
+    failures: [
+      ...failures,
+      ...invalidRows.map((row) => ({
+        rowNumber: row.rowNumber,
+        message: row.errors.map((e) => `${e.field}: ${e.message}`).join('; '),
+      })),
+    ],
+  });
 }
 
 module.exports = { downloadTemplate, parseFile, validateMapping, commitImport };

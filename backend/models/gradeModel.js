@@ -25,6 +25,20 @@ async function getActiveStudentsInOffering(classOfferingId) {
 // adviser chain before it can feed the risk engine. Clearing the rejection
 // note here is deliberate: its job (telling the teacher what to fix) is done
 // once they've acted on it and resubmitted.
+// The WHERE on the DO UPDATE is the important line.
+//
+// Resubmitting is meant to walk a grade back to 'submitted' after the
+// principal rejected it — that path clears the whole downstream trail, which
+// is correct. But without this guard the same statement also walked back a
+// grade the adviser had already FINALIZED: the official record silently
+// reverted to a draft and finalized_by/finalized_at were nulled, erasing any
+// evidence it had ever been made official. CLAUDE.md calls the finalized
+// grade "the official grade", and the risk formula reads only finalized
+// rows, so the stored risk score would also keep citing a grade that no
+// longer counted.
+//
+// A row already finalized is now left exactly as it is, and the caller is
+// told which entries were refused rather than being told everything saved.
 async function upsertSubmittedGrades({ classOfferingId, gradingPeriodId, recordedBy, entries }) {
   const columns = ['student_id', 'class_offering_id', 'grading_period_id', 'grade_value', 'recorded_by'];
   const params = [];
@@ -46,6 +60,7 @@ async function upsertSubmittedGrades({ classOfferingId, gradingPeriodId, recorde
                    verified_by = NULL, verified_at = NULL,
                    rejected_by = NULL, rejected_at = NULL, rejection_note = NULL,
                    finalized_by = NULL, finalized_at = NULL
+     WHERE grades.status <> 'finalized'
      RETURNING id, student_id, grade_value, status`,
     params
   );
@@ -110,13 +125,19 @@ async function listSubmittedGrades({ gradingPeriodId, sectionId, page = 1, pageS
 // Bulk-verify: only rows currently 'submitted' are affected, so re-selecting
 // an already-verified/rejected row by mistake is a harmless no-op rather
 // than an error.
-async function verifyGrades(gradeIds, verifiedBy) {
+//
+// Bounded to one grading period, which is the queue the principal was
+// actually shown (listSubmittedGrades requires a gradingPeriodId). Without
+// it, `id = ANY(...)` would accept any ids at all, so a single request could
+// verify every submitted grade in the school — an action with no undo, since
+// verification is a step in the official record.
+async function verifyGrades(gradeIds, verifiedBy, gradingPeriodId) {
   const result = await pool.query(
     `UPDATE grades
      SET status = 'principal_verified', verified_by = $2, verified_at = now()
-     WHERE id = ANY($1::int[]) AND status = 'submitted'
+     WHERE id = ANY($1::int[]) AND status = 'submitted' AND grading_period_id = $3
      RETURNING id`,
-    [gradeIds, verifiedBy]
+    [gradeIds, verifiedBy, gradingPeriodId]
   );
   return result.rows.map((r) => r.id);
 }
@@ -125,13 +146,14 @@ async function verifyGrades(gradeIds, verifiedBy) {
 // batch together and leaving one explanation, e.g. "recheck attendance-
 // adjusted scores for Q2", is the common case — a per-row note would need a
 // much heavier review UI for a benefit most rejections don't need).
-async function rejectGrades(gradeIds, rejectedBy, note) {
+// Bounded to one grading period for the same reason as verifyGrades above.
+async function rejectGrades(gradeIds, rejectedBy, note, gradingPeriodId) {
   const result = await pool.query(
     `UPDATE grades
      SET status = 'rejected', rejected_by = $2, rejected_at = now(), rejection_note = $3
-     WHERE id = ANY($1::int[]) AND status = 'submitted'
+     WHERE id = ANY($1::int[]) AND status = 'submitted' AND grading_period_id = $4
      RETURNING id`,
-    [gradeIds, rejectedBy, note]
+    [gradeIds, rejectedBy, note, gradingPeriodId]
   );
   return result.rows.map((r) => r.id);
 }
@@ -193,16 +215,22 @@ async function getHistoryForStudent(studentId) {
 // report card's source data (official grades only, never a still-pending
 // submission). Same shape as getHistoryForStudent, just pre-filtered,
 // since the report card has no use for a grade that isn't official yet.
-async function getFinalizedHistoryForStudent(studentId) {
+// Scoped to one school year. The report card pivots these rows into a
+// subject x period grid keyed on sequence_number (see
+// reportCardController.pivotFinalizedGrades), so without the scope a
+// Grade-11 Q1 grade and a Grade-12 Q1 grade land in the same cell and the
+// last row silently wins — on a document the school hands to a parent, under
+// a heading naming a single school year.
+async function getFinalizedHistoryForStudent(studentId, schoolYearId) {
   const result = await pool.query(
     `SELECT g.grade_value, subj.name AS subject_name, gp.name AS grading_period_name, gp.sequence_number
      FROM grades g
      JOIN class_offerings co ON co.id = g.class_offering_id
      JOIN subjects subj ON subj.id = co.subject_id
      JOIN grading_periods gp ON gp.id = g.grading_period_id
-     WHERE g.student_id = $1 AND g.status = 'finalized'
+     WHERE g.student_id = $1 AND g.status = 'finalized' AND gp.school_year_id = $2
      ORDER BY gp.sequence_number, subj.name`,
-    [studentId]
+    [studentId, schoolYearId]
   );
   return result.rows;
 }
@@ -211,15 +239,25 @@ async function getFinalizedHistoryForStudent(studentId) {
 // all their subjects), ordered oldest-to-newest by the period's
 // sequence_number. This is the series the risk engine's trend calculation
 // walks — see riskEngine.js.
-async function getFinalizedAveragesByPeriod(studentId) {
+//
+// Scoped to ONE school year, and it has to be. sequence_number is unique
+// only within a school year (grading_periods constrains
+// UNIQUE (school_year_id, sequence_number)), so a student with a previous
+// year's history has two rows numbered 1, two numbered 2, and so on.
+// riskEngine.extractCurrentAndSeries then picks the current period with
+// `.find(row => row.sequence_number === target)` — which would return LAST
+// year's average as this year's current grade — and the trend would walk a
+// series interleaving both years. Invisible in the first year of use and
+// wrong in every year after it.
+async function getFinalizedAveragesByPeriod(studentId, schoolYearId) {
   const result = await pool.query(
     `SELECT gp.id AS grading_period_id, gp.sequence_number, AVG(g.grade_value)::numeric(5,2) AS average_grade
      FROM grades g
      JOIN grading_periods gp ON gp.id = g.grading_period_id
-     WHERE g.student_id = $1 AND g.status = 'finalized'
+     WHERE g.student_id = $1 AND g.status = 'finalized' AND gp.school_year_id = $2
      GROUP BY gp.id, gp.sequence_number
      ORDER BY gp.sequence_number`,
-    [studentId]
+    [studentId, schoolYearId]
   );
   return result.rows;
 }

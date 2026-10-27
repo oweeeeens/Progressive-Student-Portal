@@ -83,7 +83,7 @@ async function finalizeOneGrade(periodId, gradeValue) {
 
   const verifyRes = await api.post('/api/grades/verify', {
     token: ctx.principal.token,
-    body: { gradeIds: [gradeId] },
+    body: { gradingPeriodId: periodId, gradeIds: [gradeId] },
   });
   assert.equal(verifyRes.status, 200);
 

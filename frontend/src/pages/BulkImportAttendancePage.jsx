@@ -176,8 +176,14 @@ export function BulkImportAttendancePage() {
 
     setLoading(true)
     setError(null)
+    // The target goes up with the file: the server checks ownership on this
+    // step too, so it has to know which register and which section/class the
+    // sheet is being pointed at before it reads a single cell.
     const formData = new FormData()
     formData.append('file', chosen)
+    formData.append('mode', mode)
+    if (mode === 'subject') formData.append('classOfferingId', classOfferingId)
+    else formData.append('sectionId', sectionId)
     try {
       const data = await api.upload('/attendance/bulk-import/parse', formData)
       setFile(chosen)
@@ -204,6 +210,9 @@ export function BulkImportAttendancePage() {
     setError(null)
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('mode', mode)
+    if (mode === 'subject') formData.append('classOfferingId', classOfferingId)
+    else formData.append('sectionId', sectionId)
     formData.append('lrnColumn', lrnColumn)
     formData.append('dayRow', dayRow)
     formData.append('month', month)

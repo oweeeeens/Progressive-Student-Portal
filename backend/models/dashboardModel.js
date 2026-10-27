@@ -4,6 +4,7 @@
 // cover only themselves — the dashboard can't become a side channel that
 // leaks totals a role isn't allowed to see on the pages themselves.
 const { pool } = require('../config/db');
+const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const { appendScopeClause, BASE_FROM } = require('./studentModel');
 const gradingPeriodModel = require('./gradingPeriodModel');
 const sectionModel = require('./sectionModel');
@@ -60,7 +61,7 @@ async function countOpenInterventions(user) {
 // renders a card per key present, so an ICT faculty member or principal
 // simply gets fewer cards rather than zeros for things they can't access.
 async function getStats(user) {
-  const currentPeriod = await gradingPeriodModel.findByDate(new Date().toISOString().slice(0, 10));
+  const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
   const stats = {};
 
   const seesStudents = ['admin', 'registrar', 'guidance_counselor', 'adviser', 'subject_teacher'].includes(user.role);
@@ -109,7 +110,7 @@ async function countSubmittedGrades(gradingPeriodId) {
 async function getTopAtRiskStudents(user, limit = 5) {
   if (!ATTENTION_WIDGET_ROLES.includes(user.role)) return [];
 
-  const currentPeriod = await gradingPeriodModel.findByDate(new Date().toISOString().slice(0, 10));
+  const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
   if (!currentPeriod) return [];
 
   // listForDashboard takes a single sectionId (or none, for unrestricted

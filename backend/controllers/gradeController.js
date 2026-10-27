@@ -3,6 +3,7 @@
 // trigger point for risk recalculation — see riskEngine.js and CLAUDE.md's
 // "recalculated whenever new grades/attendance are entered."
 const gradeModel = require('../models/gradeModel');
+const studentModel = require('../models/studentModel');
 const classOfferingModel = require('../models/classOfferingModel');
 const sectionModel = require('../models/sectionModel');
 const riskEngine = require('../services/riskEngine');
@@ -41,7 +42,25 @@ async function recordGrades(req, res) {
     recordedBy: req.user.id,
     entries,
   });
-  res.status(201).json({ grades: saved });
+
+  // Entries the upsert refused because that grade is already finalized —
+  // the adviser has put it into the official record, so it is no longer the
+  // subject teacher's to change. Reported rather than dropped silently: a
+  // teacher who thinks they just corrected a mark needs to know they did not.
+  const savedStudentIds = new Set(saved.map((row) => row.student_id));
+  const skipped = entries
+    .filter((entry) => !savedStudentIds.has(entry.studentId))
+    .map((entry) => entry.studentId);
+
+  res.status(201).json({
+    grades: saved,
+    skippedFinalizedStudentIds: skipped,
+    ...(skipped.length > 0 && {
+      message:
+        `${skipped.length} grade${skipped.length === 1 ? ' was' : 's were'} already finalized by the adviser ` +
+        'and left unchanged. Ask them to reopen it if it needs correcting.',
+    }),
+  });
 }
 
 // Lets the entry page reopen a class+period it already submitted: prefill
@@ -79,24 +98,48 @@ async function listSubmittedGrades(req, res) {
   res.json(result);
 }
 
-async function verifyGrades(req, res) {
+// The ids in a bulk verify/reject body go straight into `ANY($1::int[])`, so
+// anything that is not an integer reaches Postgres as a cast error and
+// surfaces as an unhandled 500 rather than a message anyone can act on.
+// Returns null when the body is unusable, having already answered.
+function readGradeIds(req, res) {
   const { gradeIds } = req.body;
   if (!Array.isArray(gradeIds) || gradeIds.length === 0) {
-    return res.status(400).json({ error: 'gradeIds must be a non-empty array.' });
+    res.status(400).json({ error: 'gradeIds must be a non-empty array.' });
+    return null;
   }
-  const verifiedIds = await gradeModel.verifyGrades(gradeIds, req.user.id);
+  const ids = gradeIds.map(Number);
+  if (ids.some((id) => !Number.isInteger(id) || id <= 0)) {
+    res.status(400).json({ error: 'gradeIds must all be positive integers.' });
+    return null;
+  }
+  // The period the principal's queue was filtered to. Required, so a bulk
+  // action can only ever touch the batch in front of them.
+  const gradingPeriodId = Number(req.body.gradingPeriodId);
+  if (!Number.isInteger(gradingPeriodId) || gradingPeriodId <= 0) {
+    res.status(400).json({ error: 'gradingPeriodId is required.' });
+    return null;
+  }
+  return { ids, gradingPeriodId };
+}
+
+async function verifyGrades(req, res) {
+  const parsed = readGradeIds(req, res);
+  if (!parsed) return;
+
+  const verifiedIds = await gradeModel.verifyGrades(parsed.ids, req.user.id, parsed.gradingPeriodId);
   res.json({ verifiedCount: verifiedIds.length, gradeIds: verifiedIds });
 }
 
 async function rejectGrades(req, res) {
-  const { gradeIds, note } = req.body;
-  if (!Array.isArray(gradeIds) || gradeIds.length === 0) {
-    return res.status(400).json({ error: 'gradeIds must be a non-empty array.' });
-  }
+  const { note } = req.body;
   if (!note || !note.trim()) {
     return res.status(400).json({ error: 'A rejection note is required so the subject teacher knows what to fix.' });
   }
-  const rejectedIds = await gradeModel.rejectGrades(gradeIds, req.user.id, note.trim());
+  const parsed = readGradeIds(req, res);
+  if (!parsed) return;
+
+  const rejectedIds = await gradeModel.rejectGrades(parsed.ids, req.user.id, note.trim(), parsed.gradingPeriodId);
   res.json({ rejectedCount: rejectedIds.length, gradeIds: rejectedIds });
 }
 
@@ -147,7 +190,8 @@ async function getHistoryForStudent(req, res) {
   // The per-period average series already existed for the risk engine's own
   // trend calc (see gradeModel.getFinalizedAveragesByPeriod) — reused as-is
   // for the detail page's sparkline rather than re-deriving it from `grades`.
-  const periodAverages = await gradeModel.getFinalizedAveragesByPeriod(req.scopedStudent.id);
+  const schoolYearId = await studentModel.resolveSchoolYearId(req.scopedStudent.id);
+  const periodAverages = await gradeModel.getFinalizedAveragesByPeriod(req.scopedStudent.id, schoolYearId);
   res.json({ grades, periodAverages });
 }
 

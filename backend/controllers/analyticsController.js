@@ -15,6 +15,7 @@
 // Because step 2 is the same function everywhere, a filter the user picks
 // on the Analytics page means exactly the same thing on all five tabs.
 const analyticsModel = require('../models/analyticsModel');
+const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const { ATTENDANCE_RISK_THRESHOLD } = require('../config/riskConfig');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const { buildAnalyticsReportData } = require('../services/analyticsReport');
@@ -37,7 +38,7 @@ const {
 
 async function resolveGradingPeriodId(gradingPeriodId) {
   if (gradingPeriodId) return Number(gradingPeriodId);
-  const currentPeriod = await gradingPeriodModel.findByDate(new Date().toISOString().slice(0, 10));
+  const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
   return currentPeriod ? currentPeriod.id : null;
 }
 

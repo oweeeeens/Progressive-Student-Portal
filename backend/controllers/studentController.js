@@ -2,6 +2,7 @@
 // happens inside studentModel (every query is passed req.user); this file
 // only handles input validation, error shaping, and who may write.
 const studentModel = require('../models/studentModel');
+const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const passwordReset = require('../services/passwordReset');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
@@ -10,6 +11,7 @@ const {
   stripLearnerStatus,
   stripLearnerStatusFromList,
   allowedFilterKeys,
+  stripUnwritableLearnerStatusFields,
 } = require('../utils/learnerStatusVisibility');
 const { LEARNER_STATUS_FIELDS, fieldsVisibleTo } = require('../config/learnerStatus');
 
@@ -122,13 +124,7 @@ async function getStudentSubjects(req, res) {
 // write-capable role later can't silently hand it a field the visibility
 // map says it shouldn't have.
 function stripUnwritableLearnerStatus(req) {
-  const allowed = allowedFilterKeys(req.user);
-  const body = { ...req.body };
-  const byParam = { isPwd: 'is_pwd', is4ps: 'is_4ps', isAlsGraduate: 'is_als_graduate' };
-  for (const [param, column] of Object.entries(byParam)) {
-    if (!allowed.has(column)) delete body[param];
-  }
-  return body;
+  return stripUnwritableLearnerStatusFields(req.user, req.body);
 }
 
 // Which learner-status fields THIS caller may see — and therefore filter
@@ -226,7 +222,7 @@ async function getAcademicProgress(req, res) {
   const student = await studentModel.findById(req.user, Number(req.params.id));
   if (!student) return res.status(404).json({ error: 'Student not found.' });
 
-  const currentPeriod = await gradingPeriodModel.findByDate(new Date().toISOString().slice(0, 10));
+  const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
   if (!currentPeriod) return res.json({ academicProgress: null });
 
   const assessment = await riskAssessmentModel.getForStudentAndPeriod(student.id, currentPeriod.id);

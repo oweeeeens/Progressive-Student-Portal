@@ -138,13 +138,13 @@ test('an adviser who does not own the section cannot finalize its grades', async
 test('a non-admin, non-principal role cannot verify or reject grades', async () => {
   const verifyRes = await api.post('/api/grades/verify', {
     token: ctx.adviserOwner.token,
-    body: { gradeIds: [gradeXId] },
+    body: { gradingPeriodId: ctx.period.id, gradeIds: [gradeXId] },
   });
   assert.equal(verifyRes.status, 403);
 
   const rejectRes = await api.post('/api/grades/reject', {
     token: ctx.teacherOwner.token,
-    body: { gradeIds: [gradeXId], note: 'nope' },
+    body: { gradingPeriodId: ctx.period.id, gradeIds: [gradeXId], note: 'nope' },
   });
   assert.equal(rejectRes.status, 403);
 });
@@ -152,7 +152,7 @@ test('a non-admin, non-principal role cannot verify or reject grades', async () 
 test('the principal rejects one grade with a note (status: rejected)', async () => {
   const res = await api.post('/api/grades/reject', {
     token: ctx.principal.token,
-    body: { gradeIds: [gradeXId], note: 'Please recheck the quiz scores.' },
+    body: { gradingPeriodId: ctx.period.id, gradeIds: [gradeXId], note: 'Please recheck the quiz scores.' },
   });
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.gradeIds, [gradeXId]);
@@ -168,7 +168,7 @@ test('the principal rejects one grade with a note (status: rejected)', async () 
 test('the principal verifies the other grade (status: principal_verified)', async () => {
   const res = await api.post('/api/grades/verify', {
     token: ctx.principal.token,
-    body: { gradeIds: [gradeYId] },
+    body: { gradingPeriodId: ctx.period.id, gradeIds: [gradeYId] },
   });
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.gradeIds, [gradeYId]);
@@ -209,7 +209,7 @@ test('the teacher resubmits the rejected grade — it returns to submitted and t
 test('the resubmitted grade goes through verify -> finalize and completes the chain', async () => {
   const verifyRes = await api.post('/api/grades/verify', {
     token: ctx.principal.token,
-    body: { gradeIds: [gradeXId] },
+    body: { gradingPeriodId: ctx.period.id, gradeIds: [gradeXId] },
   });
   assert.equal(verifyRes.status, 200);
 

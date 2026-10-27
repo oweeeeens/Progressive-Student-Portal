@@ -44,7 +44,11 @@ router.post('/login', loginLimiter, login);
 // before anyone has typed anything.
 router.get('/password-reset-availability', passwordResetAvailability);
 router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
-router.post('/reset-password', resetPassword);
+// Rate-limited with the same bucket as forgot-password: this endpoint takes
+// a token straight from the request, so without a limit it is an open
+// guessing surface against the one-hour window. It was the only unlimited
+// endpoint in this file.
+router.post('/reset-password', forgotPasswordLimiter, resetPassword);
 
 // Account creation — staff and students alike (see authController.register's
 // role === 'student' branch). There is no public self-registration; every

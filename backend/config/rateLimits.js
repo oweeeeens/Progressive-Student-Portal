@@ -1,3 +1,4 @@
+const { positiveIntFromEnv } = require('../utils/envNumber');
 // How hard the auth endpoints push back, in one place.
 //
 // The login limiter exists to slow password guessing, and on a deployment it
@@ -19,21 +20,9 @@ const DEFAULTS = {
   forgotPasswordWindowMinutes: 15,
 };
 
-// Reads a positive integer from the environment, falling back to the strict
-// default for anything missing, non-numeric, zero or negative. A typo must
-// never silently remove the limit.
-function positiveIntFromEnv(name, fallback) {
-  const raw = process.env[name];
-  if (raw === undefined || raw === '') return fallback;
-
-  const parsed = Number(raw);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    console.warn(`${name}="${raw}" is not a positive integer — using the default of ${fallback}.`);
-    return fallback;
-  }
-  return parsed;
-}
-
+// positiveIntFromEnv moved to utils/envNumber.js when the risk thresholds
+// needed the same rule — a malformed value must fall back to the safe
+// default and say so, never become NaN.
 const loginMax = positiveIntFromEnv('LOGIN_RATE_LIMIT_MAX', DEFAULTS.loginMax);
 const loginWindowMinutes = positiveIntFromEnv('LOGIN_RATE_LIMIT_WINDOW_MINUTES', DEFAULTS.loginWindowMinutes);
 

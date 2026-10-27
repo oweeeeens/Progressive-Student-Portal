@@ -128,7 +128,7 @@ async function setGradeAndAttendance(studentId, periodId, gradeValue, attendance
   assert.equal(submitRes.status, 201);
   const gradeId = submitRes.body.grades[0].id;
 
-  await api.post('/api/grades/verify', { token: ctx.principal.token, body: { gradeIds: [gradeId] } });
+  await api.post('/api/grades/verify', { token: ctx.principal.token, body: { gradingPeriodId: periodId, gradeIds: [gradeId] } });
   const finalizeRes = await api.post('/api/grades/finalize', {
     token: ctx.adviser.token,
     body: { sectionId: ctx.section.id, gradingPeriodId: periodId },

@@ -50,7 +50,9 @@ async function buildGridWorkbook({ month, year, days, rows }) {
 // Walks the first steps (inspect -> validate) the way the page does, so each
 // test can start from a real validation plan rather than a hand-written one.
 async function runToValidate({ token, buffer, anchors, target, symbolMap }) {
-  const inspectRes = await api.upload(`${BASE}/inspect`, { token, buffer, fields: anchors });
+  // The target travels with every step now, including inspect — the server
+  // checks ownership before it reads the sheet, not only before it writes.
+  const inspectRes = await api.upload(`${BASE}/inspect`, { token, buffer, fields: { ...anchors, ...target } });
   assert.equal(inspectRes.status, 200, JSON.stringify(inspectRes.body));
 
   const effectiveMap = symbolMap || inspectRes.body.suggestedSymbolMap;
@@ -169,7 +171,11 @@ test('parse finds the grid inside an SF2 header block without being told where i
     rows: [{ lrn: ctx.studentA.lrn, name: 'A', marks: ['P', 'A', ''] }],
   });
 
-  const res = await api.upload(`${BASE}/parse`, { token: ctx.adviser.token, buffer });
+  const res = await api.upload(`${BASE}/parse`, {
+    token: ctx.adviser.token,
+    buffer,
+    fields: { mode: 'daily', sectionId: ctx.section.id },
+  });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   // Column 1 holds the LRNs; row 4 holds the day numbers (title, month, one
   // blank, then the header). Both 1-indexed, to match what a person sees in
@@ -549,13 +555,33 @@ test("an adviser cannot import into another adviser's section", async () => {
     rows: [{ lrn: ctx.outsider.lrn, name: 'Outsider', marks: ['P'] }],
   });
 
-  const { validate } = await runToValidate({
+  // Refused at the FIRST step that names a section, not only at the write.
+  // Pointing a file at a section you do not advise is already not yours to do.
+  const inspectRes = await api.upload(`${BASE}/inspect`, {
     token: ctx.adviser.token,
     buffer,
-    anchors: { lrnColumn: 1, dayRow: 4, month: 10, year: 2032 },
-    target: { mode: 'daily', sectionId: ctx.otherSection.id },
+    fields: { lrnColumn: 1, dayRow: 4, month: 10, year: 2032, mode: 'daily', sectionId: ctx.otherSection.id },
   });
-  assert.equal(validate.status, 403);
+  assert.equal(inspectRes.status, 403);
+
+  const parseRes = await api.upload(`${BASE}/parse`, {
+    token: ctx.adviser.token,
+    buffer,
+    fields: { mode: 'daily', sectionId: ctx.otherSection.id },
+  });
+  assert.equal(parseRes.status, 403);
+
+  // And still refused at the write, so the check is not only in one place.
+  const commitRes = await api.post(`${BASE}/commit`, {
+    token: ctx.adviser.token,
+    body: {
+      mode: 'daily',
+      sectionId: ctx.otherSection.id,
+      students: [{ rowNumber: 6, lrn: ctx.outsider.lrn, marks: [{ date: '2032-10-28', symbol: 'P' }] }],
+      symbolMap: { p: 'present' },
+    },
+  });
+  assert.equal(commitRes.status, 403);
 });
 
 test('a registrar can import the daily register but not subject attendance', async () => {
@@ -577,14 +603,14 @@ test('a registrar can import the daily register but not subject attendance', asy
   assert.equal(daily.validate.status, 200, JSON.stringify(daily.validate.body));
 
   // Subject attendance belongs to whoever teaches the class — registrar is
-  // deliberately not privileged there.
-  const asRegistrar = await runToValidate({
+  // deliberately not privileged there, and is turned away at the first step
+  // that names the class rather than after the sheet has been read.
+  const asRegistrar = await api.upload(`${BASE}/inspect`, {
     token: ctx.registrar.token,
     buffer,
-    anchors,
-    target: { mode: 'subject', classOfferingId: ctx.offering.id },
+    fields: { ...anchors, mode: 'subject', classOfferingId: ctx.offering.id },
   });
-  assert.equal(asRegistrar.validate.status, 403);
+  assert.equal(asRegistrar.status, 403);
 
   // The teacher who does teach it can.
   const asTeacher = await runToValidate({
@@ -628,7 +654,7 @@ test('every mark in the file must be given a meaning before anything is written'
   const inspectRes = await api.upload(`${BASE}/inspect`, {
     token: ctx.adviser.token,
     buffer,
-    fields: { lrnColumn: 1, dayRow: 4, month: 10, year: 2032 },
+    fields: { lrnColumn: 1, dayRow: 4, month: 10, year: 2032, mode: 'daily', sectionId: ctx.section.id },
   });
   assert.equal(inspectRes.status, 200, JSON.stringify(inspectRes.body));
   // An unrecognised mark is surfaced with no guess attached — the user has

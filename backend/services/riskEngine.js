@@ -44,9 +44,14 @@ async function recalculateRiskForStudent(studentId, gradingPeriodId) {
     throw new Error(`recalculateRiskForStudent: grading period ${gradingPeriodId} does not exist`);
   }
 
+  // Both series are scoped to the TARGET PERIOD's own school year.
+  // sequence_number repeats across years, so an unscoped series would let a
+  // previous year's Q1 stand in for this year's Q1 and would compute the
+  // trend across two different years' data. getById already returns
+  // school_year_id, so this costs nothing extra.
   const [gradeRows, attendanceRows] = await Promise.all([
-    gradeModel.getFinalizedAveragesByPeriod(studentId),
-    dailyAttendanceModel.getAttendanceRatesByPeriod(studentId),
+    gradeModel.getFinalizedAveragesByPeriod(studentId, targetPeriod.school_year_id),
+    dailyAttendanceModel.getAttendanceRatesByPeriod(studentId, targetPeriod.school_year_id),
   ]);
 
   const grade = extractCurrentAndSeries(gradeRows, targetPeriod.sequence_number, 'average_grade');

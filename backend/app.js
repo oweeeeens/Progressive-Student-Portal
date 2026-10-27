@@ -6,6 +6,7 @@
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const { IS_PRODUCTION } = require('./config/environment');
 const healthRoutes = require('./routes/healthRoutes');
 const authRoutes = require('./routes/authRoutes');
 const studentRoutes = require('./routes/studentRoutes');
@@ -31,6 +32,23 @@ const announcementRoutes = require('./routes/announcementRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
+
+// Behind Railway's proxy every request arrives from the proxy's own address,
+// so without this express-rate-limit keys every user on one counter: the
+// login limit (10 per 15 minutes) becomes a budget for the whole school —
+// one person fat-fingering their password locks out the staff room, while a
+// real attacker is never throttled at all.
+//
+// Deliberately NOT set unconditionally. `trust proxy` tells Express to
+// believe X-Forwarded-For, and a client talking to the server directly can
+// forge that header, handing itself a fresh rate-limit bucket per request.
+// So it is on only where there genuinely is a proxy in front: a production
+// deployment, or a dev setup that says so explicitly.
+if (IS_PRODUCTION || process.env.TRUST_PROXY === 'true') {
+  // 1, not `true`: trust exactly one hop (the platform's own proxy) rather
+  // than every address in the chain.
+  app.set('trust proxy', 1);
+}
 
 // In production the API and the frontend are ONE service on ONE origin (see
 // the static block at the bottom of this file), so the browser never makes a

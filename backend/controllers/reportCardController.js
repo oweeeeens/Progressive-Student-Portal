@@ -70,11 +70,24 @@ async function generateReportCard(req, res) {
     return res.status(403).json({ error: 'You do not have permission to generate this student’s report card.' });
   }
 
-  const [finalizedGrades, attendance, adviserName, currentSchoolYear] = await Promise.all([
-    gradeModel.getFinalizedHistoryForStudent(studentId),
-    dailyAttendanceModel.getHistoryForStudent(studentId),
+  // Which school year this card is FOR, resolved once and then used for
+  // everything on it. Previously the grades and the attendance summary were
+  // pulled across every year the student had ever been enrolled, while the
+  // header named only the current one — so a Grade-12 student's card mixed
+  // in their Grade-11 marks under a Grade-12 heading, and the general
+  // average was computed over both.
+  const schoolYearId = await studentModel.resolveSchoolYearId(studentId);
+  const schoolYear = schoolYearId ? await schoolYearModel.getById(schoolYearId) : null;
+
+  const [finalizedGrades, attendance, adviserName] = await Promise.all([
+    gradeModel.getFinalizedHistoryForStudent(studentId, schoolYearId),
+    // Bounded by the same year's dates, so the attendance summary counts the
+    // days that belong to this card and no others.
+    dailyAttendanceModel.getHistoryForStudent(studentId, {
+      from: schoolYear?.start_date,
+      to: schoolYear?.end_date,
+    }),
     sectionModel.getAdviserName(student.current_section_id),
-    schoolYearModel.getCurrentSchoolYear(),
   ]);
 
   const { periods, subjects, generalAverage } = pivotFinalizedGrades(finalizedGrades);
@@ -86,7 +99,7 @@ async function generateReportCard(req, res) {
   const doc = buildReportCardPdf({
     school: SCHOOL,
     student,
-    schoolYearLabel: currentSchoolYear?.label,
+    schoolYearLabel: schoolYear?.label,
     periods,
     subjects,
     generalAverage,

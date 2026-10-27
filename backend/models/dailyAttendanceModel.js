@@ -136,7 +136,10 @@ async function getStatusCountsByPeriod(studentId) {
 // since an excused absence still means missed instruction time. This
 // interpretation is documented here because, like the attendance-rate
 // threshold itself, it hasn't been explicitly confirmed by the client.
-async function getAttendanceRatesByPeriod(studentId) {
+// Scoped to one school year for the same reason as
+// gradeModel.getFinalizedAveragesByPeriod — see the note there. This is the
+// other series the risk trend walks.
+async function getAttendanceRatesByPeriod(studentId, schoolYearId) {
   const result = await pool.query(
     `SELECT gp.id AS grading_period_id, gp.sequence_number,
             ROUND(
@@ -145,10 +148,10 @@ async function getAttendanceRatesByPeriod(studentId) {
             ) AS attendance_rate
      FROM daily_attendance_records dar
      JOIN grading_periods gp ON gp.id = dar.grading_period_id
-     WHERE dar.student_id = $1
+     WHERE dar.student_id = $1 AND gp.school_year_id = $2
      GROUP BY gp.id, gp.sequence_number
      ORDER BY gp.sequence_number`,
-    [studentId]
+    [studentId, schoolYearId]
   );
   return result.rows;
 }

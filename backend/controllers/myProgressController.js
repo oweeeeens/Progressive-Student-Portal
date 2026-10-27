@@ -14,6 +14,7 @@
 // makes "only ever your own data" structural rather than a check someone
 // could forget to add to a new endpoint later.
 const studentModel = require('../models/studentModel');
+const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
 const interventionModel = require('../models/interventionModel');
@@ -34,7 +35,7 @@ async function getMyAcademicProgress(req, res) {
   const student = await getOwnStudentRecord(req);
   if (!student) return res.status(404).json({ error: 'No student record is linked to this account.' });
 
-  const currentPeriod = await gradingPeriodModel.findByDate(new Date().toISOString().slice(0, 10));
+  const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
   if (!currentPeriod) return res.json({ myAcademicProgress: null });
 
   const assessment = await riskAssessmentModel.getForStudentAndPeriod(student.id, currentPeriod.id);
@@ -128,7 +129,12 @@ async function getMySubjectGrades(req, res) {
   const student = await getOwnStudentRecord(req);
   if (!student) return res.status(404).json({ error: 'No student record is linked to this account.' });
 
-  const rows = await gradeModel.getFinalizedHistoryForStudent(student.id);
+  // Scoped to the student's own school year. "The last row is the latest
+  // period" only holds within one year — across two, last year's Q4
+  // (sequence_number 4) outranks this year's Q1, so a student starting
+  // Grade 12 would be shown last year's final grades as their current ones.
+  const schoolYearId = await studentModel.resolveSchoolYearId(student.id);
+  const rows = await gradeModel.getFinalizedHistoryForStudent(student.id, schoolYearId);
   // The passing mark travels with the data so the page can flag subjects
   // below it without hardcoding 75 in the frontend — config/riskConfig.js
   // stays the only place that number is written down.
@@ -166,9 +172,11 @@ async function getMySubjects(req, res) {
     return res.json({ sectionName: null, passingGrade: GRADE_AT_RISK_THRESHOLD, subjects: [] });
   }
 
+  const schoolYearId = await studentModel.resolveSchoolYearId(student.id);
   const [offerings, finalized] = await Promise.all([
     classOfferingModel.listBySection(student.current_section_id),
-    gradeModel.getFinalizedHistoryForStudent(student.id),
+    // Same year scope as getMySubjectGrades above, and for the same reason.
+    gradeModel.getFinalizedHistoryForStudent(student.id, schoolYearId),
   ]);
 
   // Latest finalized mark per subject. The history comes back ordered by

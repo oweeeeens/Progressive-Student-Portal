@@ -3,7 +3,10 @@
 // No role middleware here, matching the two attendance routers: it isn't
 // literally being an "adviser" that earns write access, it's being that
 // section's adviser_id (or that class offering's teacher_id). The controller
-// reuses the marking sheets' own ownership checks per request.
+// reuses the marking sheets' own ownership checks, on ALL FOUR steps —
+// parse and inspect included, since they accept an upload and run the
+// spreadsheet parser, and a section you do not own is not yours to point
+// a file at.
 const express = require('express');
 const {
   parseFile,

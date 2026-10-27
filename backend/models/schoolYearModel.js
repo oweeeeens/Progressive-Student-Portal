@@ -10,6 +10,17 @@ async function getCurrentSchoolYear() {
   return result.rows[0] || null;
 }
 
+// One school year by id, with its date range — so a caller that has already
+// resolved WHICH year a student's records belong to can label and bound its
+// output with that same year, instead of assuming the school's current one.
+async function getById(id) {
+  const result = await pool.query(
+    'SELECT id, label, start_date, end_date, is_current FROM school_years WHERE id = $1',
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
 async function listSchoolYears() {
   const result = await pool.query(
     'SELECT id, label, start_date, end_date, is_current FROM school_years ORDER BY start_date DESC'
@@ -58,4 +69,4 @@ async function setCurrentSchoolYear(id) {
   }
 }
 
-module.exports = { getCurrentSchoolYear, listSchoolYears, createSchoolYear, updateSchoolYear, setCurrentSchoolYear };
+module.exports = { getCurrentSchoolYear, getById, listSchoolYears, createSchoolYear, updateSchoolYear, setCurrentSchoolYear };

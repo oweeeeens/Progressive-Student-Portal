@@ -34,6 +34,28 @@ async function getStats(req, res) {
   res.json({ counts });
 }
 
+// An admin account may only ever be acted on by that same admin.
+//
+// CREATABLE_ROLES already keeps 'admin' off both account-creation forms
+// because admin was never a role handed out through a web form. The same
+// has to hold for acting on one that already exists: without this, a
+// registrar could reset the admin's password and read it straight out of
+// the response, repoint the admin's email and then use forgot-password, or
+// simply deactivate every admin and lock the school out of its own system.
+// Each of the three handlers below reaches a different one of those, so the
+// check lives here once rather than three times.
+//
+// Deliberately not "is the caller an admin": one admin resetting another
+// admin's password is the same escalation in a school that later has two.
+// The only person who may act on an admin account is that account's owner.
+function assertCanActOnTarget(req, res, target) {
+  if (target.role === 'admin' && target.id !== req.user.id) {
+    res.status(403).json({ error: 'Admin accounts can only be managed by that admin.' });
+    return false;
+  }
+  return true;
+}
+
 // Edits name/email/role. Role changes are restricted to CREATABLE_ROLES
 // (same list the creation form offers — 'admin' is never handed out through
 // a web form, on either path) and blocked outright for an account that
@@ -45,6 +67,10 @@ async function updateAccount(req, res) {
   if (!existing) {
     return res.status(404).json({ error: 'Account not found.' });
   }
+  // Before any field is read: the admin-reassignment block further down only
+  // runs when the role is actually changing, so a name- or email-only edit
+  // used to slip past it entirely.
+  if (!assertCanActOnTarget(req, res, existing)) return;
 
   const { fullName, email, role } = req.body;
   const data = {};
@@ -99,6 +125,12 @@ async function setAccountActive(req, res) {
     return res.status(400).json({ error: 'You cannot deactivate your own account.' });
   }
 
+  const existing = await userModel.findById(id);
+  if (!existing) {
+    return res.status(404).json({ error: 'Account not found.' });
+  }
+  if (!assertCanActOnTarget(req, res, existing)) return;
+
   const updated = await userModel.setActive(id, isActive);
   if (!updated) {
     return res.status(404).json({ error: 'Account not found.' });
@@ -115,6 +147,9 @@ async function setAccountActive(req, res) {
 async function resetPassword(req, res) {
   const user = await userModel.findById(Number(req.params.id));
   if (!user) return res.status(404).json({ error: 'User not found.' });
+  // The sharpest of the three: this hands the new password back in the
+  // response, so without the guard it is a one-request account takeover.
+  if (!assertCanActOnTarget(req, res, user)) return;
 
   const tempPassword = await passwordReset.resetUserPasswordToTemp(user.id);
   res.json({ tempPassword });

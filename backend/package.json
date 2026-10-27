@@ -13,7 +13,7 @@
     "seed:sample": "node scripts/seedSampleData.js",
     "seed:demo-data": "node scripts/seedDemoAcademicData.js",
     "test:risk-calculator": "node scripts/testRiskCalculator.js",
-    "test:integration": "node --test test/integration/gradeApproval.test.js test/integration/riskRecalculation.test.js test/integration/interventionAutoResolve.test.js test/integration/attendanceImport.test.js",
+    "test:integration": "node --test test/integration/gradeApproval.test.js test/integration/riskRecalculation.test.js test/integration/interventionAutoResolve.test.js test/integration/attendanceImport.test.js test/integration/schoolYearIsolation.test.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
