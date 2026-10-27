@@ -21,6 +21,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import './StudentFormPage.css'
 import { Alert } from '../components/Alert'
+import { humanize } from '../utils/humanize'
 
 const EMPTY_FORM = {
   lrn: '',
@@ -243,7 +244,6 @@ export function StudentFormPage() {
   const selectedSection = sections.find((s) => String(s.id) === String(form.currentSectionId))
   const sectionLabel = selectedSection ? `Grade ${selectedSection.grade_level} - ${selectedSection.name}` : null
   const fullName = `${form.firstName} ${form.lastName}`.trim()
-  const initials = `${form.firstName[0] || ''}${form.lastName[0] || ''}`.toUpperCase()
 
   return (
     <div>
@@ -256,6 +256,11 @@ export function StudentFormPage() {
       />
       <h1>{isEdit ? 'Edit Student' : 'New Student'}</h1>
 
+      {/* One column. A preview card used to sit beside this form
+          showing the LRN, section and status that the fields themselves
+          already display, on a page whose third step is a full review —
+          the same values in three places at once. The review step is the
+          one worth keeping, so the form gets the width instead. */}
       <div className="student-form-layout">
         <div>
           <ol className="form-steps">
@@ -280,7 +285,7 @@ export function StudentFormPage() {
           <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
             <div className="panel">
               {currentStep === 0 && (
-                <>
+                <div className="form-step__fields">
                   <FormField
                     id="lrn"
                     icon={IdCard}
@@ -299,6 +304,7 @@ export function StudentFormPage() {
                     />
                   </FormField>
                   <FormField
+                    width="wide"
                     id="firstName"
                     icon={User}
                     label="First name"
@@ -314,10 +320,11 @@ export function StudentFormPage() {
                       required
                     />
                   </FormField>
-                  <FormField id="middleName" icon={User} label="Middle name">
+                  <FormField width="wide" id="middleName" icon={User} label="Middle name">
                     <input id="middleName" value={form.middleName} onChange={(e) => update('middleName', e.target.value)} />
                   </FormField>
                   <FormField
+                    width="wide"
                     id="lastName"
                     icon={User}
                     label="Last name"
@@ -359,15 +366,16 @@ export function StudentFormPage() {
                       required
                     />
                   </FormField>
-                </>
+                </div>
               )}
 
               {currentStep === 1 && (
-                <>
-                  <FormField id="address" icon={MapPin} label="Address">
+                <div className="form-step__fields">
+                  <FormField width="wide" id="address" icon={MapPin} label="Address">
                     <input id="address" value={form.address} onChange={(e) => update('address', e.target.value)} />
                   </FormField>
                   <FormField
+                    width="wide"
                     id="email"
                     icon={Mail}
                     label="Personal email"
@@ -383,7 +391,7 @@ export function StudentFormPage() {
                       placeholder="student's personal email (not a school account)"
                     />
                   </FormField>
-                  <FormField id="guardianName" icon={Users} label="Guardian name">
+                  <FormField width="wide" id="guardianName" icon={Users} label="Guardian name">
                     <input id="guardianName" value={form.guardianName} onChange={(e) => update('guardianName', e.target.value)} />
                   </FormField>
                   <FormField id="guardianContactNumber" icon={Phone} label="Guardian contact number" width="medium">
@@ -413,9 +421,12 @@ export function StudentFormPage() {
                       value={form.enrollmentStatus}
                       onChange={(e) => update('enrollmentStatus', e.target.value)}
                     >
+                      {/* The value stays the database enum; only the label is
+                          humanised, so this dropdown reads the same way the
+                          record and the status pill do. */}
                       {['pending', 'enrolled', 'dropped', 'transferred', 'graduated'].map((s) => (
                         <option key={s} value={s}>
-                          {s}
+                          {humanize(s)}
                         </option>
                       ))}
                     </select>
@@ -426,7 +437,7 @@ export function StudentFormPage() {
                       is marked a System field because it has no column in
                       the school's Student Information template — it's set
                       here by hand, or inferred on bulk import and confirmed. */}
-                  <fieldset className="learner-status-fieldset">
+                  <fieldset className="learner-status-fieldset form-field--wide">
                     <legend>Learner status (for DepEd reporting)</legend>
                     {LEARNER_STATUS_INPUTS.map((field) => (
                       <label key={field.key} className="checkbox-field">
@@ -442,7 +453,7 @@ export function StudentFormPage() {
                       </label>
                     ))}
                   </fieldset>
-                </>
+                </div>
               )}
 
               {currentStep === 2 && (
@@ -527,30 +538,6 @@ export function StudentFormPage() {
           </form>
         </div>
 
-        <aside className="panel student-form-preview">
-          <div className="student-form-preview__avatar">
-            {initials || <UserRound size={28} strokeWidth={1.75} />}
-          </div>
-          <div className={`student-form-preview__name${fullName ? '' : ' student-form-preview__name--placeholder'}`}>
-            {fullName || 'New student'}
-          </div>
-          <dl className="field-grid student-form-preview__grid">
-            <div>
-              <dt>LRN</dt>
-              <dd>{form.lrn || '—'}</dd>
-            </div>
-            <div>
-              <dt>Section</dt>
-              <dd>{sectionLabel || '—'}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>
-                <StatusPill label={form.enrollmentStatus} variant={STATUS_VARIANTS[form.enrollmentStatus]} />
-              </dd>
-            </div>
-          </dl>
-        </aside>
       </div>
     </div>
   )

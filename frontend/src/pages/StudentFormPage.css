@@ -1,13 +1,25 @@
+/* A single column at a readable measure. The second column held a preview
+   card repeating values the fields beside it already showed, on a wizard
+   whose last step is a full review. */
 .student-form-layout {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: var(--space-5);
-  align-items: start;
-  max-width: 1040px;
+  max-width: 50rem;
 }
 
-@media (max-width: 860px) {
-  .student-form-layout {
+/* Short fields pair up instead of each taking a full row and leaving a
+   ragged right edge — LRN and date of birth are both fixed-length, and a
+   12-digit box stretched to 675px invited the wrong kind of input. */
+.form-step__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-5);
+  align-items: start;
+}
+/* The ones that genuinely need the room take both columns. */
+.form-step__fields > .form-field--wide {
+  grid-column: 1 / -1;
+}
+@media (max-width: 720px) {
+  .form-step__fields {
     grid-template-columns: 1fr;
   }
 }
