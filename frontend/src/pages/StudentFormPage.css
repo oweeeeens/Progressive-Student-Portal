@@ -24,9 +24,6 @@
   }
 }
 
-/* Every step flexes equally, including the last: with the last item fixed,
-   its connector had no room to grow and collapsed to nothing, so the line
-
 .form-step-actions {
   display: flex;
   justify-content: space-between;
@@ -48,37 +45,3 @@
 
 /* Live preview of the student being created, stays visible alongside the
    form on desktop (sticky, so it survives scrolling a long step). */
-.student-form-preview {
-  position: sticky;
-  top: var(--space-5);
-  text-align: center;
-}
-.student-form-preview__avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 54px;
-  height: 54px;
-  margin: 0 auto var(--space-3);
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-light-2));
-  color: var(--color-primary);
-  font-size: var(--font-size-xl);
-  font-weight: 600;
-}
-.student-form-preview__name {
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  color: var(--color-text);
-  margin-bottom: var(--space-4);
-}
-.student-form-preview__name--placeholder {
-  color: var(--color-text-faint);
-  font-weight: 400;
-  font-style: italic;
-}
-.student-form-preview__grid.field-grid {
-  grid-template-columns: 1fr;
-  gap: var(--space-3);
-  text-align: left;
-}

@@ -4317,7 +4317,9 @@ th {
   align-items: center;
   flex: 1;
 }
-ran between steps 1 and 2 and then simply stopped. */
+/* Every step flexes equally, including the last: with the last item fixed,
+   its connector had no room to grow and collapsed to nothing, so the line
+   ran between steps 1 and 2 and then simply stopped. */
 .form-steps__item:last-child {
   flex: 1;
 }
