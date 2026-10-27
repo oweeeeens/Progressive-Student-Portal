@@ -815,6 +815,13 @@ button:focus-visible {
   }
 }
 
+/* The row being marked. A register is read across, and on a 36-student
+   sheet losing your line costs a mis-marked student — so the row under the
+   pointer, and the row holding keyboard focus, both light up. */
+.attendance-row:hover {
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 6%, var(--color-surface));
+}
+
 /* =============================================================================
    Press and focus
    =============================================================================
@@ -2997,11 +3004,31 @@ th {
    dashboard summary. Shared by the attendance and grade roster pages — each
    page supplies its own labeled counts as children, this just owns the
    type/spacing. */
+/* The status line above a workflow's roster — "12 awaiting your review",
+   "12 present · 3 absent". It is the queue's own count, and on Verify and
+   Finalize it replaced a single stat tile that printed the same number a
+   few pixels above it. Takes the area's colour so it reads as part of the
+   table it introduces rather than a stray sentence. */
 .live-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 7%, var(--color-surface));
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-text-muted);
-  margin: 0 0 var(--space-3);
+}
+.live-summary-bar svg {
+  color: var(--module-ink, var(--color-primary));
+  flex-shrink: 0;
+}
+.live-summary-bar__lead {
+  color: var(--color-text);
+  font-weight: 600;
 }
 
 /* A bottom-pinned action bar for pages with a roster table above it — the

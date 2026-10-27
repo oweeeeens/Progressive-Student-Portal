@@ -5,6 +5,8 @@ import { StatusPill } from '../components/StatusPill'
 import { useUnsavedChangesTracker } from '../hooks/useUnsavedChangesTracker'
 import './GradesShared.css'
 import { Alert } from '../components/Alert'
+import { SpotIllustration } from '../components/illustrations/SpotIllustration'
+import { SkeletonTable } from '../components/Skeleton'
 
 const STATUS_LABELS = {
   submitted: 'Submitted',
@@ -178,13 +180,17 @@ export function GradeEntryPage() {
 
       {!ready ? (
         <div className="empty-state">
-          <p>Select a class to enter grades.</p>
+          <SpotIllustration name="grades" />
+          <p>Pick a class and a grading period.</p>
+          <p>You will get a sheet of every student in it, ready to mark.</p>
         </div>
       ) : loading ? (
-        <p>Loading roster…</p>
+        <SkeletonTable rows={6} columns={3} />
       ) : roster.length === 0 ? (
         <div className="empty-state">
-          <p>No students found for this class.</p>
+          <SpotIllustration name="roster" />
+          <p>No students in this class yet.</p>
+          <p>The registrar assigns students to a section before marks can be entered.</p>
         </div>
       ) : (
         <>

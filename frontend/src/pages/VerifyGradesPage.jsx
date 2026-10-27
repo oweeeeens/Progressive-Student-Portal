@@ -2,10 +2,11 @@ import { Fragment, useEffect, useState } from 'react'
 import { ShieldCheck, ShieldX, ClipboardCheck } from 'lucide-react'
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
-import { StatCard, StatRow } from '../components/StatCard'
 import './GradesShared.css'
 import { formatGrade } from '../utils/formatNumber'
 import { Alert } from '../components/Alert'
+import { SpotIllustration } from '../components/illustrations/SpotIllustration'
+import { SkeletonTable } from '../components/Skeleton'
 
 const PAGE_SIZE = 20
 
@@ -173,10 +174,6 @@ export function VerifyGradesPage() {
         </div>
       </div>
 
-      <StatRow>
-        <StatCard icon={ClipboardCheck} value={total} label="Awaiting review" variant="warning" />
-      </StatRow>
-
       {error && <Alert>{error}</Alert>}
       {/* These four screens are where the real work of a school week gets
           done — a roster marked, a term's grades submitted, verified, put
@@ -190,20 +187,32 @@ export function VerifyGradesPage() {
 
       {!gradingPeriodId ? (
         <div className="empty-state">
-          <p>Select a grading period to review submitted grades.</p>
+          <SpotIllustration name="grades" />
+          <p>Pick a grading period to review.</p>
+          <p>Grades appear here as soon as a subject teacher submits them.</p>
         </div>
       ) : loading ? (
-        <p>Loading…</p>
+        <SkeletonTable rows={6} columns={4} />
       ) : rows.length === 0 ? (
         <div className="empty-state">
-          <p>No submitted grades awaiting review.</p>
+          <SpotIllustration name="cleared" />
+          <p>Nothing waiting on you.</p>
+          <p>Every grade submitted for this period has been reviewed.</p>
         </div>
       ) : (
         <>
+          {/* One place for the counts. A stat tile above this line used to
+              print "Awaiting review" with the same number the line already
+              ended on. */}
           <p className="live-summary-bar">
-            <span style={{ color: 'var(--color-success)' }}>{selectedIds.size} selected to verify</span>
-            {' · '}
-            <span style={{ color: 'var(--color-text-muted)' }}>{pending} pending</span>
+            <ClipboardCheck size={15} strokeWidth={1.75} aria-hidden="true" />
+            <span className="live-summary-bar__lead">{pending} awaiting your review</span>
+            {selectedIds.size > 0 && (
+              <>
+                {' · '}
+                <span style={{ color: 'var(--color-success)' }}>{selectedIds.size} selected</span>
+              </>
+            )}
           </p>
 
           <div className="table-card">

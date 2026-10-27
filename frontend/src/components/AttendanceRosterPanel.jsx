@@ -6,6 +6,8 @@ import { useUnsavedChangesTracker } from '../hooks/useUnsavedChangesTracker'
 import { addDays, todayDateString } from '../utils/dateUtils'
 import './AttendanceRosterPanel.css'
 import { Alert } from './Alert'
+import { SpotIllustration } from './illustrations/SpotIllustration'
+import { SkeletonTable } from './Skeleton'
 
 const STATUSES = [
   { value: 'present', letter: 'P', label: 'Present' },
@@ -158,13 +160,17 @@ export function AttendanceRosterPanel({
 
       {!ready ? (
         <div className="empty-state">
-          <p>Select a {pickerLabel.toLowerCase()} and date to take attendance.</p>
+          <SpotIllustration name="calendar" />
+          <p>Pick a {pickerLabel.toLowerCase()} and a date.</p>
+          <p>The register opens with everyone marked present, so you only change the ones who were not.</p>
         </div>
       ) : loading ? (
-        <p>Loading roster…</p>
+        <SkeletonTable rows={8} columns={3} />
       ) : roster.length === 0 ? (
         <div className="empty-state">
-          <p>No students found.</p>
+          <SpotIllustration name="roster" />
+          <p>Nobody in this {pickerLabel.toLowerCase()} yet.</p>
+          <p>Students appear here once the registrar assigns them to it.</p>
         </div>
       ) : (
         <>

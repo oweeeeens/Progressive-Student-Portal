@@ -3,10 +3,11 @@ import { CheckCircle2 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
-import { StatCard, StatRow } from '../components/StatCard'
 import './GradesShared.css'
 import { formatGrade } from '../utils/formatNumber'
 import { Alert } from '../components/Alert'
+import { SpotIllustration } from '../components/illustrations/SpotIllustration'
+import { SkeletonTable } from '../components/Skeleton'
 
 // The final stage of CLAUDE.md's 3-stage grade approval chain, done by
 // whoever actually advises the section (sections.adviser_id, not whoever's
@@ -130,10 +131,6 @@ export function GradeFinalizationPage() {
         </div>
       </div>
 
-      <StatRow>
-        <StatCard icon={CheckCircle2} value={verifiedGrades.length} label="Ready to finalize" variant="info" />
-      </StatRow>
-
       {error && <Alert>{error}</Alert>}
       {/* These four screens are where the real work of a school week gets
           done — a roster marked, a term's grades submitted, verified, put
@@ -147,20 +144,31 @@ export function GradeFinalizationPage() {
 
       {!ready ? (
         <div className="empty-state">
-          <p>Select a section and grading period to review verified grades ready to finalize.</p>
+          <SpotIllustration name="grades" />
+          <p>Pick a section and grading period.</p>
+          <p>Grades the principal has verified appear here, ready to go into the official record.</p>
         </div>
       ) : loading ? (
-        <p>Loading…</p>
+        <SkeletonTable rows={6} columns={4} />
       ) : verifiedGrades.length === 0 ? (
         <div className="empty-state">
-          <p>No principal-verified grades awaiting finalization for this section/period.</p>
+          <SpotIllustration name="cleared" />
+          <p>Nothing to finalize here.</p>
+          <p>No grades for this section and period have been verified yet, or they are already in the record.</p>
         </div>
       ) : (
         <>
+          {/* Same consolidation as Verify Grades: the tile above this line
+              repeated the count the line already carried. */}
           <p className="live-summary-bar">
-            <span style={{ color: 'var(--color-text)' }}>{verifiedGrades.length} ready to finalize</span>
-            {' · '}
-            <span style={{ color: 'var(--color-success)' }}>{reviewedIds.size} reviewed</span>
+            <CheckCircle2 size={15} strokeWidth={1.75} aria-hidden="true" />
+            <span className="live-summary-bar__lead">{verifiedGrades.length} ready to finalize</span>
+            {reviewedIds.size > 0 && (
+              <>
+                {' · '}
+                <span style={{ color: 'var(--color-success)' }}>{reviewedIds.size} reviewed</span>
+              </>
+            )}
           </p>
           <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-faint)', margin: '0 0 var(--space-3)' }}>
             Checking a row marks it reviewed — finalizing always applies to every grade below at once.
