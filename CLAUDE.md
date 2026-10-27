@@ -35,7 +35,12 @@ The client requested removing digital enrollment entirely — they want to keep 
 - **Subject teachers** — submit initial grades and input attendance for the classes they actually teach (scoped by class/subject, not by advisory section — a teacher may teach students across multiple sections)
 - **Guidance counselors** — view flagged/at-risk students, log interventions
 - **Registrar staff** — manage student records; create student/staff portal accounts once a student has enrolled on paper (see REMOVED: Enrollment Management above)
+- **ICT faculty** — post announcements. Added alongside the Announcements feature (see below) and has no other permissions: the school's ICT staff maintain the noticeboard, they do not mark attendance or handle records. The sidebar shows them the attendance and grade pages because visibility there is decided by actual section/class assignment rather than role label, and they hold none — so those pages open to an empty picker. The server refuses the writes regardless.
 - **Students / Parents** — view own records only (no separate parent role yet — out of scope for Phase 1, students role covers this access level)
+
+**Note on who can reset a password.** Only **admin** and **registrar** can create accounts or issue a temporary password (`CREATABLE_ROLES` in `backend/config/auth.js`, and `canWrite` in `backend/routes/userRoutes.js`). Advisers and ICT faculty cannot — the forgot-password fallback text says so, and must keep saying so, since with email unconfigured that is the only recovery route a user has.
+
+**Admin accounts are special.** `admin` is never offered on any account-creation form and can never be assigned or removed by editing an account. Beyond that, an admin account may only be acted on by *that same admin* — no other role, and no second admin, can reset its password, change its email or deactivate it. Without that last rule a registrar could reset the admin's password, read it out of the response, and sign in as admin.
 
 ## Grade Approval Workflow (confirmed with client)
 Grades are NOT entered directly by one person. They go through a 3-stage approval chain:
@@ -44,6 +49,7 @@ Grades are NOT entered directly by one person. They go through a 3-stage approva
 3. **Adviser** inputs the grade into the student's official record (status: Finalized — this is the "official" grade)
 
 - **Rejection handling:** if the Principal rejects a submitted grade, it returns to the Subject Teacher to resubmit (status reverts to Submitted / or a Rejected status with a resubmit action)
+- **A finalized grade is final.** Once the adviser has put a grade into the official record, a subject teacher resubmitting it does *not* take it back to Submitted — the resubmission is refused for that row and the teacher is told why. Without this, a resubmit silently reverted the official grade to a draft and erased who finalized it and when, while the stored risk score went on citing a grade that no longer counted. Correcting a finalized grade is deliberately an adviser's action, not a teacher's.
 - **Risk formula uses only Finalized grades** (post-adviser-input), not grades still in Submitted or Principal-Verified status. Note: this means risk detection may lag behind real-time classroom performance due to the approval pipeline — call this out explicitly as a known limitation in the thesis manuscript (Scope and Limitations chapter), framed as working within the school's existing grade-approval process rather than bypassing it.
 
 ## Academic Progress Tracking Logic (Part A)
@@ -73,6 +79,8 @@ IF attendance trend ≤ -5%/period → +2   (declining fast)
 ```
 Note: Attendance risk threshold is still pending confirmation from the client (DepEd Order referenced but not yet provided) — use placeholder until confirmed, make this value configurable/easy to change.
 
+**Where that pending value lives:** `ATTENDANCE_RISK_THRESHOLD` in the environment, defaulting to 90 (`backend/config/riskConfig.js`), documented in `backend/.env.example`. When the client confirms the real figure it is one env var and a restart, with no code change. A malformed value falls back to 90 and warns, rather than becoming `NaN` and silently switching the factor off. **Changing it does not retroactively rescore stored assessments** — those are recalculated the next time that student's grades are finalized or their attendance is recorded.
+
 **Performance bands (new, built on top of the unchanged risk score above):**
 Every student is classified into exactly one of three bands per grading period:
 1. **At Risk** — any risk factor triggered (risk score > 0, Low/Medium/High exactly as above). Shows which specific factor(s) triggered plus a short, rule-based advisory message tied to each one (e.g. a declining grade trend suggests a tutoring referral; low attendance suggests an attendance follow-up).
@@ -88,6 +96,26 @@ When a student is flagged, the adviser/guidance counselor logs an intervention:
 - On next grading period's risk recalculation, auto-compare new risk level to the risk level at time of intervention:
   - Improved → mark **Resolved**
   - Same/worse → mark **Escalated**
+
+## Modules Built (map — what exists and how it connects)
+
+CLAUDE.md's Code Quality Standards ask for per-module orientation notes. Each backend folder now carries its own `README.md`; this is the one-screen version. Everything below is built and tested unless stated.
+
+**Core chain (build order).** Auth → Student Records → Attendance → Grades → Academic Progress Tracking → Intervention Tracking. Each depends on the one before; the risk dashboard is meaningless without grades and attendance in place.
+
+**Also shipped, beyond the original Phase 1 list:**
+
+- **Bulk Student Import** — an .xlsx of student records, mapped column by column to our fields. Four steps (upload → match columns → review → done), stateless between them. `services/bulkImportParser.js` reads the file, `services/bulkImportValidator.js` decides what is importable, `controllers/bulkImportController.js` drives it. Re-validates server-side on commit, including the learner-status write gate.
+- **Bulk Attendance Import** — the school's existing DepEd SF2 spreadsheets: learners down the side, school days across the top, a mark per cell. A different shape from the student import, so it has its own grid parser (`services/attendanceGridParser.js`). Five steps, and a day that already has attendance takes an explicit overwrite-or-skip decision. Writes the daily register, so it triggers the same risk recalculation the marking sheet does — once per grading period, never once per date. Every imported mark records which import wrote it (`import_id`), and correcting a day by hand clears that attribution.
+- **Analytics** — the school-wide rollup of risk, factors, attendance and intervention effectiveness, with PDF and Excel export. Admin, principal and guidance counselor only; advisers keep the per-section Academic Progress view instead. `services/analyticsCalculator.js` does the maths, `analyticsReportPdf.js` / `analyticsReportWorkbook.js` render it.
+- **Report Card PDF** — a printable card per student, built from finalized grades and daily attendance, scoped to one school year. Adviser (own section), admin, registrar, or the student themselves.
+- **My Progress** (student self-view) — a student's own grades, attendance, risk band and the plain-language version of any triggered factors, including what number they would have to reach to clear each one. Read-only and scoped to themselves; no school-wide figures reach it.
+- **Learner Status fields** (`is_pwd`, `is_4ps`, `is_als_graduate`) — DepEd reporting fields on the student record. **Descriptive only: they never feed the risk formula.** Visibility is per field and per role (`backend/config/learnerStatus.js`): a subject teacher may see a disability flag because they teach the learner, but not 4Ps status, which is household financial information. Students never see any of the three about themselves. The same map gates writes, not just reads.
+
+## Dates and the School's Timezone
+Every "which grading period are we in" decision uses the school's local date, not the server's UTC date — `backend/utils/schoolDate.js`, configurable via `SCHOOL_TIMEZONE`, defaulting to `Asia/Manila`. The school is at UTC+8, so a UTC date names *yesterday* for the whole morning, and on the first or last day of a quarter that resolves to the wrong grading period.
+
+Related: a date is matched to a grading period **within one school year**, never across all of them (`gradingPeriodModel.findByDateInSchoolYear`). `grading_periods.sequence_number` is unique only within a year, so every per-period series — the risk trend, the report card, My Progress — is scoped by school year too. Without that, a learner's second year in the school mixes with their first.
 
 ## Data Privacy
 - School has an existing Data Privacy Officer — coordinate on data handling practices for minors' academic records
@@ -107,10 +135,16 @@ Use these for UI chrome — navbar, headers, buttons, login page, general brandi
 - Background: `#F5F5F5` or white — keep clean, not literal gray
 - Red accent (sunburst red): `#C8102E` — use sparingly, decorative only
 
-**Important exception:** do NOT use the brand yellow/red for Academic Progress Tracking's At Risk levels. Risk levels (Low/Medium/High) must use the standard traffic-light convention instead, kept visually distinct from brand colors:
-- Low Risk: green (e.g. `#2E7D32`)
-- Medium Risk: amber/orange (e.g. `#ED6C02`) — distinct from brand gold
-- High Risk: red (e.g. `#D32F2F`) — distinct from brand red accent
+**Important exception:** do NOT use the brand yellow/red for Academic Progress Tracking's bands. They have their own palette, kept visually distinct from brand colors — defined once as design tokens in `frontend/src/index.css` and never written as literals anywhere else.
+
+**Revised 2026-10-28 — this section previously mandated a traffic-light scheme (green / amber / red). The shipped design deliberately replaced it, and the spec has been updated to match rather than the other way round.** The reasoning, in case a panel asks:
+
+- **Risk level is ordinal, not categorical.** Low → Medium → High is one thing getting worse, not three unrelated states. Traffic-light colors say "stop / caution / go", which are *different* categories, so the ramp read as three separate meanings rather than one scale.
+- **It inverted the meaning at a glance.** Under traffic-light, a student flagged "At Risk — Low" got a **green** badge while "Performing Well" got gold. Someone scanning a roster for colour saw green on a flagged learner and gold on a thriving one.
+- **The replacement is one hue deepening with severity**, so severity reads as intensity: `--band-at-risk-low` `#f0917f` → `--band-at-risk-medium` `#cc4125` → `--band-at-risk-high` `#8c1d1d`. The other two bands sit outside that ramp entirely: `--band-average` `#2a78d6` (blue) and `--band-performing-well` `#2fb344` (green).
+- **Checked for colour-vision deficiency**, not assumed: the ramp was validated for deuteranopia separation, which a green/amber/red scheme fails badly — red–green is the single most common form.
+
+Band colours are never the only signal: every band also carries its label as text (see the System-Wide UI Standards section on status badges).
 
 ## Account Creation Flow (confirmed)
 Registration stays admin-only (no public self-signup) — but here's how each role actually gets an account:

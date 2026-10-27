@@ -14,6 +14,7 @@
     "seed:admin": "npm --prefix backend run seed:admin",
     "seed:sample": "npm --prefix backend run seed:sample",
     "seed:demo-data": "npm --prefix backend run seed:demo-data",
+    "test": "npm --prefix backend test",
     "test:integration": "npm --prefix backend run test:integration",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev"

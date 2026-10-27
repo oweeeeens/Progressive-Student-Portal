@@ -158,7 +158,7 @@ async function forgotPassword(req, res) {
   if (!canSendEmail()) {
     return res.status(503).json({
       error:
-        'Password reset by email is not set up for this school. Ask your adviser, the registrar, or the school ICT staff to reset your password for you.',
+        'Password reset by email is not set up for this school. Ask the registrar or a system administrator to reset your password for you.',
     });
   }
 

@@ -100,7 +100,7 @@ async function createTestOffering({ subjectId, sectionId, teacherId, schoolYearI
   return classOfferingModel.createClassOffering({ subjectId, sectionId, teacherId, schoolYearId });
 }
 
-async function createTestStudent({ sectionId, label = 'student' }) {
+async function createTestStudent({ sectionId, label = 'student', email } = {}) {
   const tag = nextTag(label);
   const id = await studentModel.createStudent({
     lrn: uniqueLrn(),
@@ -108,6 +108,10 @@ async function createTestStudent({ sectionId, label = 'student' }) {
     lastName: tag,
     dateOfBirth: '2009-05-01',
     currentSectionId: sectionId,
+    // Optional: only the suites that provision a portal account need one,
+    // and an email on every fixture would collide with the uniqueness
+    // checks the account-creation tests rely on.
+    email,
   });
   return studentModel.findByIdUnscoped(id);
 }
