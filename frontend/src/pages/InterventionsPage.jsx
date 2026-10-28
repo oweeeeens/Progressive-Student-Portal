@@ -170,7 +170,13 @@ export function InterventionsPage() {
       illustration="support"
       loading={!interventions}
       columns={[
-          { key: 'student', header: 'Student', render: (i) => `${i.student_last_name}, ${i.student_first_name}` },
+          {
+            key: 'student',
+            header: 'Student',
+            primary: true,
+            plainText: (i) => `${i.student_last_name}, ${i.student_first_name}`,
+            render: (i) => `${i.student_last_name}, ${i.student_first_name}`,
+          },
           { key: 'type', header: 'Type', render: (i) => INTERVENTION_TYPE_LABELS[i.intervention_type] },
           {
             key: 'risk',
@@ -180,12 +186,30 @@ export function InterventionsPage() {
               <StatusPill label={i.risk_level_at_intervention} variant={RISK_VARIANTS[i.risk_level_at_intervention]} />
             ),
           },
-          { key: 'logged', header: 'Date logged', render: (i) => fieldValue(i.date_logged) },
-          { key: 'by', header: 'Logged by', render: (i) => fieldValue(i.logged_by_name) },
+          {
+            key: 'logged',
+            header: 'Date logged',
+            uniformValue: (i) => i.date_logged,
+            render: (i) => fieldValue(i.date_logged),
+          },
+          {
+            // In a small school one counselor logs nearly all of these, so
+            // this is usually the same name on every row — lifted out above
+            // the table rather than repeated down it.
+            key: 'by',
+            header: 'Logged by',
+            truncate: true,
+            uniformValue: (i) => i.logged_by_name,
+            plainText: (i) => i.logged_by_name,
+            render: (i) => fieldValue(i.logged_by_name),
+          },
           {
             key: 'status',
             header: 'Status',
             uniformValue: (i) => i.status,
+            // Open is where an intervention starts and where most of them
+            // sit; resolved and escalated are the outcomes worth spotting.
+            quietValue: 'open',
             render: (i) => <StatusPill label={i.status} variant={INTERVENTION_STATUS_VARIANTS[i.status]} />,
           },
         ]}

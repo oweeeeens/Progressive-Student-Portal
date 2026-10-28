@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ShieldCheck, ShieldX, ClipboardCheck } from 'lucide-react'
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
@@ -6,7 +6,7 @@ import './GradesShared.css'
 import { formatGrade } from '../utils/formatNumber'
 import { Alert } from '../components/Alert'
 import { SpotIllustration } from '../components/illustrations/SpotIllustration'
-import { SkeletonTable } from '../components/Skeleton'
+import { DataTable, fieldValue } from '../components/table/DataTable'
 
 const PAGE_SIZE = 20
 
@@ -134,8 +134,13 @@ export function VerifyGradesPage() {
     }
   }
 
-  const pending = total - selectedIds.size
-  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
+  // How many grades are actually waiting — not minus the ones ticked.
+  // Selecting a row is not reviewing it, and subtracting the selection made
+  // the line read "0 awaiting your review" with twelve unreviewed grades on
+  // screen. The selected count is stated separately right beside it.
+  // (`total` is server-wide for the period; `selectedIds` is this page only,
+  // so the old arithmetic mixed two different scopes as well.)
+  const pending = total
 
   return (
     <div>
@@ -198,19 +203,12 @@ export function VerifyGradesPage() {
           <p>Pick a grading period to review.</p>
           <p>Grades appear here as soon as a subject teacher submits them.</p>
         </div>
-      ) : loading ? (
-        <SkeletonTable rows={6} columns={4} />
-      ) : rows.length === 0 ? (
-        <div className="empty-state">
-          <SpotIllustration name="cleared" />
-          <p>Nothing waiting on you.</p>
-          <p>Every grade submitted for this period has been reviewed.</p>
-        </div>
       ) : (
         <>
           {/* One place for the counts. A stat tile above this line used to
               print "Awaiting review" with the same number the line already
               ended on. */}
+          {!loading && rows.length > 0 && (
           <p className="live-summary-bar">
             <ClipboardCheck size={15} strokeWidth={1.75} aria-hidden="true" />
             <span className="live-summary-bar__lead">{pending} awaiting your review</span>
@@ -221,112 +219,93 @@ export function VerifyGradesPage() {
               </>
             )}
           </p>
-
-          <div className="table-card">
-            <table className="grade-review-table">
-              <thead>
-                <tr>
-                  <th>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.size === rows.length}
-                      onChange={toggleAll}
-                      aria-label="Select all"
-                    />
-                  </th>
-                  <th>Student</th>
-                  <th>Section</th>
-                  <th>Subject</th>
-                  <th>Grade</th>
-                  <th>Submitted by</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <Fragment key={r.id}>
-                    <tr>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(r.id)}
-                          onChange={() => toggleRow(r.id)}
-                          aria-label={`Select ${r.first_name} ${r.last_name} - ${r.subject_name}`}
-                        />
-                      </td>
-                      <td>
-                        {r.last_name}, {r.first_name}
-                      </td>
-                      <td>
-                        Grade {r.grade_level} - {r.section_name}
-                      </td>
-                      <td>{r.subject_name}</td>
-                      <td>{formatGrade(r.grade_value)}</td>
-                      <td>{r.recorded_by_name}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                          <button
-                            type="button"
-                            className="btn-subtle"
-                            onClick={() => verifyGradeIds([r.id])}
-                            disabled={acting}
-                          >
-                            <ShieldCheck size={13} strokeWidth={1.75} /> Verify
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-subtle"
-                            onClick={() => startReject(r.id)}
-                            disabled={acting}
-                          >
-                            <ShieldX size={13} strokeWidth={1.75} /> Reject
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {rejectingId === r.id && (
-                      <tr>
-                        <td colSpan={7} style={{ padding: 0 }}>
-                          <form onSubmit={handleReject} className="grade-reject-form">
-                            <textarea
-                              value={rejectionNote}
-                              onChange={(e) => setRejectionNote(e.target.value)}
-                              required
-                              rows={2}
-                              placeholder={`Why is ${r.first_name} ${r.last_name}'s ${r.subject_name} grade being rejected?`}
-                              autoFocus
-                            />
-                            <div className="grade-reject-form__actions">
-                              <button type="submit" className="btn-danger" disabled={acting}>
-                                {acting ? 'Rejecting…' : 'Confirm reject'}
-                              </button>
-                              <button type="button" onClick={() => setRejectingId(null)} disabled={acting}>
-                                Cancel
-                              </button>
-                            </div>
-                          </form>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                Previous
-              </button>
-              <span>
-                Page {page} of {totalPages}
-              </span>
-              <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Next
-              </button>
-            </div>
           )}
+
+          <DataTable
+            loading={loading}
+            illustration="cleared"
+            columns={[
+              {
+                key: 'student',
+                header: 'Student',
+                primary: true,
+                plainText: (r) => `${r.last_name}, ${r.first_name}`,
+                render: (r) => `${r.last_name}, ${r.first_name}`,
+              },
+              {
+                key: 'section',
+                header: 'Section',
+                uniformValue: (r) => `${r.grade_level}|${r.section_name}`,
+                summaryText: (r) => `Grade ${r.grade_level} - ${r.section_name}`,
+                render: (r) => `Grade ${r.grade_level} - ${r.section_name}`,
+              },
+              { key: 'subject', header: 'Subject', uniformValue: (r) => r.subject_name, render: (r) => r.subject_name },
+              {
+                key: 'grade',
+                header: 'Grade',
+                // Right-aligned so the digits form a column the eye can run
+                // down. This screen exists to find marks below the passing
+                // threshold, and left-aligned numbers put 71 and 100 at the
+                // same starting x with the decimal somewhere different on
+                // every row.
+                align: 'right',
+                render: (r) => formatGrade(r.grade_value),
+              },
+              {
+                key: 'by',
+                header: 'Submitted by',
+                truncate: true,
+                uniformValue: (r) => r.recorded_by_name,
+                plainText: (r) => r.recorded_by_name,
+                render: (r) => fieldValue(r.recorded_by_name),
+              },
+            ]}
+            rows={rows}
+            rowKey={(r) => r.id}
+            selection={{
+              selectedIds,
+              onToggleRow: toggleRow,
+              onToggleAll: toggleAll,
+              label: 'Select all grades on this page',
+            }}
+            rowActions={(r) => [
+              { key: 'verify', label: 'Verify', icon: ShieldCheck, disabled: acting, onSelect: () => verifyGradeIds([r.id]) },
+              { key: 'reject', label: 'Reject', icon: ShieldX, danger: true, disabled: acting, onSelect: () => startReject(r.id) },
+            ]}
+            renderExpanded={(r) =>
+              rejectingId === r.id ? (
+                <form onSubmit={handleReject} className="grade-reject-form">
+                  <textarea
+                    value={rejectionNote}
+                    onChange={(e) => setRejectionNote(e.target.value)}
+                    required
+                    rows={2}
+                    placeholder={`Why is ${r.first_name} ${r.last_name}'s ${r.subject_name} grade being rejected?`}
+                    autoFocus
+                  />
+                  <div className="grade-reject-form__actions">
+                    <button type="submit" className="btn-danger" disabled={acting}>
+                      {acting ? 'Rejecting…' : 'Confirm reject'}
+                    </button>
+                    <button type="button" onClick={() => setRejectingId(null)} disabled={acting}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : null
+            }
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
+            emptyState={
+              <>
+                <p>Nothing waiting on you.</p>
+                <p>Every grade submitted for this period has been reviewed.</p>
+              </>
+            }
+          />
+
 
           <div className="sticky-action-bar">
             <span className="sticky-action-bar__status">{selectedIds.size} selected</span>

@@ -4,7 +4,7 @@ import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
-import { SpotIllustration } from '../components/illustrations/SpotIllustration'
+import { DataTable, fieldValue } from '../components/table/DataTable'
 
 const PAGE_SIZE = 15
 const emptyForm = { schoolYearId: '', sectionId: '', subjectId: '', teacherId: '' }
@@ -116,7 +116,6 @@ export function ClassOfferingsPage() {
     }
   }
 
-  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
 
   return (
     <div>
@@ -239,83 +238,54 @@ export function ClassOfferingsPage() {
         </form>
       )}
 
-      {loading ? (
-        <p>Loading…</p>
-      ) : rows.length === 0 ? (
-        <div className="empty-state">
-          <SpotIllustration name={error ? 'search' : 'roster'} />
-          {error ? (
-            <p>This list could not be loaded.</p>
-          ) : (
-            <>
-              <p>No class offerings yet.</p>
-              <p>A class offering is one subject taught to one section — create one so a teacher can enter grades.</p>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>Section</th>
-                <th>Teacher</th>
-                <th>School Year</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.subject_name}</td>
-                  <td>
-                    Grade {r.grade_level} - {r.section_name}
-                  </td>
-                  <td>{r.teacher_name}</td>
-                  <td>{r.school_year_label}</td>
-                  <td>
-                    <StatusPill label={r.is_active ? 'active' : 'inactive'} variant={r.is_active ? 'positive' : 'neutral'} />
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                      <button type="button" className="btn-subtle" onClick={() => startEdit(r)}>
-                        <Pencil size={13} strokeWidth={1.75} /> Edit
-                      </button>
-                      <button type="button" className="btn-subtle" onClick={() => handleToggleActive(r)}>
-                        {r.is_active ? (
-                          <>
-                            <XCircle size={13} strokeWidth={1.75} /> Deactivate
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 size={13} strokeWidth={1.75} /> Reactivate
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        loading={loading}
+        error={error}
+        columns={[
+          {
+            key: 'subject',
+            header: 'Subject',
+            primary: true,
+            plainText: (r) => r.subject_name,
+            render: (r) => r.subject_name,
+          },
+          {
+            key: 'section',
+            header: 'Section',
+            render: (r) => `Grade ${r.grade_level} - ${r.section_name}`,
+          },
+          { key: 'teacher', header: 'Teacher', truncate: true, plainText: (r) => r.teacher_name, render: (r) => fieldValue(r.teacher_name) },
+          { key: 'year', header: 'School Year', uniformValue: (r) => r.school_year_label, render: (r) => r.school_year_label },
+          {
+            key: 'status',
+            header: 'Status',
+            uniformValue: (r) => String(r.is_active),
+            quietValue: 'true',
+            render: (r) => (
+              <StatusPill label={r.is_active ? 'active' : 'inactive'} variant={r.is_active ? 'positive' : 'neutral'} />
+            ),
+          },
+        ]}
+        rows={rows}
+        rowKey={(r) => r.id}
+        rowActions={(r) => [
+          { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => startEdit(r) },
+          r.is_active
+            ? { key: 'deactivate', label: 'Deactivate', icon: XCircle, danger: true, onSelect: () => handleToggleActive(r) }
+            : { key: 'reactivate', label: 'Reactivate', icon: CheckCircle2, onSelect: () => handleToggleActive(r) },
+        ]}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+        emptyState={
+          <>
+            <p>No class offerings yet.</p>
+            <p>A class offering is one subject taught to one section — create one so a teacher can enter grades.</p>
+          </>
+        }
+      />
 
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </button>
-        </div>
-      )}
     </div>
   )
 }

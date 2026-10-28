@@ -7,7 +7,7 @@ import './GradesShared.css'
 import { formatGrade } from '../utils/formatNumber'
 import { Alert } from '../components/Alert'
 import { SpotIllustration } from '../components/illustrations/SpotIllustration'
-import { SkeletonTable } from '../components/Skeleton'
+import { DataTable, fieldValue } from '../components/table/DataTable'
 
 // The final stage of CLAUDE.md's 3-stage grade approval chain, done by
 // whoever actually advises the section (sections.adviser_id, not whoever's
@@ -148,16 +148,10 @@ export function GradeFinalizationPage() {
           <p>Pick a section and grading period.</p>
           <p>Grades the principal has verified appear here, ready to go into the official record.</p>
         </div>
-      ) : loading ? (
-        <SkeletonTable rows={6} columns={4} />
-      ) : verifiedGrades.length === 0 ? (
-        <div className="empty-state">
-          <SpotIllustration name="cleared" />
-          <p>Nothing to finalize here.</p>
-          <p>No grades for this section and period have been verified yet, or they are already in the record.</p>
-        </div>
       ) : (
         <>
+          {verifiedGrades.length > 0 && (
+          <>
           {/* Same consolidation as Verify Grades: the tile above this line
               repeated the count the line already carried. */}
           <p className="live-summary-bar">
@@ -174,59 +168,75 @@ export function GradeFinalizationPage() {
             Checking a row marks it reviewed — finalizing always applies to every grade below at once.
           </p>
 
-          <div className="table-card">
-            <table className="grade-review-table">
-              <thead>
-                <tr>
-                  <th>
-                    <input
-                      type="checkbox"
-                      checked={reviewedIds.size === verifiedGrades.length}
-                      onChange={toggleAll}
-                      aria-label="Mark all reviewed"
-                      title="Mark all reviewed"
-                    />
-                  </th>
-                  <th>Student</th>
-                  <th>Subject</th>
-                  <th>Grade</th>
-                  <th>Recorded by</th>
-                  <th>Verified by</th>
-                </tr>
-              </thead>
-              <tbody>
-                {verifiedGrades.map((g) => (
-                  <tr key={g.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={reviewedIds.has(g.id)}
-                        onChange={() => toggleRow(g.id)}
-                        aria-label={`Mark ${g.first_name} ${g.last_name} - ${g.subject_name} reviewed`}
-                        title="Mark reviewed"
-                      />
-                    </td>
-                    <td>
-                      {g.last_name}, {g.first_name}
-                    </td>
-                    <td>{g.subject_name}</td>
-                    <td>{formatGrade(g.grade_value)}</td>
-                    <td>{g.recorded_by_name}</td>
-                    <td>{g.verified_by_name}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            loading={loading}
+            illustration="cleared"
+            columns={[
+              {
+                key: 'student',
+                header: 'Student',
+                primary: true,
+                plainText: (g) => `${g.last_name}, ${g.first_name}`,
+                render: (g) => `${g.last_name}, ${g.first_name}`,
+              },
+              { key: 'subject', header: 'Subject', uniformValue: (g) => g.subject_name, render: (g) => g.subject_name },
+              {
+                key: 'grade',
+                header: 'Grade',
+                // Right-aligned: this is the last look anyone gets before
+                // these marks become the official record, so the digits
+                // need to line up.
+                align: 'right',
+                render: (g) => formatGrade(g.grade_value),
+              },
+              {
+                key: 'recorded',
+                header: 'Recorded by',
+                truncate: true,
+                uniformValue: (g) => g.recorded_by_name,
+                plainText: (g) => g.recorded_by_name,
+                render: (g) => fieldValue(g.recorded_by_name),
+              },
+              {
+                key: 'verified',
+                header: 'Verified by',
+                truncate: true,
+                uniformValue: (g) => g.verified_by_name,
+                plainText: (g) => g.verified_by_name,
+                render: (g) => fieldValue(g.verified_by_name),
+              },
+            ]}
+            rows={verifiedGrades}
+            rowKey={(g) => g.id}
+            selection={{
+              selectedIds: reviewedIds,
+              onToggleRow: toggleRow,
+              onToggleAll: toggleAll,
+              label: 'Mark all reviewed',
+            }}
+            emptyState={
+              <>
+                <p>Nothing to finalize here.</p>
+                <p>No grades for this section and period have been verified yet, or they are already in the record.</p>
+              </>
+            }
+          />
 
+          </>
+          )}
+
+          {verifiedGrades.length > 0 && (
           <div className="sticky-action-bar">
             <span className="sticky-action-bar__status">
               {reviewedIds.size} of {verifiedGrades.length} reviewed
             </span>
             <button type="button" className="btn-primary" onClick={handleFinalize} disabled={finalizing}>
-              {finalizing ? 'Finalizing…' : `Finalize all ${verifiedGrades.length} grade(s)`}
+              {finalizing
+                ? 'Finalizing…'
+                : `Finalize all ${verifiedGrades.length} ${verifiedGrades.length === 1 ? 'grade' : 'grades'}`}
             </button>
           </div>
+          )}
         </>
       )}
     </div>

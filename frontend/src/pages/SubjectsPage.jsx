@@ -4,7 +4,7 @@ import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
-import { SpotIllustration } from '../components/illustrations/SpotIllustration'
+import { DataTable, fieldValue } from '../components/table/DataTable'
 
 const PAGE_SIZE = 15
 const emptyForm = { name: '', code: '', gradeLevel: '' }
@@ -93,7 +93,6 @@ export function SubjectsPage() {
     }
   }
 
-  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
 
   return (
     <div>
@@ -177,79 +176,43 @@ export function SubjectsPage() {
         </form>
       )}
 
-      {loading ? (
-        <p>Loading…</p>
-      ) : rows.length === 0 ? (
-        <div className="empty-state">
-          <SpotIllustration name={error ? 'search' : 'roster'} />
-          {error ? (
-            <p>This list could not be loaded.</p>
-          ) : (
-            <>
-              <p>No subjects yet.</p>
-              <p>Add the subjects this school teaches before setting up classes.</p>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Code</th>
-                <th>Grade Level</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.name}</td>
-                  <td>{r.code || '—'}</td>
-                  <td>{r.grade_level || 'Both'}</td>
-                  <td>
-                    <StatusPill label={r.is_active ? 'active' : 'inactive'} variant={r.is_active ? 'positive' : 'neutral'} />
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                      <button type="button" className="btn-subtle" onClick={() => startEdit(r)}>
-                        <Pencil size={13} strokeWidth={1.75} /> Edit
-                      </button>
-                      <button type="button" className="btn-subtle" onClick={() => handleToggleActive(r)}>
-                        {r.is_active ? (
-                          <>
-                            <XCircle size={13} strokeWidth={1.75} /> Deactivate
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 size={13} strokeWidth={1.75} /> Reactivate
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        loading={loading}
+        error={error}
+        columns={[
+          { key: 'name', header: 'Name', primary: true, plainText: (r) => r.name, render: (r) => r.name },
+          { key: 'code', header: 'Code', render: (r) => fieldValue(r.code) },
+          { key: 'level', header: 'Grade Level', render: (r) => r.grade_level || 'Both' },
+          {
+            key: 'status',
+            header: 'Status',
+            uniformValue: (r) => String(r.is_active),
+            quietValue: 'true',
+            render: (r) => (
+              <StatusPill label={r.is_active ? 'active' : 'inactive'} variant={r.is_active ? 'positive' : 'neutral'} />
+            ),
+          },
+        ]}
+        rows={rows}
+        rowKey={(r) => r.id}
+        rowActions={(r) => [
+          { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => startEdit(r) },
+          r.is_active
+            ? { key: 'deactivate', label: 'Deactivate', icon: XCircle, danger: true, onSelect: () => handleToggleActive(r) }
+            : { key: 'reactivate', label: 'Reactivate', icon: CheckCircle2, onSelect: () => handleToggleActive(r) },
+        ]}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+        emptyState={
+          <>
+            <p>No subjects yet.</p>
+            <p>Add one to start building class offerings.</p>
+          </>
+        }
+      />
 
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </button>
-        </div>
-      )}
     </div>
   )
 }

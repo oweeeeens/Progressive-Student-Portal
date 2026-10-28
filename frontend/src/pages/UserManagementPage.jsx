@@ -317,13 +317,15 @@ function AllAccountsTab() {
         </form>
       )}
 
-      {loading ? (
-        <p>Loading…</p>
-      ) : (
+      {/* No `loading ? <p>Loading…</p> :` branch — DataTable draws the table
+          at the right size while the first request is in flight, which is
+          what stops the page swapping a sentence for a table and jumping. */}
+      {(
         <DataTable
+          loading={loading}
           columns={[
-            { key: 'name', header: 'Name', render: (a) => a.full_name },
-            { key: 'email', header: 'Email', render: (a) => fieldValue(a.email) },
+            { key: 'name', header: 'Name', primary: true, plainText: (a) => a.full_name, render: (a) => a.full_name },
+            { key: 'email', header: 'Email', truncate: true, plainText: (a) => a.email, render: (a) => fieldValue(a.email) },
             { key: 'role', header: 'Role', render: (a) => ROLE_DISPLAY_LABELS[a.role] || a.role },
             {
               key: 'assignment',
@@ -335,10 +337,14 @@ function AllAccountsTab() {
               key: 'status',
               header: 'Status',
               uniformValue: (a) => `${a.is_active}|${a.must_change_password}`,
+              // An active account that has already chosen its own password
+              // is the ordinary case; the ones worth seeing are inactive or
+              // still sitting on a temporary password.
+              quietValue: 'true|false',
               render: (a) => <AccountStatusCell account={a} />,
             },
           ]}
-          rows={accounts}
+          rows={accounts ?? []}
           rowKey={(a) => a.id}
           rowActions={(a) => [
             { key: 'edit', label: 'Edit account', icon: Pencil, onSelect: () => startEdit(a) },

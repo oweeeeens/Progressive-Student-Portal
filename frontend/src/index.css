@@ -1059,7 +1059,15 @@ th {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  overflow: hidden;
+  /* The card is the horizontal scroll container, so a table wider than the
+     page can be reached instead of being silently cut off. It used to be
+     `overflow: hidden`, with every cell also nowrap/ellipsis and no media
+     query touching a table anywhere — so at phone width a roster simply
+     lost its last columns, with no scrollbar to recover them (the app
+     scrolls internally, so the window never offered one either).
+     overflow-y stays hidden to keep the rounded corners clipping. */
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 .table-card table {
   margin: 0;
@@ -1201,13 +1209,28 @@ th {
    analytics, the student's own lists — looks and behaves identically.
    Pages supply columns and rows; they never style a table. */
 :root {
-  --table-row-height: 44px;
+  /* Register density. These teachers read a paper SF2 and a Form 137 every
+     day — both are dense grids — and a section is 40 learners. At the old
+     44px an adviser saw roughly 15 of their own advisory and scrolled three
+     times; at 34px they see most of it at once. Only the row box tightens;
+     the type size is unchanged. */
+  --table-row-height: 34px;
+}
+
+/* On a touch device the row goes back to 44px, because the row-action
+   trigger lives inside it and has to stay a legal target. Density is for
+   the mouse; a thumb needs the room. */
+@media (pointer: coarse) {
+  :root {
+    --table-row-height: 44px;
+  }
 }
 
 /* Rows are a fixed height with a single line of text. Variable-height rows
    made the roster scan badly: the eye can't settle into a rhythm when every
-   row is a slightly different size. Anything too long is truncated with a
-   title attribute rather than wrapping. */
+   row is a slightly different size. Anything too long is truncated — and
+   DataTable now really does set the `title` this comment has always
+   promised, so a clipped value is still readable. */
 .table-card tbody td {
   height: var(--table-row-height);
   padding-top: 0;
@@ -1215,19 +1238,76 @@ th {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* The supporting fields recede so the identity column can lead. A paper
+     register reads this way: the name carries the row, everything beside it
+     is reference. Overridden by .is-primary below. */
+  color: var(--color-text-muted);
 }
 .table-card th.is-right,
 .table-card td.is-right {
   text-align: right;
 }
-/* A column whose every row holds the same value: kept (so the field is
-   still visibly present) but muted, so a wall of identical text doesn't
-   compete with the columns that actually differ. */
-.table-card td.is-uniform {
-  color: var(--color-text-faint);
+
+/* The row's identity — the learner's name on a roster, the date in a
+   register. The one cell at full strength, and the only one with any extra
+   weight. Without this every cell rendered identically and nothing marked
+   which column WAS the record. */
+.table-card td.is-primary {
+  color: var(--color-text);
+  font-weight: 500;
 }
-.table-card td.is-uniform .status-pill {
-  opacity: 0.55;
+
+/* The column's unremarkable value, named by the page (quietValue). A
+   register where every row says "Present" should let "Absent" and "Late"
+   carry the page — previously thirteen saturated green pills drowned the
+   three marks that were the entire reason to open the list. The pill keeps
+   its shape so the column still scans as one kind of thing. */
+.table-card td.is-quiet .pill {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-faint);
+  font-weight: 400;
+}
+
+/* A table takes the width its content needs and no more, and the card
+   wraps it.
+   
+   Tables used to span 100% of the page whatever they held: the import
+   review put 540px of dead space between "Row in file" and the LRN beside
+   it, and an attendance register pushed Status a thousand pixels from the
+   date it belonged to. Columns that are read together have to sit together.
+   
+   A floor keeps a two-column table from looking like an accident, and
+   max-width hands anything larger back to the card's horizontal scroll. */
+.table-card {
+  width: fit-content;
+  min-width: min(100%, 34rem);
+  max-width: 100%;
+}
+.table-card table {
+  width: auto;
+}
+.table-card th,
+.table-card td {
+  width: 1%;
+}
+/* The identity column is the one that should take any slack: it holds the
+   longest and most variable text, so giving it the room is what keeps a
+   long name from being the thing that truncates. */
+.table-card th.is-primary,
+.table-card td.is-primary {
+  width: auto;
+}
+
+/* A column lifted out of the table because it said the same thing on every
+   row, restated once. See DataTable's uniformValue note. */
+.data-table__summary {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.data-table__summary-label {
+  color: var(--color-text-faint);
 }
 /* The one treatment for a missing value, in tables and on detail pages. */
 .is-empty-value {
@@ -1687,6 +1767,16 @@ th {
   background: var(--color-surface);
   border-color: var(--color-border);
   color: var(--color-text);
+}
+/* 28px is a comfortable click and an uncomfortable tap. On a touch device
+   the trigger grows to the 44px floor — the glyph stays the same size, only
+   the target around it changes. This is the same reason --table-row-height
+   goes back to 44px under a coarse pointer. */
+@media (pointer: coarse) {
+  .row-menu__trigger {
+    width: 44px;
+    height: 44px;
+  }
 }
 /* Portalled to <body> and positioned from the trigger's rect (see
    RowMenu.jsx), so it escapes the cell that clipped it, the card's
@@ -4664,4 +4754,143 @@ th {
   font-size: var(--font-size-xs);
   color: var(--color-text-faint);
   word-break: break-word;
+}
+
+/* -----------------------------------------------------------------------------
+   Tables that are wider than the page
+   -----------------------------------------------------------------------------
+   .table-card scrolls horizontally (see its rule above). Two things make
+   that scroll legible rather than a trap. */
+
+/* The identity column stays put while the rest slides under it, so you never
+   lose track of whose row you are reading. Same device .grid-pick already
+   uses for the SF2 import preview — that was the one table in the app that
+   handled overflow properly, and this is its pattern generalised. */
+.table-card th.is-primary,
+.table-card td.is-primary {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-surface);
+}
+.table-card th.is-primary {
+  /* Above the body cells, which are also sticky on the same axis. */
+  z-index: 2;
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 9%, var(--color-surface));
+}
+/* The sticky cell has its own background, so it would otherwise sit out of
+   the row's hover tint as an unexplained pale block. */
+.table-card tbody tr:hover td.is-primary {
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 6%, var(--color-surface));
+}
+.table-card tbody tr.detail-row td {
+  background: var(--color-bg);
+}
+
+/* Below this, a horizontal scroll is a fallback rather than an answer: a
+   roster needs ~700px and a phone has 414. The table becomes one card per
+   row — identity as the heading, every other field as a labelled pair read
+   from the column's own header. */
+@media (max-width: 560px) {
+  .table-card {
+    overflow-x: visible;
+  }
+  .table-card thead {
+    /* Not display:none — that drops the headers from the accessibility tree
+       too, and they are the only thing naming these values. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .table-card table,
+  .table-card tbody,
+  .table-card tr,
+  .table-card td {
+    display: block;
+    width: auto;
+  }
+  .table-card tbody tr {
+    position: relative;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .table-card tbody tr:last-child {
+    border-bottom: none;
+  }
+  .table-card tbody td {
+    /* Everything the single-line row needed is wrong in a card: fixed
+       height, nowrap, and the ellipsis that went with them. */
+    height: auto;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    border: none;
+    padding: 2px 0;
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    text-align: left;
+  }
+  /* A table that has not been ported to DataTable yet has no data-label on
+     its cells. Without this they would still reserve the label column and
+     stack as values indented into empty space. They degrade to a plain
+     stack instead, which is the right fallback until they are ported. */
+  .table-card tbody td:not([data-label])::before {
+    display: none;
+  }
+  .table-card tbody td::before {
+    content: attr(data-label);
+    /* Wide enough for the longest field name, narrow enough that the value
+       still starts in the left half of a 414px screen. */
+    flex: 0 0 6.5rem;
+    color: var(--color-text-faint);
+    font-size: var(--font-size-xs);
+  }
+  /* The identity is the card's heading, so it takes no label and no stick. */
+  .table-card tbody td.is-primary {
+    position: static;
+    display: block;
+    margin-bottom: var(--space-1);
+    font-size: var(--font-size-base);
+  }
+  .table-card tbody td.is-primary::before {
+    content: none;
+  }
+  /* A cell with nothing in it earns no line in a card. */
+  .table-card tbody td:empty {
+    display: none;
+  }
+  .table-card th.is-right,
+  .table-card td.is-right {
+    text-align: left;
+  }
+  /* Beside the card's heading rather than on a line of its own at the
+     bottom, where it read as a sixth field and cost a whole row of height.
+     Top-right is also where a thumb expects a card's menu. */
+  .data-table__actions-cell {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    padding: 0;
+  }
+  .data-table__actions-cell::before {
+    content: none;
+  }
+}
+
+/* The leading checkbox column on a selectable list (Verify / Finalize
+   Grades). Narrow and fixed, so it never competes with the identity
+   column beside it. */
+.table-card th.data-table__select-head,
+.table-card td.data-table__select-cell {
+  width: 36px;
+  padding-right: 0;
+}
+.table-card td.data-table__select-cell input,
+.table-card th.data-table__select-head input {
+  width: auto;
+  margin: 0;
+  vertical-align: middle;
 }

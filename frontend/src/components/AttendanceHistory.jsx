@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { formatRegisterDate } from '../utils/dateUtils'
 import { Calendar, List, FileUp } from 'lucide-react'
 import { api } from '../api/client'
 import { StatusPill } from './StatusPill'
@@ -119,7 +120,17 @@ export function AttendanceHistory({ studentId, kind, title }) {
       ) : (
         <DataTable illustration="calendar"
           columns={[
-            { key: 'date', header: 'Date', render: (r) => r.attendance_date },
+            {
+              // The row's identity, and the column a register is actually
+              // indexed by. The weekday is information, not decoration:
+              // absences cluster on Mondays and Fridays, and that pattern
+              // was invisible while this printed the raw ISO date.
+              key: 'date',
+              header: 'Date',
+              primary: true,
+              plainText: (r) => r.attendance_date,
+              render: (r) => formatRegisterDate(r.attendance_date),
+            },
             ...(kind === 'subject'
               ? [
                   {
@@ -130,7 +141,16 @@ export function AttendanceHistory({ studentId, kind, title }) {
                   },
                 ]
               : []),
-            { key: 'notes', header: 'Notes', truncate: true, render: (r) => fieldValue(r.notes) },
+            {
+              // uniformValue so a register with no notes at all drops the
+              // column instead of printing a stack of em-dashes.
+              key: 'notes',
+              header: 'Notes',
+              truncate: true,
+              uniformValue: (r) => r.notes || '',
+              plainText: (r) => r.notes || '',
+              render: (r) => fieldValue(r.notes),
+            },
             {
               // Who recorded it, and — for a row that came from a bulk
               // import rather than the marking sheet — which file it came
@@ -138,6 +158,14 @@ export function AttendanceHistory({ studentId, kind, title }) {
               // the second line appears only where it means something.
               key: 'by',
               header: 'Recorded by',
+              // Almost always one adviser for a whole period, so this was a
+              // column of the same name repeated down the page. Declaring
+              // uniformValue lifts it out and says it once above the table.
+              // The import filename is part of the identity: two rows with
+              // the same recorder but different origins are not uniform.
+              uniformValue: (r) => `${r.recorded_by_name}|${r.imported_from || ''}`,
+              summaryText: (r) =>
+                r.imported_from ? `${r.recorded_by_name} · imported from ${r.imported_from}` : r.recorded_by_name,
               render: (r) => (
                 <>
                   {fieldValue(r.recorded_by_name)}
@@ -154,6 +182,10 @@ export function AttendanceHistory({ studentId, kind, title }) {
               key: 'status',
               header: 'Status',
               uniformValue: (r) => r.status,
+              // Present is what a school day normally is. Rendering it as
+              // quietly as possible is what lets Absent and Late — the only
+              // reason anyone opens this table — carry the page.
+              quietValue: 'present',
               render: (r) => <StatusPill label={r.status} variant={STATUS_VARIANTS[r.status]} />,
             },
           ]}

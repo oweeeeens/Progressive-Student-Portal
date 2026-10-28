@@ -146,6 +146,9 @@ export function StudentListPage() {
       key: 'name',
       header: 'Name',
       sortable: true,
+      // The row IS the learner. Everything beside it is reference.
+      primary: true,
+      plainText: (s) => `${s.last_name}, ${s.first_name}`,
       render: (s) => (
         <span className="cell-with-mark">
           {s.risk_level && <span className={`risk-dot risk-dot--${s.risk_level}`} title={RISK_LABELS[s.risk_level]} />}
@@ -166,6 +169,11 @@ export function StudentListPage() {
       // Muted when every row says the same thing — see DataTable's
       // uniformValue note.
       uniformValue: (s) => `${s.enrollment_status}|${s.is_active}`,
+      // Nearly every learner on a roster is enrolled and active, so that
+      // pill was a full-strength column telling the adviser what they
+      // already knew. Quiet here means a dropped or inactive learner is the
+      // thing the eye catches.
+      quietValue: 'enrolled|true',
       render: (s) => (
         <>
           <StatusPill label={s.enrollment_status} variant={STATUS_VARIANTS[s.enrollment_status]} />

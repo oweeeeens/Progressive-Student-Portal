@@ -4,7 +4,7 @@ import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
-import { SpotIllustration } from '../components/illustrations/SpotIllustration'
+import { DataTable, fieldValue } from '../components/table/DataTable'
 
 const PAGE_SIZE = 15
 const emptyForm = { schoolYearId: '', gradeLevel: 11, strand: '', name: '', adviserId: '' }
@@ -114,7 +114,6 @@ export function SectionsPage() {
     }
   }
 
-  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
 
   return (
     <div>
@@ -225,83 +224,54 @@ export function SectionsPage() {
         </form>
       )}
 
-      {loading ? (
-        <p>Loading…</p>
-      ) : rows.length === 0 ? (
-        <div className="empty-state">
-          <SpotIllustration name={error ? 'search' : 'roster'} />
-          {error ? (
-            <p>This list could not be loaded.</p>
-          ) : (
-            <>
-              <p>No sections yet.</p>
-              <p>Create one to start assigning students and advisers.</p>
-            </>
-          )}
-        </div>
-      ) : (
-        <div className="table-card">
-          <table>
-            <thead>
-              <tr>
-                <th>Section</th>
-                <th>Strand</th>
-                <th>School Year</th>
-                <th>Adviser</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    Grade {r.grade_level} - {r.name}
-                  </td>
-                  <td>{r.strand || '—'}</td>
-                  <td>{r.school_year_label}</td>
-                  <td>{r.adviser_name}</td>
-                  <td>
-                    <StatusPill label={r.is_active ? 'active' : 'inactive'} variant={r.is_active ? 'positive' : 'neutral'} />
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                      <button type="button" className="btn-subtle" onClick={() => startEdit(r)}>
-                        <Pencil size={13} strokeWidth={1.75} /> Edit
-                      </button>
-                      <button type="button" className="btn-subtle" onClick={() => handleToggleActive(r)}>
-                        {r.is_active ? (
-                          <>
-                            <XCircle size={13} strokeWidth={1.75} /> Deactivate
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 size={13} strokeWidth={1.75} /> Reactivate
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        loading={loading}
+        error={error}
+        columns={[
+          {
+            key: 'section',
+            header: 'Section',
+            primary: true,
+            plainText: (r) => `Grade ${r.grade_level} - ${r.name}`,
+            render: (r) => `Grade ${r.grade_level} - ${r.name}`,
+          },
+          { key: 'strand', header: 'Strand', render: (r) => fieldValue(r.strand) },
+          // One school year on screen at a time in practice, so this
+          // usually lifts out into the line above the table.
+          { key: 'year', header: 'School Year', uniformValue: (r) => r.school_year_label, render: (r) => r.school_year_label },
+          { key: 'adviser', header: 'Adviser', truncate: true, plainText: (r) => r.adviser_name, render: (r) => fieldValue(r.adviser_name) },
+          {
+            key: 'status',
+            header: 'Status',
+            uniformValue: (r) => String(r.is_active),
+            // An active section is the ordinary case; a deactivated one is
+            // what someone scanning this list is looking for.
+            quietValue: 'true',
+            render: (r) => (
+              <StatusPill label={r.is_active ? 'active' : 'inactive'} variant={r.is_active ? 'positive' : 'neutral'} />
+            ),
+          },
+        ]}
+        rows={rows}
+        rowKey={(r) => r.id}
+        rowActions={(r) => [
+          { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => startEdit(r) },
+          r.is_active
+            ? { key: 'deactivate', label: 'Deactivate', icon: XCircle, danger: true, onSelect: () => handleToggleActive(r) }
+            : { key: 'reactivate', label: 'Reactivate', icon: CheckCircle2, onSelect: () => handleToggleActive(r) },
+        ]}
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        onPageChange={setPage}
+        emptyState={
+          <>
+            <p>No sections yet.</p>
+            <p>Create one to start assigning students and advisers.</p>
+          </>
+        }
+      />
 
-      {totalPages > 1 && (
-        <div className="pagination">
-          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </button>
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </button>
-        </div>
-      )}
     </div>
   )
 }
