@@ -21,7 +21,7 @@ import { useDrawIn } from '../../hooks/useDrawIn'
 // without it each chart scales to its own largest row and two charts that
 // look identical can mean completely different numbers.
 export function BarChart({ rows, maxValue, formatValue = (v) => String(v), color = 'var(--chart-blue)' }) {
-  const { containerRef, tooltip, show, hide } = useChartTooltip()
+  const { containerRef, tooltip, markHandlers } = useChartTooltip()
   // Mounts collapsed and releases on the next frame, so the clip-path
   // transition on .bar-chart__fill finally has something to animate from.
   // It was always the right technique; it just never fired.
@@ -36,58 +36,64 @@ export function BarChart({ rows, maxValue, formatValue = (v) => String(v), color
   const minHeight = `min(180px, calc(${rows.length} * var(--chart-row-height) + var(--space-4)))`
 
   return (
-    <div className="bar-chart" ref={containerRef} style={{ '--bar-chart-min-height': minHeight }}>
-      {rows.map((row) => {
-        const isZero = row.value <= 0
-        const percent = isZero ? 0 : Math.max((row.value / max) * 100, 1.5)
-        const valueText = row.valueText ?? formatValue(row.value)
-        const content = {
-          key: row.key,
-          title: row.label,
-          rows: [
-            { label: '', value: valueText, color: row.color || color },
-            ...(row.detail ? [{ label: row.detail, value: '' }] : []),
-          ],
-        }
+    // The tooltip has to live OUTSIDE the scrolling body. `.bar-chart` is
+    // `overflow-y: auto` with a max-height, and the tooltip sits a row's
+    // height ABOVE the row it describes — so for the top row that put it at
+    // a negative offset inside a clipping container, and it was cut away
+    // entirely. At every width, not just on a phone. `.chart-frame` is
+    // `position: relative` with no overflow, which is why ColumnChart and
+    // LineChart never had this.
+    <div className="chart-frame" ref={containerRef}>
+      <div className="bar-chart" style={{ '--bar-chart-min-height': minHeight }}>
+        {rows.map((row) => {
+          const isZero = row.value <= 0
+          const percent = isZero ? 0 : Math.max((row.value / max) * 100, 1.5)
+          const valueText = row.valueText ?? formatValue(row.value)
+          const content = {
+            key: row.key,
+            title: row.label,
+            rows: [
+              { label: '', value: valueText, color: row.color || color },
+              ...(row.detail ? [{ label: row.detail, value: '' }] : []),
+            ],
+          }
 
-        return (
-          <div
-            key={row.key}
-            className={`bar-chart__row${tooltip?.key === row.key ? ' is-hovered' : ''}`}
-            tabIndex={0}
-            role="button"
-            aria-label={`${row.label}: ${valueText}`}
-            onPointerMove={(e) => show(e, content)}
-            onPointerLeave={hide}
-            onFocus={(e) => show(e, content)}
-            onBlur={hide}
-          >
-            <span className="bar-chart__label" title={row.label}>
-              {row.label}
-            </span>
-            <span className="bar-chart__track">
-              {/* A zero row still gets a thin neutral stub — a bare gap with
-                  a "0" floating beside it reads as a rendering fault rather
-                  than a real zero. */}
-              {/* Revealed by clip-path rather than sized by width: the bar
-                  animates to its new length on the compositor instead of
-                  re-laying out the row on every frame. See .bar-chart__fill. */}
-              <span
-                className={`bar-chart__fill${isZero ? ' is-zero' : ''}`}
-                style={
-                  isZero
-                    ? undefined
-                    : {
-                        clipPath: `inset(0 ${drawn ? 100 - percent : 100}% 0 0 round var(--radius-sm))`,
-                        background: row.color || color,
-                      }
-                }
-              />
-            </span>
-            <span className="bar-chart__value">{valueText}</span>
-          </div>
-        )
-      })}
+          return (
+            <div
+              key={row.key}
+              className={`bar-chart__row${tooltip?.key === row.key ? ' is-hovered' : ''}`}
+              tabIndex={0}
+              role="button"
+              aria-label={`${row.label}: ${valueText}`}
+              {...markHandlers(content)}
+            >
+              <span className="bar-chart__label" title={row.label}>
+                {row.label}
+              </span>
+              <span className="bar-chart__track">
+                {/* A zero row still gets a thin neutral stub — a bare gap with
+                    a "0" floating beside it reads as a rendering fault rather
+                    than a real zero. */}
+                {/* Revealed by clip-path rather than sized by width: the bar
+                    animates to its new length on the compositor instead of
+                    re-laying out the row on every frame. See .bar-chart__fill. */}
+                <span
+                  className={`bar-chart__fill${isZero ? ' is-zero' : ''}`}
+                  style={
+                    isZero
+                      ? undefined
+                      : {
+                          clipPath: `inset(0 ${drawn ? 100 - percent : 100}% 0 0 round var(--radius-sm))`,
+                          background: row.color || color,
+                        }
+                  }
+                />
+              </span>
+              <span className="bar-chart__value">{valueText}</span>
+            </div>
+          )
+        })}
+      </div>
       <ChartTooltip tooltip={tooltip} />
     </div>
   )

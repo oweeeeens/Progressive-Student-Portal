@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Maximize, Minimize, Sun, Moon, PanelLeftClose, PanelLeftOpen, KeyRound, IdCard, ChevronDown } from 'lucide-react'
+import { Maximize, Minimize, Sun, Moon, PanelLeftClose, PanelLeftOpen, Menu, KeyRound, IdCard, ChevronDown } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -16,7 +16,7 @@ function getInitials(fullName) {
     .join('')
 }
 
-export function TopBar({ sidebarCollapsed, onToggleSidebar }) {
+export function TopBar({ sidebarCollapsed, onToggleSidebar, isPhone = false, drawerOpen = false, menuButtonRef }) {
   const { user } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
@@ -70,25 +70,49 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar }) {
     }
   }
 
+  // "Thu, Oct 29" on a phone rather than "Thursday, October 29, 2026".
+  // The long form plus the grading-period pill plus the menu button is wider
+  // than a phone, so the bar wrapped to two rows and spent 210px of a
+  // 844px screen on chrome. The year is in the pill beside it either way.
   const today = new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
+    weekday: isPhone ? 'short' : 'long',
+    year: isPhone ? undefined : 'numeric',
+    month: isPhone ? 'short' : 'long',
     day: 'numeric',
   })
 
   if (!user) return null
 
+  const navToggleLabel = isPhone
+    ? 'Open navigation'
+    : sidebarCollapsed
+      ? 'Expand sidebar'
+      : 'Collapse sidebar'
+
   return (
     <header className="top-bar">
       <div className="top-bar__context">
+        {/* One button, two jobs, chosen by viewport. On a desktop it
+            collapses a panel that stays on screen, so the panel icons are
+            right. On a phone it opens a drawer over the page, and
+            PanelLeftClose there would promise a reflow that never happens —
+            a hamburger is what people look for and what it actually does.
+            It also had no accessible name before: `title` alone leaves a
+            screen reader announcing an unlabelled button, and on a phone
+            this is now the only route to navigation. */}
         <button
           type="button"
           className="top-bar__icon-btn"
           onClick={onToggleSidebar}
-          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={navToggleLabel}
+          title={navToggleLabel}
+          aria-controls="app-sidebar"
+          aria-expanded={isPhone ? drawerOpen : !sidebarCollapsed}
+          ref={menuButtonRef}
         >
-          {sidebarCollapsed ? (
+          {isPhone ? (
+            <Menu size={16} strokeWidth={1.75} />
+          ) : sidebarCollapsed ? (
             <PanelLeftOpen size={16} strokeWidth={1.75} />
           ) : (
             <PanelLeftClose size={16} strokeWidth={1.75} />
@@ -112,14 +136,21 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar }) {
           {theme === 'dark' ? <Sun size={16} strokeWidth={1.75} /> : <Moon size={16} strokeWidth={1.75} />}
         </button>
 
-        <button
-          type="button"
-          className="top-bar__icon-btn"
-          onClick={toggleFullscreen}
-          title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-        >
-          {isFullscreen ? <Minimize size={16} strokeWidth={1.75} /> : <Maximize size={16} strokeWidth={1.75} />}
-        </button>
+        {/* Not on a phone: a mobile browser is already fullscreen, so this
+            button either does nothing visible or hides the browser's own
+            controls — and it was costing a 44px slot in a bar that had no
+            room to spare. */}
+        {!isPhone && (
+          <button
+            type="button"
+            className="top-bar__icon-btn"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            {isFullscreen ? <Minimize size={16} strokeWidth={1.75} /> : <Maximize size={16} strokeWidth={1.75} />}
+          </button>
+        )}
 
         <div className="top-bar__account" ref={accountMenuRef}>
           <button

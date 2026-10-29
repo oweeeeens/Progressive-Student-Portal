@@ -11,8 +11,11 @@ import {
   ExternalLink,
   FileText,
   FileSpreadsheet,
+  SlidersHorizontal,
+  ChevronDown,
 } from 'lucide-react'
 import { api } from '../api/client'
+import { useMediaQuery, PHONE_QUERY } from '../hooks/useMediaQuery'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { SkeletonChart, SkeletonTable, LoadingAnnouncement } from '../components/Skeleton'
@@ -164,6 +167,9 @@ export function AnalyticsPage() {
   const [sections, setSections] = useState([])
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [groupBy, setGroupBy] = useState('')
+  // Phone only: the six filter selects start collapsed behind a disclosure.
+  const isPhone = useMediaQuery(PHONE_QUERY)
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const [distribution, setDistribution] = useState(null)
   const [trend, setTrend] = useState(null)
@@ -1059,7 +1065,38 @@ export function AnalyticsPage() {
           crammed into page-header__actions, which is the row the page
           title sits in — so the title of the busiest screen in the app
           was sharing its line with six dropdowns. */}
-      <div className="filter-bar">
+      {/* On a phone these six selects stack into roughly 800px of chrome
+          before any data — the first chart used to sit 1369px down the
+          scroller, which is most of why the charts were reported as "not
+          visible". They collapse behind a disclosure instead.
+
+          Gated in JSX rather than hidden with CSS on purpose: `display:
+          none` would leave six selects in the tab order and in the
+          accessibility tree, so the wall would still be there for a
+          keyboard or screen-reader user, just invisible.
+
+          Collapsing them loses no information about the current scope,
+          because the chip row immediately below always names the active
+          filters and is never collapsed. */}
+      {isPhone && (
+        <button
+          type="button"
+          className="filter-bar__summary"
+          onClick={() => setFiltersOpen((open) => !open)}
+          aria-expanded={filtersOpen}
+          aria-controls="analytics-filters"
+        >
+          <SlidersHorizontal size={15} strokeWidth={1.75} />
+          Filters
+          {activeFilterChips.length > 0 && <span className="pill pill--info">{activeFilterChips.length}</span>}
+          <ChevronDown
+            size={15}
+            strokeWidth={2}
+            className={`filter-bar__summary-chevron${filtersOpen ? ' is-open' : ''}`}
+          />
+        </button>
+      )}
+      <div className="filter-bar" id="analytics-filters" hidden={isPhone && !filtersOpen}>
         <label>
           Grading Period
           <select value={filters.gradingPeriodId} onChange={(e) => setFilter('gradingPeriodId', e.target.value)}>

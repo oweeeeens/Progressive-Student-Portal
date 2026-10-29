@@ -16,6 +16,16 @@ export function useChartWidth(fallback = 400) {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return undefined
+    // Measure once, synchronously, before the observer has had a chance to
+    // fire. ResizeObserver delivers its first entry after paint, so without
+    // this the first frame rendered at the `fallback` width — a 480-wide
+    // viewBox inside a ~266px box on a phone, which the default
+    // preserveAspectRatio then scales down to about 55%, text and all. The
+    // result was a visible flash of a tiny chart on every load, worst on
+    // exactly the screens where the chart was already hardest to read.
+    const initial = el.getBoundingClientRect().width
+    if (initial) setWidth(initial)
+
     const observer = new ResizeObserver((entries) => {
       const measured = entries[0]?.contentRect.width
       if (measured) setWidth(measured)

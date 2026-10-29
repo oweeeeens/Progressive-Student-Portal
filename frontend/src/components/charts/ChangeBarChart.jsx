@@ -28,7 +28,7 @@ export function ChangeBarChart({
   positiveColor = 'var(--band-performing-well)',
   negativeColor = 'var(--band-at-risk-high)',
 }) {
-  const { containerRef, tooltip, show, hide } = useChartTooltip()
+  const { containerRef, tooltip, markHandlers } = useChartTooltip()
   const scale = Math.max(MINIMUM_SCALE, ...rows.map((r) => Math.abs(r.value)))
   // Same floor rule as BarChart: the stylesheet's 180px keeps a bar chart as
   // tall as a line chart beside it, which is right from about five rows up.
@@ -38,55 +38,61 @@ export function ChangeBarChart({
   const minHeight = `min(180px, calc(${rows.length} * var(--chart-row-height) + var(--space-4)))`
 
   return (
-    <div className="change-bar-chart" ref={containerRef} style={{ '--bar-chart-min-height': minHeight }}>
-      {rows.map((row) => {
-        const isZero = row.value === 0
-        const percent = isZero ? 0 : Math.max((Math.abs(row.value) / scale) * MAX_BAR_PERCENT, MINIMUM_BAR_PERCENT)
-        const isPositive = row.value > 0
-        const color = isPositive ? positiveColor : negativeColor
-        const valueText = formatValue(row.value)
-        const content = {
-          key: row.key,
-          title: row.label,
-          rows: [{ label: '', value: valueText, color }, ...(row.detail ? [{ label: row.detail, value: '' }] : [])],
-        }
+    // The tooltip has to live OUTSIDE the scrolling body. `.change-bar-chart` is
+    // `overflow-y: auto` with a max-height, and the tooltip sits a row's
+    // height ABOVE the row it describes — so for the top row that put it at
+    // a negative offset inside a clipping container, and it was cut away
+    // entirely. At every width, not just on a phone. `.chart-frame` is
+    // `position: relative` with no overflow, which is why ColumnChart and
+    // LineChart never had this.
+    <div className="chart-frame" ref={containerRef}>
+      <div className="change-bar-chart" style={{ '--bar-chart-min-height': minHeight }}>
+        {rows.map((row) => {
+          const isZero = row.value === 0
+          const percent = isZero ? 0 : Math.max((Math.abs(row.value) / scale) * MAX_BAR_PERCENT, MINIMUM_BAR_PERCENT)
+          const isPositive = row.value > 0
+          const color = isPositive ? positiveColor : negativeColor
+          const valueText = formatValue(row.value)
+          const content = {
+            key: row.key,
+            title: row.label,
+            rows: [{ label: '', value: valueText, color }, ...(row.detail ? [{ label: row.detail, value: '' }] : [])],
+          }
 
-        return (
-          <div
-            key={row.key}
-            className={`change-bar-chart__row${tooltip?.key === row.key ? ' is-hovered' : ''}`}
-            tabIndex={0}
-            role="button"
-            aria-label={`${row.label}: ${valueText}${row.detail ? `, ${row.detail}` : ''}`}
-            onPointerMove={(e) => show(e, content)}
-            onPointerLeave={hide}
-            onFocus={(e) => show(e, content)}
-            onBlur={hide}
-          >
-            <span className="change-bar-chart__label" title={row.label}>
-              {row.label}
-            </span>
-            <span className="change-bar-chart__track">
-              {/* The zero line is the chart's whole reference: it is drawn
-                  under every bar, not just implied by where they start. */}
-              <span className="change-bar-chart__zero" />
-              {isZero ? (
-                <span className="change-bar-chart__unchanged" />
-              ) : (
-                <span
-                  className="change-bar-chart__fill"
-                  style={{
-                    left: isPositive ? `${MAX_BAR_PERCENT}%` : `${MAX_BAR_PERCENT - percent}%`,
-                    width: `${percent}%`,
-                    background: color,
-                  }}
-                />
-              )}
-            </span>
-            <span className="change-bar-chart__value">{valueText}</span>
-          </div>
-        )
-      })}
+          return (
+            <div
+              key={row.key}
+              className={`change-bar-chart__row${tooltip?.key === row.key ? ' is-hovered' : ''}`}
+              tabIndex={0}
+              role="button"
+              aria-label={`${row.label}: ${valueText}${row.detail ? `, ${row.detail}` : ''}`}
+              {...markHandlers(content)}
+            >
+              <span className="change-bar-chart__label" title={row.label}>
+                {row.label}
+              </span>
+              <span className="change-bar-chart__track">
+                {/* The zero line is the chart's whole reference: it is drawn
+                    under every bar, not just implied by where they start. */}
+                <span className="change-bar-chart__zero" />
+                {isZero ? (
+                  <span className="change-bar-chart__unchanged" />
+                ) : (
+                  <span
+                    className="change-bar-chart__fill"
+                    style={{
+                      left: isPositive ? `${MAX_BAR_PERCENT}%` : `${MAX_BAR_PERCENT - percent}%`,
+                      width: `${percent}%`,
+                      background: color,
+                    }}
+                  />
+                )}
+              </span>
+              <span className="change-bar-chart__value">{valueText}</span>
+            </div>
+          )
+        })}
+      </div>
       <ChartTooltip tooltip={tooltip} />
     </div>
   )

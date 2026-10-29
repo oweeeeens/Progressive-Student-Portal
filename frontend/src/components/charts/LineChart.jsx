@@ -1,4 +1,5 @@
 import { useChartWidth } from '../../hooks/useChartWidth'
+import { lineChartLayout, CHART_NARROW } from './chartLayout'
 import { useDrawIn } from '../../hooks/useDrawIn'
 import { ChartTooltip, useChartTooltip } from './ChartTooltip'
 
@@ -14,8 +15,9 @@ import { ChartTooltip, useChartTooltip } from './ChartTooltip'
 // students that period. Plotting it as 0 invents a catastrophic number out
 // of an absence of data, so a null breaks the line into a gap and draws no
 // marker.
-const HEIGHT = 180
-const PADDING = { top: 24, right: 52, bottom: 26, left: 44 }
+// Height and padding come from lineChartLayout(width), not a constant: the
+// same chart is 241px wide in a small-multiple row on a desktop and 236px on
+// a phone, and a gutter sized for a wide card eats both. See chartLayout.js.
 // With only two or three periods, a full-bleed plot stretches a 2-point line
 // edge to edge and turns a small change into a dramatic diagonal. Below this
 // count the plot is capped and centred, so the slope reflects the data
@@ -43,20 +45,25 @@ export function LineChart({
   axisNote = null,
 }) {
   const [widthRef, width] = useChartWidth(480)
-  const { containerRef, tooltip, show, hide } = useChartTooltip()
+  const { containerRef, tooltip, markHandlers } = useChartTooltip()
   // The line draws along its own length on first paint (see .chart-line).
   const drawn = useDrawIn()
-  const plotHeight = HEIGHT - PADDING.top - PADDING.bottom
+
+  const { height: chartHeight, padding, showMidGridline } = lineChartLayout(width)
+  const plotHeight = chartHeight - padding.top - padding.bottom
 
   const seriesList = series && series.length > 0 ? series : [{ label: null, color, points }]
   const axisPoints = seriesList[0].points
 
-  const fullPlotWidth = width - PADDING.left - PADDING.right
+  // Floored the way ColumnChart already floors its own: without this, a
+  // card narrower than the two gutters combined produced a zero or negative
+  // plot width, and every x position computed from it was NaN.
+  const fullPlotWidth = Math.max(width - padding.left - padding.right, 60)
   const isSparse = axisPoints.length < SPARSE_POINT_THRESHOLD
   const plotWidth = isSparse
     ? Math.min(fullPlotWidth, SPARSE_MAX_SEGMENT_WIDTH * (axisPoints.length - 1 || 1))
     : fullPlotWidth
-  const plotLeft = PADDING.left + (isSparse ? (fullPlotWidth - plotWidth) / 2 : 0)
+  const plotLeft = padding.left + (isSparse ? (fullPlotWidth - plotWidth) / 2 : 0)
   const labelEveryPoint = axisPoints.length <= LABEL_ALL_THRESHOLD
 
   function xFor(i) {
@@ -64,7 +71,7 @@ export function LineChart({
   }
   function yFor(value) {
     const clamped = Math.max(yMin, Math.min(yMax, value))
-    return PADDING.top + plotHeight - ((clamped - yMin) / (yMax - yMin)) * plotHeight
+    return padding.top + plotHeight - ((clamped - yMin) / (yMax - yMin)) * plotHeight
   }
 
   // Lifts the pen on a missing value so the line breaks there instead of
@@ -83,7 +90,9 @@ export function LineChart({
     return path.trim()
   }
 
-  const gridLines = [yMin, (yMin + yMax) / 2, yMax]
+  // On the narrowest charts the middle tick goes; floor and ceiling are what
+  // actually anchor the scale.
+  const gridLines = showMidGridline ? [yMin, (yMin + yMax) / 2, yMax] : [yMin, yMax]
 
   // Every data label this render will actually draw, as {x, y, text} — the
   // axis ticks are checked against these so one can be dropped when it would
@@ -127,7 +136,11 @@ export function LineChart({
   return (
     <div className="chart-frame" ref={containerRef}>
       <div ref={widthRef}>
-        <svg viewBox={`0 0 ${width} ${HEIGHT}`} width="100%" height={HEIGHT} role="img" aria-label="Line chart">
+        <svg
+          viewBox={`0 0 ${width} ${chartHeight}`}
+          width="100%"
+          height={chartHeight}
+          data-chart-density={width < CHART_NARROW ? 'compact' : 'comfortable'} role="img" aria-label="Line chart">
           {gridLines.map((g) => (
             <g key={g}>
               <line x1={plotLeft} x2={plotLeft + plotWidth} y1={yFor(g)} y2={yFor(g)} className="chart-gridline" />
@@ -143,8 +156,8 @@ export function LineChart({
             <line
               x1={xFor(activeIndex)}
               x2={xFor(activeIndex)}
-              y1={PADDING.top}
-              y2={PADDING.top + plotHeight}
+              y1={padding.top}
+              y2={padding.top + plotHeight}
               className="chart-crosshair"
             />
           )}
@@ -153,7 +166,7 @@ export function LineChart({
             <text
               key={p.label}
               x={xFor(i)}
-              y={HEIGHT - 6}
+              y={chartHeight - 6}
               textAnchor="middle"
               className={`chart-row-label${activeIndex === i ? ' is-active' : ''}`}
             >
@@ -211,7 +224,7 @@ export function LineChart({
             <rect
               key={`hit-${p.label}`}
               x={xFor(i) - slabWidth / 2}
-              y={PADDING.top}
+              y={padding.top}
               width={slabWidth}
               height={plotHeight}
               fill="transparent"
@@ -220,10 +233,8 @@ export function LineChart({
               aria-label={`${p.label}: ${seriesList
                 .map((s) => `${s.label ? `${s.label} ` : ''}${s.points[i].value == null ? 'no data' : formatValue(s.points[i].value)}`)
                 .join(', ')}`}
-              onPointerMove={(e) => show(e, tooltipFor(i))}
-              onPointerLeave={hide}
-              onFocus={(e) => show(e, tooltipFor(i))}
-              onBlur={hide}
+              className="chart-hit"
+              {...markHandlers(tooltipFor(i))}
             />
           ))}
         </svg>

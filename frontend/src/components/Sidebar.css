@@ -381,10 +381,40 @@
   grid-template-rows: 1fr;
 }
 
-/* Same icon-only treatment, auto-triggered by a narrow viewport regardless
-   of the manual toggle's state — a phone/small-tablet visitor gets this
-   whether or not they've ever touched the hamburger. */
-@media (max-width: 900px) {
+/* The close button is drawer-only chrome: on a desktop the sidebar is
+   always there and there is nothing to close. Declared here, revealed
+   inside the phone query below, so its visibility costs no JS flag. */
+.sidebar__close {
+  display: none;
+  margin-left: auto;
+  /* Pulled back into the brand row's own padding: the button keeps its full
+     44px tap target but gives the school's name back the space that padding
+     was already holding, so "Progressive SHS" is not truncated to
+     "Progressive SH" in a 216px drawer. */
+  margin-right: calc(var(--space-4) * -1);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-on-primary-muted);
+  cursor: pointer;
+}
+.sidebar__close:hover {
+  color: var(--color-text-on-primary);
+  background: var(--sidebar-hover-bg, rgba(255, 255, 255, 0.08));
+}
+
+/* TABLET: the icon rail. Same icon-only treatment as the manual collapse,
+   auto-triggered by viewport. It no longer runs all the way down to phone
+   width — below 720px the sidebar is a drawer instead (next block), because
+   a 56px rail of unlabelled icons took 14% of a 390px screen and told the
+   reader nothing. The two ranges are deliberately exclusive so they cannot
+   both apply. */
+@media (min-width: 721px) and (max-width: 1023px) {
   .sidebar {
     width: var(--sidebar-width-collapsed);
   }
@@ -418,5 +448,41 @@
   .sidebar__section-items,
   .sidebar__section-items--collapsed {
     grid-template-rows: 1fr;
+  }
+}
+
+/* PHONE: the sidebar leaves the layout and becomes an overlay drawer.
+   720px — the app's phone breakpoint; mirrored in JS as PHONE_QUERY in
+   hooks/useMediaQuery.js, because a custom property is not valid inside an
+   @media condition and the number genuinely has to be written twice.
+
+   Note this animates `transform`, not `width`. The exception recorded for
+   this file in .impeccable/config.json covers the desktop width
+   transition, and its justification is that the sidebar is a flex sibling
+   the page reflows around. Out of flow that reasoning no longer applies —
+   and a transform is the cheaper, more correct choice anyway, so the
+   drawer needs no exception of its own. */
+@media (max-width: 720px) {
+  .sidebar--drawer {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 45;
+    /* Full width with full labels — the whole point of the drawer. */
+    width: var(--sidebar-width);
+    /* A strip of page stays visible down the right edge, so it always
+       reads as a panel OVER the page rather than a new screen, and there
+       is somewhere obvious to tap out. */
+    max-width: calc(100vw - 48px);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: var(--shadow-lg, 0 10px 30px rgba(0, 0, 0, 0.35));
+  }
+  .sidebar--drawer.sidebar--open {
+    transform: none;
+  }
+  .sidebar__close {
+    display: inline-flex;
   }
 }

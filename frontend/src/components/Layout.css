@@ -55,3 +55,26 @@
     padding: var(--space-4) var(--space-4) var(--space-5);
   }
 }
+
+/* The navigation drawer's backdrop. Above the sticky top bar (z-index 15)
+   and below the drawer itself (45), so it dims the whole page including the
+   chrome — which is what makes the drawer read as the only live thing on
+   screen. */
+.app-shell__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  /* A literal black, not color-mix(var(--color-text)): --color-text inverts
+     in dark mode, so deriving the scrim from it would paint a near-WHITE
+     veil over a dark page. A backdrop's job is to darken, in both themes,
+     so it is the one surface that does not follow the text colour. The
+     shadow tokens above it in index.css use literal black for the same
+     reason. */
+  background: rgba(0, 0, 0, 0.5);
+  animation: app-shell-scrim-in 150ms ease-out both;
+}
+@keyframes app-shell-scrim-in {
+  from {
+    opacity: 0;
+  }
+}

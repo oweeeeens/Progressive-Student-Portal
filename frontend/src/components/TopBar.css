@@ -176,3 +176,14 @@
     display: none;
   }
 }
+
+/* 26px is a comfortable mouse target and an unusable thumb target, and the
+   leftmost of these is now the only route to navigation on a phone. Same
+   44px floor and the same reasoning as .row-menu__trigger and
+   --table-row-height in index.css. */
+@media (pointer: coarse) {
+  .top-bar__icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+}

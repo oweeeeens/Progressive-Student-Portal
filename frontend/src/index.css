@@ -1224,6 +1224,37 @@ th {
   :root {
     --table-row-height: 44px;
   }
+  /* The same 44px floor applied to the controls that were under it: chart
+     series toggles were 20px tall, the subtle text buttons 24px, and a
+     select 32px. Padding rather than a fixed height, so a control that
+     wraps to two lines still grows instead of clipping its own label. */
+  .chart-toggle,
+  .btn-subtle {
+    min-height: 44px;
+  }
+  /* The drawer's nav links. 33px is fine for a cursor and mean for a thumb,
+     and in the drawer these are the primary targets on the whole screen. */
+  .sidebar__link,
+  .sidebar__logout,
+  .sidebar__section-toggle {
+    min-height: 44px;
+  }
+  .top-bar__profile {
+    min-height: 44px;
+  }
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+  /* Shortcut links on the dashboard and the attachment buttons on an
+     announcement: both are primary things to tap and both were 32px. */
+  .quick-actions__item {
+    min-height: 44px;
+  }
+  .tabs__item {
+    min-height: 44px;
+  }
 }
 
 /* Rows are a fixed height with a single line of text. Variable-height rows
@@ -1787,6 +1818,12 @@ th {
   position: fixed;
   z-index: 60;
   min-width: 180px;
+  /* RowMenu already clamps `left` into the viewport (see its positioning
+     effect). That clamp cannot save a sheet that is itself wider than the
+     screen — Math.min() goes negative, the sheet pins to the left edge and
+     its right-hand side hangs off with no way to reach it. Capping the
+     width gives the clamp something to work with. */
+  max-width: calc(100vw - 2 * var(--space-2));
   padding: var(--space-1);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1993,6 +2030,16 @@ th {
   font-size: var(--font-size-xs);
   fill: var(--color-text-muted);
 }
+/* One step up on a narrow chart. Because useChartWidth pins the viewBox 1:1
+   to real pixels, 11px here really is 11px — the smallest text in the
+   product, on the screen held furthest from the reader's eyes. --font-size-sm
+   is 12px, an existing token; no new value invented. */
+svg[data-chart-density='compact'] .chart-row-label,
+svg[data-chart-density='compact'] .chart-axis-label,
+svg[data-chart-density='compact'] .chart-value-label,
+svg[data-chart-density='compact'] .chart-reference-label {
+  font-size: var(--font-size-sm);
+}
 .chart-value-label {
   font-size: var(--font-size-xs);
   font-weight: 600;
@@ -2015,7 +2062,7 @@ th {
      card's full width and the second item lands against the far edge,
      reading as a separate caption instead of part of the same legend.
      Tracks now size to their own label and pack from the left. */
-  grid-template-columns: repeat(auto-fit, minmax(150px, max-content));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), max-content));
   gap: var(--space-2) var(--space-4);
   margin-top: var(--space-3);
 }
@@ -2118,7 +2165,16 @@ th {
 }
 .chart-card-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  /* `min(100%, 320px)`, not a bare `260px`, and both halves matter.
+     The min() can never exceed the container, so the row cannot overflow —
+     at a 320px viewport the old 260px floor was wider than the ~238px
+     available, and since .app-shell__content is `overflow-x: clip` the
+     excess was cut off with no scrollbar to recover it.
+     The 320px ceiling stops the row packing panels too small to be charts:
+     on a 1224px content column these were four 241px cards, whose plot was
+     97px once ColumnChart's gutters were paid — narrower than the same
+     chart on a phone. Three ~400px cards read as charts. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: var(--space-4);
 }
 
@@ -2144,7 +2200,12 @@ th {
 /* label | bar | value — the three-column read the form is built around. */
 .bar-chart__row {
   display: grid;
-  grid-template-columns: minmax(0, 11rem) 1fr auto;
+  /* The label track yields on a narrow chart instead of holding its full
+     11rem (176px) — on a ~240px card that left the bar, which is the whole
+     point of the form, with almost no room. clamp keeps it generous where
+     there is space and lets it fall to 4.5rem where there is not; the label
+     already ellipsises (.bar-chart__label). */
+  grid-template-columns: minmax(0, clamp(4.5rem, 30%, 11rem)) 1fr auto;
   align-items: center;
   gap: var(--space-3);
   height: var(--chart-row-height);
@@ -2220,6 +2281,16 @@ th {
   font-size: var(--font-size-xs);
   font-weight: 600;
   fill: var(--color-text-muted);
+}
+/* The same label when a narrow chart cannot afford it a private gutter and
+   it has to sit inside the plot (see chartLayout.js). It gains the same
+   surface-coloured halo .chart-value-label uses, so a gridline, a bar or
+   the threshold line itself passing behind it never strikes it through. */
+.chart-reference-label--inside {
+  paint-order: stroke;
+  stroke: var(--color-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }
 .column-chart__bar {
   /* Columns rise from the baseline on first paint. transform-box: fill-box
@@ -2384,6 +2455,31 @@ th {
   font-size: var(--font-size-xs);
   line-height: 1.5;
   white-space: nowrap;
+  /* Never wider than the screen it has to be nudged back inside — the JS
+     clamp in ChartTooltip can shift a tooltip, but it cannot shrink one
+     that is already wider than the viewport. */
+  max-width: min(260px, calc(100vw - 2 * var(--space-4)));
+}
+/* Flipped below the mark when there is no room above — on a phone the top
+   of a chart often sits directly under the sticky top bar. The transform
+   itself is written by ChartTooltip; this is here so the flip is visible in
+   the stylesheet rather than only in JS. */
+.chart-tooltip--below {
+  transform: translate(-50%, 10px);
+}
+@media (max-width: 560px) {
+  /* nowrap defeats the max-width above, so it is lifted exactly where the
+     cap starts to bite. */
+  .chart-tooltip {
+    white-space: normal;
+  }
+}
+/* The transparent hit areas over every mark. `manipulation` drops the
+   browser's 300ms double-tap-to-zoom wait, so a tap reads a value
+   immediately instead of a third of a second later. */
+.chart-hit {
+  touch-action: manipulation;
+  cursor: pointer;
 }
 .chart-tooltip__title {
   color: var(--color-border);
@@ -2465,6 +2561,21 @@ th {
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--space-5);
   overflow-x: auto;
+  /* The strip already scrolled, but it came to rest wherever it liked —
+     which on a phone meant "Attendance" rendered as "Attendanc", cut
+     through its own last syllable, and reading as a clipped layout rather
+     than a scrollable one. Snapping each tab's LEFT edge to the container's
+     means a tab can never come to rest cut at the start; whatever is
+     partially visible is always at the right-hand end, where a half-shown
+     tab is the clearest possible statement that there is more over there. */
+  scroll-snap-type: x proximity;
+  /* A vertical swipe that happens to start on the strip should still scroll
+     the page, not be swallowed by the strip. */
+  touch-action: pan-x pan-y;
+  scrollbar-width: thin;
+}
+.tabs__item {
+  scroll-snap-align: start;
 }
 .tabs__item {
   display: inline-flex;
@@ -2807,7 +2918,10 @@ th {
   margin-bottom: var(--space-4);
   align-items: start;
 }
-@media (max-width: 560px) {
+/* 720, not 560: between those two widths this was a fixed 220px track plus
+   a gap inside a content column of roughly 300px, leaving the free column
+   under 80px. The breakpoint was one step too low. */
+@media (max-width: 720px) {
   .intervention-log-form__fields {
     grid-template-columns: 1fr;
   }
@@ -3500,7 +3614,8 @@ th {
 }
 .change-bar-chart__row {
   display: grid;
-  grid-template-columns: minmax(0, 11rem) 1fr auto;
+  /* Same yielding label track as .bar-chart__row above, same reason. */
+  grid-template-columns: minmax(0, clamp(4.5rem, 30%, 11rem)) 1fr auto;
   align-items: center;
   gap: var(--space-3);
   height: var(--chart-row-height);
@@ -4329,6 +4444,14 @@ th {
    They are their own surface now: a bounded strip in the area's colour,
    labels as small capitals above compact controls, wrapping to as many rows
    as the viewport needs. */
+/* `display: flex` beats the `hidden` attribute's own `display: none`, so a
+   collapsed filter bar kept its full height — about 490px of nothing on a
+   phone, which is most of what the disclosure was added to reclaim. Any
+   rule that sets `display` on an element that is ever `hidden` has to say
+   this explicitly. */
+.filter-bar[hidden] {
+  display: none;
+}
 .filter-bar {
   display: flex;
   flex-wrap: wrap;
@@ -4340,6 +4463,59 @@ th {
   border-radius: var(--radius-card);
   background: color-mix(in srgb, var(--module, var(--color-primary)) 5%, var(--color-surface));
 }
+/* The phone-only control that opens the filter bar. Styled as the bar's own
+   header rather than as a button floating above it, so the relationship
+   between the two is obvious when it expands. */
+.filter-bar__summary {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 5%, var(--color-surface));
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+.filter-bar__summary-chevron {
+  margin-left: auto;
+  transition: transform 0.15s ease;
+}
+.filter-bar__summary-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 720px) {
+  .filter-bar__summary {
+    display: flex;
+  }
+  /* Opened, the six selects get the full width each — six half-width
+     controls on a 390px screen is six controls nobody can read the labels
+     of. The disclosure is what makes the height affordable. */
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-4);
+    /* The summary button above already carries the bar's border and
+       background, so repeating them here would draw a box inside a box. */
+    margin-top: calc(var(--space-4) * -1);
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+  }
+  .filter-bar label {
+    width: 100%;
+  }
+  .filter-bar select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
 .filter-bar label {
   display: flex;
   flex-direction: column;
@@ -4364,8 +4540,17 @@ th {
   display: flex;
   align-items: flex-end;
   gap: var(--space-3);
+  /* Matches the real chart's height so the page does not jump when the data
+     lands. Charts get taller on a narrow screen (see chartLayout.js), so
+     this follows them — a placeholder that is the wrong size is worse than
+     none, because the reflow it causes is the thing it exists to prevent. */
   height: 180px;
   padding: var(--space-3) 0;
+}
+@media (max-width: 720px) {
+  .skeleton-chart {
+    height: 210px;
+  }
 }
 .skeleton-chart .skeleton {
   flex: 1;
@@ -4861,6 +5046,18 @@ th {
   /* A cell with nothing in it earns no line in a card. */
   .table-card tbody td:empty {
     display: none;
+  }
+  /* The skeleton has to collapse with the table it stands in for. It did
+     not: it stayed a rigid `2fr 1.4fr 1.4fr 1fr` grid with no media query
+     at any width, so on a phone it reserved a four-column layout that was
+     then replaced by a stack of cards. That is the page jump a skeleton
+     exists to prevent, caused by the skeleton. */
+  .skeleton-table__head {
+    display: none;
+  }
+  .skeleton-table__row {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
   }
   .table-card th.is-right,
   .table-card td.is-right {

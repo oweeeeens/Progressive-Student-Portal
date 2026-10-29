@@ -205,6 +205,49 @@ Based on a reference college portal design the team liked — apply these patter
 6. **One consistent icon library** used throughout (sidebar nav, stat cards, action buttons) — no mixing icon styles
 Apply the navy/gold brand palette (see Brand Colors section above) throughout. Build page by page, verifying each before moving to the next.
 
+## Responsive Design (phone and desktop)
+
+The portal is used on phones, so every page is built to work at **320px**
+upward. Three things carry that, and they are worth knowing before changing
+any layout.
+
+**Breakpoints — three, written as literals.** `560px` (a table becomes one
+card per row), `720px` (the phone boundary: navigation drawer, page gutters,
+compact charts) and `1024px` (above the phone, the sidebar is an icon rail;
+below 721px it is a drawer; at 1024px and up it is the full 216px panel).
+CSS custom properties are **not valid inside an `@media` condition**, so
+these numbers genuinely have to be repeated in each stylesheet rather than
+shared as a token. The 720 is mirrored in JS as `PHONE_QUERY` in
+`frontend/src/hooks/useMediaQuery.js`, which is the single place the JS side
+names it.
+
+**Navigation below 720px is a drawer, not a rail.** The sidebar leaves the
+layout entirely (`position: fixed`, `transform: translateX(-100%)`) and opens
+over the page from the top bar's menu button, with a backdrop, full text
+labels, focus trapped inside and the page marked `inert`. Before this it
+stayed in the layout as a 56px strip of unlabelled icons, which cost 14% of
+a 390px screen and told the reader nothing.
+
+**Charts size themselves from their own measured width, not the viewport**
+(`frontend/src/components/charts/chartLayout.js`). This is the important one:
+a chart is narrow because its *card* is narrow, and a small-multiple panel on
+a 1440px monitor is narrower than the same chart on a phone — measured at
+241px against 266px before this was fixed. A viewport media query cannot see
+that; the `ResizeObserver` width in `hooks/useChartWidth.js` can. Padding and
+height come from that width, while the viewBox stays pinned 1:1 to real
+pixels so label sizes never scale.
+
+**`.app-shell__content` is `overflow-x: clip`.** Anything wider than the
+content column is cut off *silently* — there is no scrollbar anywhere to
+recover it, because the app scrolls inside that element rather than in the
+window. So a grid that could overflow must either reflow (preferred) or own
+its own `overflow-x: auto`, the way `.table-card` and `.tabs` do. When
+changing a layout, check it at 320px: the damage is invisible otherwise.
+
+**Touch targets** are handled by `@media (pointer: coarse)` in `index.css`,
+which raises controls to the 44px floor. Add to that block rather than
+starting a parallel one.
+
 ## Code Quality Standards (important — this will be defended in front of a panel)
 - **Comment generously.** Every function needs a short comment explaining what it does and why, not just what the code literally says. Comment non-obvious logic in detail (especially the risk-trend calculation and the risk-recalculation trigger) since this is what we'll need to explain/debug live during defense.
 - **Keep files organized and single-purpose.** One concern per file (e.g. `riskCalculator.js` handles only risk scoring, `attendanceController.js` handles only attendance routes). No giant catch-all files.

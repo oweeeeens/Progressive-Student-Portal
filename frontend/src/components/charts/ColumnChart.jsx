@@ -1,4 +1,5 @@
 import { useChartWidth } from '../../hooks/useChartWidth'
+import { columnChartLayout, CHART_NARROW } from './chartLayout'
 import { useDrawIn } from '../../hooks/useDrawIn'
 import { ChartTooltip, useChartTooltip } from './ChartTooltip'
 
@@ -30,11 +31,10 @@ import { ChartTooltip, useChartTooltip } from './ChartTooltip'
 // draws no bar at all: a zero-height bar in a 0-100 chart reads as "scored
 // nothing", which is a different and much worse claim than "not recorded".
 // `reference`: { value, label, shortLabel } or null for no threshold line.
-const HEIGHT = 190
-// The right gutter holds the reference line's label. Keeping the label
-// OUTSIDE the plot is what makes it impossible for it to land on top of a
-// bar or a value label, whatever the data does.
-const PADDING = { top: 28, right: 100, bottom: 26, left: 44 }
+// Height and padding are no longer one number for every screen: they come
+// from columnChartLayout(width) below, because a 100px right gutter that is
+// comfortable in a wide card is most of the chart in a narrow one. See
+// chartLayout.js for the measurements that forced this.
 // A bar wider than this stops reading as a mark and starts reading as a
 // block of colour; with three periods in a wide card that happens quickly.
 const MAX_BAR_WIDTH = 56
@@ -63,21 +63,28 @@ export function ColumnChart({
   belowColor = 'var(--band-at-risk-high)',
 }) {
   const [widthRef, width] = useChartWidth(480)
-  const { containerRef, tooltip, show, hide } = useChartTooltip()
+  const { containerRef, tooltip, markHandlers } = useChartTooltip()
   // Columns rise from the baseline on first paint (see .column-chart__bar).
   const drawn = useDrawIn()
 
-  const plotHeight = HEIGHT - PADDING.top - PADDING.bottom
-  const plotWidth = Math.max(width - PADDING.left - PADDING.right, 60)
-  const baseY = PADDING.top + plotHeight
+  // Geometry for THIS width. `referenceLabelInside` is the trade this makes
+  // on a narrow chart: the threshold label gives up its private gutter and
+  // shares the plot, which costs a small risk of crowding and buys back
+  // ~86px of plot.
+  const { height: chartHeight, padding, referenceLabelInside, showMidGridline } =
+    columnChartLayout(width)
+
+  const plotHeight = chartHeight - padding.top - padding.bottom
+  const plotWidth = Math.max(width - padding.left - padding.right, 60)
+  const baseY = padding.top + plotHeight
   const groupWidth = Math.min(plotWidth, MAX_SLOT_WIDTH * Math.max(points.length, 1))
-  const groupLeft = PADDING.left + (plotWidth - groupWidth) / 2
+  const groupLeft = padding.left + (plotWidth - groupWidth) / 2
   const slotWidth = groupWidth / Math.max(points.length, 1)
   const barWidth = Math.min(MAX_BAR_WIDTH, slotWidth * BAR_SLOT_FILL)
 
   function yFor(value) {
     const clamped = Math.max(yMin, Math.min(yMax, value))
-    return PADDING.top + plotHeight - ((clamped - yMin) / (yMax - yMin)) * plotHeight
+    return padding.top + plotHeight - ((clamped - yMin) / (yMax - yMin)) * plotHeight
   }
   function slotLeft(index) {
     return groupLeft + slotWidth * index
@@ -109,7 +116,9 @@ export function ColumnChart({
   }
 
   const referenceY = reference ? yFor(reference.value) : null
-  const gridValues = [yMin, (yMin + yMax) / 2, yMax]
+  // The middle tick is the one the narrowest charts drop — the floor and the
+  // ceiling are what actually anchor a reader's sense of the scale.
+  const gridValues = showMidGridline ? [yMin, (yMin + yMax) / 2, yMax] : [yMin, yMax]
 
   // A bar whose value sits exactly on a gridline printed the same number
   // twice — once as the axis tick on the left, once as the bar's own label —
@@ -151,13 +160,17 @@ export function ColumnChart({
   return (
     <div className="chart-frame" ref={containerRef}>
       <div ref={widthRef}>
-        <svg viewBox={`0 0 ${width} ${HEIGHT}`} width="100%" height={HEIGHT} role="img" aria-label="Bar chart by grading period">
+        <svg
+          viewBox={`0 0 ${width} ${chartHeight}`}
+          width="100%"
+          height={chartHeight}
+          data-chart-density={width < CHART_NARROW ? 'compact' : 'comfortable'} role="img" aria-label="Bar chart by grading period">
           {gridValues.map((gridValue) => (
             <g key={gridValue}>
               {!gridlineIsUnderReference(gridValue) && (
                 <line
-                  x1={PADDING.left}
-                  x2={PADDING.left + plotWidth}
+                  x1={padding.left}
+                  x2={padding.left + plotWidth}
                   y1={yFor(gridValue)}
                   y2={yFor(gridValue)}
                   className="chart-gridline"
@@ -165,7 +178,7 @@ export function ColumnChart({
               )}
               {!axisLabelIsDuplicated(gridValue) && (
                 <text
-                  x={PADDING.left - 8}
+                  x={padding.left - 8}
                   y={yFor(gridValue)}
                   textAnchor="end"
                   dominantBaseline="middle"
@@ -177,25 +190,42 @@ export function ColumnChart({
             </g>
           ))}
 
-          {/* The threshold. Dashed so it never reads as a data mark, and
-              labelled in the right gutter so it can't overlap a bar. */}
+          {/* The threshold. Dashed so it never reads as a data mark.
+              Normally labelled in the right gutter, where it cannot overlap
+              a bar. On a narrow chart that gutter is unaffordable, so the
+              label sits just above the line at the plot's right edge
+              instead — above rather than on it, so it never covers the line
+              it names, and with a surface-coloured halo (see
+              .chart-reference-label--inside) so a gridline or a bar passing
+              behind it does not make it unreadable. */}
           {reference && (
             <g>
               <line
-                x1={PADDING.left}
-                x2={PADDING.left + plotWidth}
+                x1={padding.left}
+                x2={padding.left + plotWidth}
                 y1={referenceY}
                 y2={referenceY}
                 className="chart-reference-line"
               />
-              <text
-                x={PADDING.left + plotWidth + 8}
-                y={referenceY}
-                dominantBaseline="middle"
-                className="chart-reference-label"
-              >
-                {reference.shortLabel || reference.label}
-              </text>
+              {referenceLabelInside ? (
+                <text
+                  x={padding.left + plotWidth - 2}
+                  y={referenceY - 5}
+                  textAnchor="end"
+                  className="chart-reference-label chart-reference-label--inside"
+                >
+                  {reference.shortLabel || reference.label}
+                </text>
+              ) : (
+                <text
+                  x={padding.left + plotWidth + 8}
+                  y={referenceY}
+                  dominantBaseline="middle"
+                  className="chart-reference-label"
+                >
+                  {reference.shortLabel || reference.label}
+                </text>
+              )}
             </g>
           )}
 
@@ -242,7 +272,7 @@ export function ColumnChart({
                 )}
                 <text
                   x={centerX(index)}
-                  y={HEIGHT - 6}
+                  y={chartHeight - 6}
                   textAnchor="middle"
                   className={`chart-row-label${activeIndex === index ? ' is-active' : ''}`}
                 >
@@ -260,7 +290,7 @@ export function ColumnChart({
             <rect
               key={`hit-${point.label}`}
               x={slotLeft(index)}
-              y={PADDING.top}
+              y={padding.top}
               width={slotWidth}
               height={plotHeight}
               fill="transparent"
@@ -273,10 +303,8 @@ export function ColumnChart({
                     : `, at or above ${reference.label}`
                   : ''
               }`}
-              onPointerMove={(e) => show(e, tooltipFor(index))}
-              onPointerLeave={hide}
-              onFocus={(e) => show(e, tooltipFor(index))}
-              onBlur={hide}
+              className="chart-hit"
+              {...markHandlers(tooltipFor(index))}
             />
           ))}
         </svg>

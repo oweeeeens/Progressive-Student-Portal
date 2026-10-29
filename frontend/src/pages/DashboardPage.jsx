@@ -354,8 +354,12 @@ export function DashboardPage() {
                             ' (edited)'}
                         </p>
                         <p className="feed-item__body">{a.body}</p>
+                        {/* btn-subtle, matching AnnouncementsPanel's copy of
+                            this same control — it had no class at all, so it
+                            rendered as a default browser button here and a
+                            quiet text button everywhere else. */}
                         {a.original_filename && (
-                          <button type="button" onClick={() => handleDownload(a)}>
+                          <button type="button" className="btn-subtle" onClick={() => handleDownload(a)}>
                             <Paperclip size={14} strokeWidth={1.75} /> {a.original_filename}
                           </button>
                         )}

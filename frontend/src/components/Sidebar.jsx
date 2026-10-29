@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Home,
@@ -21,10 +21,12 @@ import {
   BookMarked,
   ChevronDown,
   LogOut,
+  X,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { confirmLeave } from '../utils/unsavedChangesGuard'
 import { roleLabel } from '../utils/roleLabel'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import './Sidebar.css'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
@@ -242,7 +244,10 @@ function NavItemWithChildren({ item, pathname }) {
   )
 }
 
-export function Sidebar({ collapsed = false }) {
+// `collapsed` is the desktop icon rail. `isDrawer` / `open` / `onClose` are
+// the phone overlay — a different thing, deliberately not folded into
+// `collapsed` (see the comment at its call site in Layout.jsx).
+export function Sidebar({ collapsed = false, isDrawer = false, open = false, onClose = () => {} }) {
   const { user, logout, assignments } = useAuth()
   const { pathname } = useLocation()
   const sections = getNavSections(user?.role, assignments).filter((section) => section.items.some((item) => item.show))
@@ -256,6 +261,13 @@ export function Sidebar({ collapsed = false }) {
   // this feature existed.
   const [collapsedLabels, setCollapsedLabels] = useState(() => new Set())
 
+  // While the drawer is open it behaves as a modal dialog, so it owns the
+  // keyboard: focus stays inside and Escape closes it. On a desktop the
+  // sidebar is just a panel and none of this applies.
+  const asideRef = useRef(null)
+  const isModal = isDrawer && open
+  useFocusTrap(asideRef, isModal, onClose)
+
   function toggleSection(label) {
     setCollapsedLabels((prev) => {
       const next = new Set(prev)
@@ -266,13 +278,36 @@ export function Sidebar({ collapsed = false }) {
   }
 
   return (
-    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
+    <aside
+      ref={asideRef}
+      id="app-sidebar"
+      aria-label="Main navigation"
+      // A dialog only while it actually behaves like one. Announcing a
+      // permanently-docked sidebar as a modal dialog would be a lie on
+      // every desktop screen.
+      role={isModal ? 'dialog' : undefined}
+      aria-modal={isModal || undefined}
+      // A closed drawer is off-screen, not hidden: without `inert` its
+      // links stay in the tab order and a keyboard user tabs into a panel
+      // nobody can see.
+      inert={isDrawer && !open}
+      className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}${
+        isDrawer ? ' sidebar--drawer' : ''
+      }${open ? ' sidebar--open' : ''}`}
+    >
       <div className="sidebar__brand">
         <img src="/logo.png" alt="" className="sidebar__logo" />
         <div className="sidebar__brand-text">
           <strong>Progressive SHS</strong>
           <span>Student Portal</span>
         </div>
+        {/* The drawer covers the left edge of the page — including the top
+            bar's menu button that opened it — so without this the only ways
+            out are Escape and a backdrop tap. Shown by CSS inside the phone
+            breakpoint only. */}
+        <button type="button" className="sidebar__close" onClick={onClose} aria-label="Close navigation">
+          <X size={18} strokeWidth={1.75} />
+        </button>
       </div>
 
       <nav className="sidebar__nav">
