@@ -697,10 +697,14 @@ export function AnalyticsPage() {
       <div className="record-section">
         {atRiskShiftCallout && <p style={{ fontWeight: 500, color: 'var(--color-text)' }}>{atRiskShiftCallout}</p>}
         <div className={frameClass}>
+          {/* No legend on this card, nor on the other single-series cards
+              below: with one series the card's own title already names it,
+              so the legend was a coloured swatch beside a word the reader
+              had just finished reading. Legends stay wherever there are two
+              or more series to tell apart. */}
           <ChartCard
             title="At-Risk Share Over Time"
             description="Percentage of assessed students in the At Risk band — accounts for the roster changing size period to period, which raw counts don't."
-            legend={[{ label: 'At-risk share of assessed students', color: 'var(--band-at-risk-high)' }]}
             interpretation={describeTrend(atRiskPercentPoints, { subject: 'The at-risk share', unit: '%', noun: 'points' })}
             isEmpty={atRiskPercentPoints.length < 2}
             emptyMessage="Need at least two grading periods of data to show a trend."
@@ -919,7 +923,6 @@ export function AnalyticsPage() {
             <ChartCard
               title="Intervention Volume Over Time"
               description="How many interventions were logged each grading period."
-              legend={[{ label: 'Interventions logged', color: 'var(--chart-blue)' }]}
               interpretation={describeTrend(interventionVolumePoints, {
                 subject: 'Intervention volume',
                 noun: 'interventions',
@@ -1006,7 +1009,6 @@ export function AnalyticsPage() {
                   key={f.key}
                   title={f.label}
                   description={`Now ${f.latest}% of assessed students`}
-                  legend={[{ label: f.label, color: 'var(--chart-blue)' }]}
                   interpretation={describeTrend(f.points, { subject: 'This factor', unit: '%', noun: 'points' })}
                   actions={<TrendIcon trend={f.trend} />}
                 >
