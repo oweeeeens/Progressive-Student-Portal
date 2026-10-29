@@ -236,7 +236,10 @@ async function main() {
           studentIdByLrn,
           teacherEmail: subject.teacher,
         });
-        await api('POST', '/api/grades/verify', principal, { gradeIds });
+        // gradingPeriodId is required: the bulk verify is bounded to the
+        // period the principal's queue was filtered to, so one call can
+        // never reach grades outside it.
+        await api('POST', '/api/grades/verify', principal, { gradeIds, gradingPeriodId: periodId });
         console.log(`  grades ${periodKey} ${sectionName} ${subject.code}: ${gradeIds.length} submitted and verified`);
       }
 
@@ -267,11 +270,12 @@ async function main() {
         if ((lane.rejected || []).includes(code)) {
           await api('POST', '/api/grades/reject', principal, {
             gradeIds,
+            gradingPeriodId: periodId,
             note: 'Two students are missing a performance task score. Please complete and resubmit.',
           });
           console.log(`  ${periodKey} ${sectionName} ${code}: rejected — back with the subject teacher`);
         } else if ((lane.verified || []).includes(code)) {
-          await api('POST', '/api/grades/verify', principal, { gradeIds });
+          await api('POST', '/api/grades/verify', principal, { gradeIds, gradingPeriodId: periodId });
           console.log(`  ${periodKey} ${sectionName} ${code}: verified — waiting for the adviser to finalize`);
         } else {
           console.log(`  ${periodKey} ${sectionName} ${code}: submitted — waiting for the principal`);

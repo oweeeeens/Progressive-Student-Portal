@@ -233,8 +233,11 @@ Test logins, all with the password `Password123!`:
 
 Both seeds are safe to re-run: step 1 truncates the academic tables and
 upserts the accounts by email, so logins stay stable, and step 2 then
-rebuilds the records. Run them in that order — step 2 on its own would add a
-second copy of each grade.
+rebuilds the records. **Run them in that order.** Step 2 on its own does not
+work: re-submitting a grade that is already finalized is refused (that is
+deliberate — see the Grade Approval Workflow note in CLAUDE.md), so the
+script gets an empty list back and stops with `gradeIds must be a non-empty
+array`. It does not create duplicates; it simply cannot run twice.
 
 ### Before the school uses this for real
 
