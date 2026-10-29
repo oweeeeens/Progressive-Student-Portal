@@ -26,6 +26,15 @@
         ],
         "createdAt": "2026-10-06T03:31:17.442Z",
         "reason": "Same sanctioned exception as the frontend/-prefixed entry above, re-scoped without that prefix — the hook resolves this file's path relative to frontend/ as its root, so the original entry wasn't matching. Sidebar collapse transition: width is the actual state being animated (collapsed/expanded), fires only on rare viewport-breakpoint crossing, negligible reflow cost on this single element."
+      },
+      {
+        "rule": "layout-transition",
+        "value": "*",
+        "files": [
+          "**/Sidebar.css"
+        ],
+        "createdAt": "2026-10-29T11:17:44.655Z",
+        "reason": "Desktop sidebar collapse: width IS the state being animated. The sidebar is a flex sibling the page content sits beside, so a transform would slide it OVER the content instead of reflowing the page around it. One element, 150ms, only on an explicit click. Re-registered as a glob on 2026-10-29 because the two existing literal-path entries stopped matching. The phone drawer added the same day animates transform and earns no exception."
       }
     ]
   }
