@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ClipboardList, FileCheck2 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { roleLabel } from '../utils/roleLabel'
 import './UserInfoCard.css'
 
 // What counts as "your pending task" depends on role, and reuses the same
@@ -52,7 +53,7 @@ export function UserInfoCard({ stats }) {
         </div>
         <div>
           <dt>Role</dt>
-          <dd className="profile-card__role">{user.role.replace(/_/g, ' ')}</dd>
+          <dd className="profile-card__role">{roleLabel(user.role)}</dd>
         </div>
         {sections && sections.length > 0 && (
           <div>

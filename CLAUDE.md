@@ -30,13 +30,23 @@ The client requested removing digital enrollment entirely — they want to keep 
 
 ## User Roles & Access
 - **Admin** — manages accounts (registration is admin-only, no public self-signup)
-- **Principal** — verifies/approves grades submitted by subject teachers (see Grade Approval Workflow below)
+- **Principal** — verifies/approves grades submitted by subject teachers (see Grade Approval Workflow below). One school-wide position, so they also *read* school-wide: Analytics, the Academic Progress Tracking dashboard, and student records. They hold no advisory section and teach no class, so the attendance and grade-entry pages are not shown to them. Logging interventions stays with advisers and guidance counselors — the principal approves grades and reads the rollup; the per-learner follow-up is not theirs.
 - **Advisers** — see only students in their own advisory section; finalize grades into the official record (final step of the approval workflow)
 - **Subject teachers** — submit initial grades and input attendance for the classes they actually teach (scoped by class/subject, not by advisory section — a teacher may teach students across multiple sections)
 - **Guidance counselors** — view flagged/at-risk students, log interventions
 - **Registrar staff** — manage student records; create student/staff portal accounts once a student has enrolled on paper (see REMOVED: Enrollment Management above)
-- **ICT faculty** — post announcements. Added alongside the Announcements feature (see below) and has no other permissions: the school's ICT staff maintain the noticeboard, they do not mark attendance or handle records. The sidebar shows them the attendance and grade pages because visibility there is decided by actual section/class assignment rather than role label, and they hold none — so those pages open to an empty picker. The server refuses the writes regardless.
+- **ICT faculty** — post announcements. Added alongside the Announcements feature (see below) and has no other permissions: the school's ICT staff maintain the noticeboard, they do not mark attendance or handle records. Their navigation is Home and nothing else — the noticeboard lives there. (Until 2026-10-29 the sidebar also offered them the attendance, grade and student pages, because visibility was guessed from the role label; every one of them opened empty, since they advise no section, teach no class, and have no student read scope. The server always refused the writes; it was the navigation that lied.)
 - **Students / Parents** — view own records only (no separate parent role yet — out of scope for Phase 1, students role covers this access level)
+
+**Navigation is driven by assignment, not by role label.** Write access to
+the attendance and grade pages is decided by `sections.adviser_id` and
+`class_offerings.teacher_id`, so the role alone cannot say whether a page has
+anything in it. `AuthContext` counts the signed-in user's own sections and
+class offerings once per session and the sidebar hides any link whose count is
+zero — so an adviser who teaches nothing is not offered Enter Grades, and a
+subject teacher who advises nothing is not offered Finalize Grades. If those
+counts fail to load the sidebar falls back to showing every role-eligible
+link, which is only a cluttered menu: the server is the real boundary.
 
 **Note on who can reset a password.** Only **admin** and **registrar** can create accounts or issue a temporary password (`CREATABLE_ROLES` in `backend/config/auth.js`, and `canWrite` in `backend/routes/userRoutes.js`). Advisers and ICT faculty cannot — the forgot-password fallback text says so, and must keep saying so, since with email unconfigured that is the only recovery route a user has.
 

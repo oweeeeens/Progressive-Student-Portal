@@ -169,7 +169,6 @@
 .top-bar__profile-text span {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  text-transform: capitalize;
 }
 
 @media (max-width: 480px) {

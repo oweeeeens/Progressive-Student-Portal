@@ -4,6 +4,7 @@ import { Maximize, Minimize, Sun, Moon, PanelLeftClose, PanelLeftOpen, KeyRound,
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { roleLabel } from '../utils/roleLabel'
 import './TopBar.css'
 
 function getInitials(fullName) {
@@ -132,7 +133,7 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar }) {
             <span className="top-bar__avatar">{getInitials(user.fullName)}</span>
             <span className="top-bar__profile-text">
               <strong>{user.fullName}</strong>
-              <span>{user.role.replace(/_/g, ' ')}</span>
+              <span>{roleLabel(user.role)}</span>
             </span>
             <ChevronDown size={14} strokeWidth={1.75} className="top-bar__profile-caret" />
           </button>

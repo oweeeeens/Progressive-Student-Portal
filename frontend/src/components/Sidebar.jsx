@@ -24,29 +24,62 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { confirmLeave } from '../utils/unsavedChangesGuard'
+import { roleLabel } from '../utils/roleLabel'
 import './Sidebar.css'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
-// These four are gated by actual assignment on the backend (sections.
-// adviser_id / class_offerings.teacher_id), not by role — a person labeled
-// 'adviser' can also be assigned to teach a class, and vice versa, since
-// those columns don't require the role column to match. The sidebar can't
-// know someone's actual assignments without fetching them (not worth a
-// network round-trip just to decide nav visibility), so it shows the link
-// to anyone who could plausibly hold one — every staff role — and lets the
-// page itself be an empty picker if they turn out to have no assignment
-// there. Only 'student' is excluded: nothing in this system assigns a
-// student account as a section's adviser or a class's teacher.
-const isStaffRole = (role) => role && role !== 'student'
-const canMarkDaily = isStaffRole
-const canMarkSubject = isStaffRole
-const canEnterGrades = isStaffRole
-const canFinalizeGrades = isStaffRole
+
+// The five links below are gated on the backend by actual assignment
+// (sections.adviser_id / class_offerings.teacher_id), not by role — so role
+// alone cannot answer whether a page has anything to show.
+//
+// The sidebar used to show all five to every staff role and let the page be
+// an empty picker if the person held nothing. That meant a principal, a
+// guidance counselor and an ICT faculty member — three school-wide positions
+// that by definition advise no section and teach no class — each got five
+// dead ends out of nine links. It also hit real advisers and teachers: an
+// adviser who teaches nothing still saw Enter Grades.
+//
+// So there are two filters, applied in order:
+//
+//   1. the role list — what the server would let through at all, including
+//      the blanket grants: admin everywhere, registrar on the daily register
+//      (an administrative record they may correct) but NOT on subject
+//      attendance, which belongs to the teacher who teaches the class;
+//   2. the assignment count — whether this particular person holds anything
+//      for that page to show (AuthContext counts /sections/mine and
+//      /class-offerings/mine once per session).
+//
+// `has` is null until those counts arrive, and also if the requests failed.
+// Then only the role filter applies, which is exactly the old behaviour: the
+// menu is briefly as cluttered as it used to be, rather than hiding a
+// teacher's own grade sheet from them because a request timed out. Failing
+// open here is safe — the server is the actual boundary, this is only a menu.
+const advises = (has) => has === null || has.sections > 0
+const teaches = (has) => has === null || has.offerings > 0
+
+const canMarkDaily = (role, has) =>
+  ['admin', 'registrar'].includes(role) || (['adviser', 'subject_teacher'].includes(role) && advises(has))
+const canImportAttendance = (role, has) =>
+  ['admin', 'registrar'].includes(role) ||
+  (['adviser', 'subject_teacher'].includes(role) && (advises(has) || teaches(has)))
+const canMarkSubject = (role, has) =>
+  role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && teaches(has))
+const canEnterGrades = (role, has) =>
+  role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && teaches(has))
+const canFinalizeGrades = (role, has) =>
+  role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && advises(has))
 // Verify Grades stays role-based on purpose: there's no "principal
 // assignment" table, it's a single school-wide position, so a literal role
 // check is the correct and only boundary (unlike the four above).
 const canVerifyGrades = (role) => ['admin', 'principal'].includes(role)
-const canSeeAcademicProgress = (role) => ['admin', 'adviser', 'guidance_counselor'].includes(role)
+const canSeeAcademicProgress = (role) => ['admin', 'principal', 'adviser', 'guidance_counselor'].includes(role)
+// NOT the same list. The principal reads the progress dashboard but does not
+// log interventions — that is the adviser's and the guidance counselor's
+// work (CLAUDE.md), and interventionRoutes.js enforces it. These two links
+// shared one predicate until the principal was added to the first, which
+// silently handed them an Interventions link that the server answers 403.
+const canSeeInterventions = (role) => ['admin', 'adviser', 'guidance_counselor'].includes(role)
 // Deliberately NOT advisers — they keep the per-section Academic Progress
 // Tracking view above; this is the school-wide rollup, admin/principal/
 // guidance_counselor only, matching routes/analyticsRoutes.js's server-side gate.
@@ -57,7 +90,7 @@ const canManageAcademicSetup = (role) => role === 'admin'
 // all-caps — see design guidelines). A section with no visible items for the
 // current role simply renders nothing. Plain function, not a hook — it just
 // maps a role to a list, no React state involved.
-function getNavSections(role) {
+function getNavSections(role, has) {
   return [
     {
       // Unlabelled on purpose: a student's two pages are their own record,
@@ -81,7 +114,13 @@ function getNavSections(role) {
         // advice, charts and tables scroll on that one page (see
         // pages/StudentHomePage.jsx), so this section renders nothing at
         // all for them.
-        { to: '/students', label: 'Students', icon: Users, show: role !== 'student' },
+        // Not ict_faculty either, for the same reason as the five
+        // assignment-gated links below: studentModel.appendScopeClause has
+        // no case for them, so it falls to its fail-closed default and the
+        // roster is empty by construction, not by circumstance. Their job
+        // is the noticeboard (CLAUDE.md), which lives on Home — so Home is
+        // the whole of their nav, and nothing in it is a dead end.
+        { to: '/students', label: 'Students', icon: Users, show: !['student', 'ict_faculty'].includes(role) },
         { to: '/students/new', label: 'New Student', icon: UserPlus, show: canWrite(role) },
         { to: '/students/bulk-import', label: 'Bulk Import', icon: FileUp, show: canWrite(role) },
       ],
@@ -89,21 +128,19 @@ function getNavSections(role) {
     {
       label: 'Attendance',
       items: [
-        { to: '/attendance/daily', label: 'Daily Attendance', icon: CalendarCheck, show: canMarkDaily(role) },
-        { to: '/attendance/subject', label: 'Subject Attendance', icon: ClipboardList, show: canMarkSubject(role) },
-        // Shown to any staff role, same as the two marking pages above: the
-        // register a person may import into is decided by their actual
-        // section/class assignment, which the sidebar can't know without a
-        // round-trip. The page's own picker is empty if they hold none.
-        { to: '/attendance/bulk-import', label: 'Bulk Import', icon: FileUp, show: isStaffRole(role) },
+        { to: '/attendance/daily', label: 'Daily Attendance', icon: CalendarCheck, show: canMarkDaily(role, has) },
+        { to: '/attendance/subject', label: 'Subject Attendance', icon: ClipboardList, show: canMarkSubject(role, has) },
+        // Same roles as the daily register above: the importer writes both
+        // registers, and registrar may write the daily one.
+        { to: '/attendance/bulk-import', label: 'Bulk Import', icon: FileUp, show: canImportAttendance(role, has) },
       ],
     },
     {
       label: 'Grades',
       items: [
-        { to: '/grades/entry', label: 'Enter Grades', icon: PenLine, show: canEnterGrades(role) },
+        { to: '/grades/entry', label: 'Enter Grades', icon: PenLine, show: canEnterGrades(role, has) },
         { to: '/grades/verify', label: 'Verify Grades', icon: ShieldCheck, show: canVerifyGrades(role) },
-        { to: '/grades/finalize', label: 'Finalize Grades', icon: CheckCircle2, show: canFinalizeGrades(role) },
+        { to: '/grades/finalize', label: 'Finalize Grades', icon: CheckCircle2, show: canFinalizeGrades(role, has) },
       ],
     },
     {
@@ -115,7 +152,7 @@ function getNavSections(role) {
         // that cannot say what it is. The page title still shows the full
         // name the client and the manuscript use.
         { to: '/academic-progress', label: 'Progress Tracking', icon: TrendingUp, show: canSeeAcademicProgress(role) },
-        { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeAcademicProgress(role) },
+        { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeInterventions(role) },
         { to: '/analytics', label: 'Analytics', icon: BarChart3, show: canSeeAnalytics(role) },
       ],
     },
@@ -206,9 +243,9 @@ function NavItemWithChildren({ item, pathname }) {
 }
 
 export function Sidebar({ collapsed = false }) {
-  const { user, logout } = useAuth()
+  const { user, logout, assignments } = useAuth()
   const { pathname } = useLocation()
-  const sections = getNavSections(user?.role).filter((section) => section.items.some((item) => item.show))
+  const sections = getNavSections(user?.role, assignments).filter((section) => section.items.some((item) => item.show))
 
   // Sections the user has explicitly collapsed. This is plain component
   // state, not localStorage — Sidebar lives in Layout, which stays mounted
@@ -321,7 +358,7 @@ export function Sidebar({ collapsed = false }) {
       <div className="sidebar__footer">
         <div className="sidebar__user" title={`${user?.fullName} (${user?.role})`}>
           <div className="sidebar__user-name">{user?.fullName}</div>
-          <div className="sidebar__user-role">{user?.role?.replace(/_/g, ' ')}</div>
+          <div className="sidebar__user-role">{roleLabel(user?.role)}</div>
         </div>
         <button
           type="button"

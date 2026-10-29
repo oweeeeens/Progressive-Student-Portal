@@ -6,6 +6,19 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  // What this person actually advises and teaches, counted once per session.
+  //
+  // The sidebar needs it: write access to the attendance and grade pages is
+  // decided by sections.adviser_id and class_offerings.teacher_id, never by
+  // the role label, so role alone cannot tell whether a link leads anywhere.
+  // Guessing from the role left five dead links on the principal's nav and
+  // two on an adviser who happens not to teach.
+  //
+  // null = not known yet. Falls back to null on failure too, which the
+  // sidebar treats as "show the role-eligible links" — a failed count should
+  // degrade to a slightly cluttered menu, never to a teacher who cannot
+  // reach their own grade sheet.
+  const [assignments, setAssignments] = useState(null)
 
   // On load, if a token is already stored, confirm it's still valid and
   // fetch the current user rather than trusting a locally-cached profile.
@@ -20,6 +33,32 @@ export function AuthProvider({ children }) {
       .catch(() => setToken(null))
       .finally(() => setLoading(false))
   }, [])
+
+  // Counted after we know who they are, and not for students, who hold
+  // neither kind of assignment and see none of those pages anyway.
+  useEffect(() => {
+    if (!user || user.role === 'student') {
+      setAssignments(null)
+      return
+    }
+    let cancelled = false
+    Promise.all([
+      api.get('/sections/mine').catch(() => null),
+      api.get('/class-offerings/mine').catch(() => null),
+    ]).then(([sec, off]) => {
+      if (cancelled) return
+      // Either request failing leaves this null, so the sidebar falls back
+      // to role-only visibility rather than hiding a page someone needs.
+      if (!sec || !off) return
+      setAssignments({
+        sections: (sec.sections || []).length,
+        offerings: (off.classOfferings || []).length,
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   async function login(email, password, remember = true) {
     const data = await api.post('/auth/login', { email, password })
@@ -40,7 +79,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, markPasswordChanged }}>
+    <AuthContext.Provider value={{ user, loading, assignments, login, logout, markPasswordChanged }}>
       {children}
     </AuthContext.Provider>
   )

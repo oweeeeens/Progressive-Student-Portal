@@ -34,7 +34,13 @@ async function getAcademicProgress(req, res) {
     if (!section) return res.status(404).json({ error: 'Section not found.' });
 
     const { role, id: userId } = req.user;
-    const allowed = ['admin', 'guidance_counselor'].includes(role) || (role === 'adviser' && section.adviser_id === userId);
+    // A SECOND list, separate from the route's gate: this one runs when a
+    // section filter is applied. A role missing here is let through the
+    // route and then refused the moment it picks a section, so the two have
+    // to be kept in step.
+    const allowed =
+      ['admin', 'principal', 'guidance_counselor'].includes(role) ||
+      (role === 'adviser' && section.adviser_id === userId);
     if (!allowed) {
       return res.status(403).json({ error: 'You do not have permission to view this section.' });
     }

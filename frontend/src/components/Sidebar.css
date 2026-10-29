@@ -316,7 +316,6 @@
 .sidebar__user-role {
   font-size: var(--font-size-xs);
   color: var(--color-text-on-primary-muted);
-  text-transform: capitalize;
 }
 
 .sidebar__logout {
