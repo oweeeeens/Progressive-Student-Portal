@@ -12,6 +12,7 @@
     "migrate:up": "npm --prefix backend run migrate:up",
     "migrate:down": "npm --prefix backend run migrate:down",
     "seed:admin": "npm --prefix backend run seed:admin",
+    "reset:password": "npm --prefix backend run reset:password --",
     "seed:sample": "npm --prefix backend run seed:sample",
     "seed:demo-data": "npm --prefix backend run seed:demo-data",
     "test": "npm --prefix backend test",

@@ -43,6 +43,39 @@ export function setToken(token, remember = true) {
 // session.
 export const SESSION_ENDED_KEY = 'studentPortal.sessionEnded';
 
+// The endpoints where a 401 is an answer ABOUT THE CREDENTIALS JUST TYPED,
+// not a statement that an existing session has ended.
+//
+// This distinction is the whole reason an admin once locked themselves out
+// of the live deployment. They mistyped their CURRENT password on the
+// change-password form; the server replied 401 "Current password is
+// incorrect."; and the handler below swallowed it — cleared the token,
+// redirected to /login and said "Your session has expired." That reads
+// exactly like a password change that worked, followed by a routine
+// sign-out. The password had not been changed at all, and the server's
+// actual sentence was unreachable from anywhere in the app.
+//
+// They then signed in with the password that was never stored. That 401 was
+// rewritten the same way, so instead of "Invalid email or password" they got
+// a message that sounds temporary and invites retrying — which walked them
+// straight into the login rate limiter.
+//
+// /auth/me is deliberately NOT in this list: a 401 there really does mean
+// the stored token is finished, which is the case this handler is for.
+const CREDENTIAL_CHECK_PATHS = [
+  '/auth/login',
+  '/auth/change-password',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+];
+
+function isCredentialCheck(path) {
+  // Compared against the path before any query string, so a future
+  // `?redirect=` can never smuggle one of these past the check.
+  const [pathname] = path.split('?');
+  return CREDENTIAL_CHECK_PATHS.includes(pathname);
+}
+
 function handleUnauthorized() {
   // Guard against a burst of parallel requests each triggering their own
   // redirect, which would cancel the first navigation partway.
@@ -80,7 +113,9 @@ async function request(path, { method = 'GET', body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  if (response.status === 401) {
+  // A credential endpoint's 401 falls through to the normal error path
+  // below, so the server's own wording reaches the page.
+  if (response.status === 401 && !isCredentialCheck(path)) {
     handleUnauthorized();
     throw new Error('Your session has expired. Please sign in again.');
   }

@@ -8,6 +8,12 @@ if (!process.env.JWT_SECRET) {
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h'; // roughly one school day
 const BCRYPT_SALT_ROUNDS = 10;
+// The floor for any password a person chooses — the forced first-login
+// change, the self-service reset, and the server-side rescue script all
+// check against this one value. It was a local constant in authController
+// until the rescue script needed it too, which is exactly the point at
+// which a threshold belongs in config rather than beside the logic.
+const MIN_PASSWORD_LENGTH = 8;
 
 // Every role this system recognizes. "student" also covers parent-level
 // (view-own-records) access for now — a separate parent role/account type
@@ -52,6 +58,7 @@ module.exports = {
   JWT_SECRET,
   JWT_EXPIRES_IN,
   BCRYPT_SALT_ROUNDS,
+  MIN_PASSWORD_LENGTH,
   USER_ROLES,
   CREATABLE_ROLES,
   ANNOUNCEMENT_AUTHOR_ROLES,

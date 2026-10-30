@@ -5,7 +5,11 @@
 const userModel = require('../models/userModel');
 const passwordResetTokenModel = require('../models/passwordResetTokenModel');
 const { generateResetToken, hashResetToken, generateTempPassword } = require('../utils/password');
-const { sendPasswordResetEmail } = require('./emailService');
+// Imported as a module rather than destructured: what this sends through
+// is runtime configuration (SMTP, Resend, or the dev console), and a
+// destructured copy would freeze that choice at import time and make the
+// seam impossible to stand in for under test.
+const emailService = require('./emailService');
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
@@ -20,7 +24,7 @@ async function requestSelfServiceReset(email) {
   await passwordResetTokenModel.createForUser(user.id, tokenHash);
 
   const resetUrl = `${FRONTEND_URL}/reset-password?token=${rawToken}`;
-  await sendPasswordResetEmail(user.email, resetUrl);
+  await emailService.sendPasswordResetEmail(user.email, resetUrl);
 }
 
 // Returns true/false for "was this token valid and the password changed,"

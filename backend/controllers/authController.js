@@ -5,15 +5,14 @@
 // linked to an existing Student Record rather than collecting a fresh
 // name/email — see the role === 'student' branch below.
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET, JWT_EXPIRES_IN, CREATABLE_ROLES } = require('../config/auth');
+const { JWT_SECRET, JWT_EXPIRES_IN, CREATABLE_ROLES, MIN_PASSWORD_LENGTH } = require('../config/auth');
 const userModel = require('../models/userModel');
 const { verifyPassword, generateTempPassword } = require('../utils/password');
 const passwordReset = require('../services/passwordReset');
-const { canSendEmail } = require('../services/emailService');
+const emailService = require('../services/emailService');
 const { createStudentAccount } = require('../services/accountCreation');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_PASSWORD_LENGTH = 8;
 
 function signToken(user) {
   return jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -122,8 +121,14 @@ async function changePassword(req, res) {
   }
 
   // req.user (from requireAuth) only carries PUBLIC_COLUMNS — re-fetch with
-  // the password hash to verify the current password.
-  const userWithHash = await userModel.findByEmail(req.user.email);
+  // the password hash to verify the current password. By id, not by email:
+  // this is the same row requireAuth just loaded, so the id is the direct
+  // key, and a miss here would have dereferenced null and turned a wrong
+  // password into a bare 500.
+  const userWithHash = await userModel.findByIdWithHash(req.user.id);
+  if (!userWithHash) {
+    return res.status(401).json({ error: 'Account not found.' });
+  }
   const currentMatches = await verifyPassword(currentPassword, userWithHash.password_hash);
   if (!currentMatches) {
     return res.status(401).json({ error: 'Current password is incorrect.' });
@@ -142,7 +147,7 @@ async function changePassword(req, res) {
 // nothing about who has an account. The login page asks this before
 // offering the flow.
 function passwordResetAvailability(req, res) {
-  res.json({ selfService: canSendEmail() });
+  res.json({ selfService: emailService.canSendEmail() });
 }
 
 async function forgotPassword(req, res) {
@@ -155,14 +160,37 @@ async function forgotPassword(req, res) {
   // result in an email must not be answered with "a reset link has been
   // sent." 503 rather than 400 — the request is fine, the capability is
   // missing.
-  if (!canSendEmail()) {
+  if (!emailService.canSendEmail()) {
     return res.status(503).json({
       error:
         'Password reset by email is not set up for this school. Ask the registrar or a system administrator to reset your password for you.',
     });
   }
 
-  await passwordReset.requestSelfServiceReset(email);
+  try {
+    await passwordReset.requestSelfServiceReset(email);
+  } catch (error) {
+    // A provider failure used to propagate to the global error handler and
+    // come back as a bare 500 "Internal server error." — indistinguishable
+    // from any other crash, to someone who is already locked out and has no
+    // other way in. Name the problem and name the way round it.
+    //
+    // This does reveal that an account exists, where the success path
+    // deliberately does not: a send is only attempted for a real account, so
+    // only a real account can produce a send failure. That is a conscious
+    // trade. The endpoint is rate-limited to 5 requests per IP per 15
+    // minutes, the signal only appears while mail delivery is actually
+    // broken, and the alternative is the exact failure this feature exists
+    // to prevent — telling someone a link is on its way when it is not.
+    console.error(
+      `[forgotPassword] ${emailService.activeEmailTransport()} transport failed to send a reset email:`,
+      error
+    );
+    return res.status(502).json({
+      error:
+        'We could not send the reset email just now. Please try again in a few minutes, or ask the registrar or a system administrator for a temporary password.',
+    });
+  }
   res.json({ message: 'If an account exists for that email, a password reset link has been sent.' });
 }
 

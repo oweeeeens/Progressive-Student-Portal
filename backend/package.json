@@ -10,10 +10,11 @@
     "migrate:down": "node-pg-migrate down",
     "migrate:create": "node-pg-migrate create -j sql --",
     "seed:admin": "node scripts/seedAdmin.js",
+    "reset:password": "node scripts/resetPassword.js",
     "seed:sample": "node scripts/seedSampleData.js",
     "seed:demo-data": "node scripts/seedDemoAcademicData.js",
     "test:risk-calculator": "node scripts/testRiskCalculator.js",
-    "test:integration": "node --test test/integration/gradeApproval.test.js test/integration/riskRecalculation.test.js test/integration/interventionAutoResolve.test.js test/integration/attendanceImport.test.js test/integration/schoolYearIsolation.test.js test/integration/academicProgressBands.test.js test/integration/accountSecurity.test.js",
+    "test:integration": "node --test test/integration/gradeApproval.test.js test/integration/riskRecalculation.test.js test/integration/interventionAutoResolve.test.js test/integration/attendanceImport.test.js test/integration/schoolYearIsolation.test.js test/integration/academicProgressBands.test.js test/integration/accountSecurity.test.js test/integration/passwordReset.test.js",
     "test": "npm run test:risk-calculator && npm run test:integration"
   },
   "keywords": [],
@@ -30,6 +31,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.4.0",
     "node-pg-migrate": "^9.0.0",
+    "nodemailer": "^10.3.1",
     "pdfkit": "^0.20.2",
     "pg": "^8.23.1",
     "resend": "^6.31.0"

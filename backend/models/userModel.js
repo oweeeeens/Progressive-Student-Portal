@@ -5,13 +5,45 @@ const { hashPassword } = require('../utils/password');
 
 const PUBLIC_COLUMNS = 'id, email, full_name, role, is_active, must_change_password, created_at, updated_at';
 
+// One canonical form for every email, applied HERE rather than in each
+// controller, because there are five separate write paths (staff creation,
+// student account provisioning, the admin's edit form, the seed script, and
+// the tests) and a rule enforced in five places is a rule that gets missed.
+//
+// Why it matters: `users.email` is a case-sensitive UNIQUE column and the
+// lookup below used a case-sensitive `=`. So `Admin@x.com` and
+// `admin@x.com` were two different accounts that the UNIQUE constraint
+// would happily let coexist, `seed:admin`'s "does this admin already
+// exist?" guard could miss a row and create a second admin, and — worst of
+// the three — a forgot-password request typed with the wrong case found
+// nothing and, by design, still answered "if an account exists, a link has
+// been sent." A silent no-op on the one feature a locked-out user depends
+// on.
+function normalizeEmail(email) {
+  return String(email ?? '').trim().toLowerCase();
+}
+
+// Matches on `lower(email)` rather than comparing against an already-
+// normalised column, so this keeps working for rows written before the
+// normalising migration ran. There is a UNIQUE INDEX on lower(email), so
+// this is an index lookup, not a scan.
 async function findByEmail(email) {
-  const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+  const result = await pool.query('SELECT * FROM users WHERE lower(email) = $1', [normalizeEmail(email)]);
   return result.rows[0] || null;
 }
 
 async function findById(id) {
   const result = await pool.query(`SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = $1`, [id]);
+  return result.rows[0] || null;
+}
+
+// findById deliberately returns only PUBLIC_COLUMNS, which excludes the
+// password hash — so verifying a current password needs this instead.
+// changePassword used to re-fetch by EMAIL to get around that, which worked
+// only because req.user.email came from the database; a miss would have
+// dereferenced null and turned a wrong password into a bare 500.
+async function findByIdWithHash(id) {
+  const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
   return result.rows[0] || null;
 }
 
@@ -24,7 +56,7 @@ async function createUser({ email, password, fullName, role, mustChangePassword 
     `INSERT INTO users (email, password_hash, full_name, role, must_change_password)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING ${PUBLIC_COLUMNS}`,
-    [email, passwordHash, fullName, role, mustChangePassword]
+    [normalizeEmail(email), passwordHash, fullName, role, mustChangePassword]
   );
   return result.rows[0];
 }
@@ -195,7 +227,9 @@ async function updateUser(id, data) {
 
   for (const [key, column] of Object.entries(UPDATABLE_FIELDS)) {
     if (Object.prototype.hasOwnProperty.call(data, key)) {
-      params.push(data[key]);
+      // Normalised on the way in, same as createUser — an edit must not be
+      // able to reintroduce the mixed-case rows the index now forbids.
+      params.push(key === 'email' ? normalizeEmail(data[key]) : data[key]);
       setClauses.push(`${column} = $${params.length}`);
     }
   }
@@ -227,8 +261,10 @@ async function setActive(id, isActive) {
 }
 
 module.exports = {
+  normalizeEmail,
   findByEmail,
   findById,
+  findByIdWithHash,
   createUser,
   updatePassword,
   resetPasswordToTemp,
