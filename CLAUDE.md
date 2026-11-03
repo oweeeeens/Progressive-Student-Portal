@@ -381,10 +381,54 @@ Based on a reference college portal design the team liked — apply these patter
 2. **Breadcrumb navigation** at the top of every page (Home / Section / Subpage)
 3. **Status badges** — all status values (enrollment status, risk level, intervention status, document review status) render as colored pill badges, not plain text. Risk levels keep their own green/amber/red; other statuses use visually distinct colors so they're never confused with risk indicators
 4. **Consistent card/panel containers** for content blocks — avoid bare unstyled tables
+
+   **Create/edit forms open as a modal, not inline above the table.** Every
+   list page used to render its form between the heading and the table, so
+   clicking Edit on a row near the bottom put the form off-screen — you
+   scrolled up to find what you had just opened, and back down to see whether
+   it worked. `components/Modal.jsx` is built on the **native `<dialog>`**
+   with `showModal()`, which is not a stylistic preference: it gives focus
+   trapping, Escape, a background made `inert` and a `::backdrop` for free,
+   and the browser's **top layer** escapes the three things that make this app
+   hostile to floating elements — `.app-shell__content` is `overflow-x: clip`
+   AND the scroll container, `.table-card` has its own overflow, and
+   `.app-shell__page` creates a stacking context. `RowMenu.jsx` records what
+   those do to an ordinary positioned element ("the menu opened, the items
+   rendered, and nothing appeared"). The top layer also means no z-index has
+   to be chosen against the existing ones (RowMenu's sheet 60, drawer scrim
+   40, top bar 15).
+
+   Two details that are easy to get wrong here: the scroll lock must target
+   `.app-shell__content`, **not** `<body>`, because that is what actually
+   scrolls; and a half-filled form confirms before discarding, reusing the
+   wording already in `utils/unsavedChangesGuard.js` rather than inventing a
+   second version of the same prompt. The modal detects its own dirtiness by
+   listening for `input`/`change`, so no page has to track and pass a flag.
+
+   **A form that is already beside what it edits stays inline** — the
+   intervention form inside an expanded Academic Progress row, and the
+   Dashboard's announcement editor, which replaces the announcement being
+   edited. Those never had the problem; moving them into a dialog would lose
+   the context that makes them clear.
 5. **Pagination** on any list view with more than ~15 rows
 6. **One consistent icon library** used throughout (sidebar nav, stat cards, action buttons) — no mixing icon styles
-7. **Every write reports itself.** A successful save shows a success `Alert`
-   naming what was saved, not just a closed modal and a refetched table.
+7. **Every write reports itself — as a toast, not a page-top Alert.** A
+   successful save raises a short-lived toast naming what was saved
+   (`context/ToastContext.jsx`, rendered by `components/Toast.jsx`), because
+   the confirmation had the same flaw the edit forms did: act on a row at the
+   bottom of a fifteen-row table and the receipt appeared at the top of the
+   page, where nobody was looking.
+
+   **Failures deliberately do NOT move.** `Alert.jsx` says it is "deliberately
+   NOT a toast", and for what it describes that is right — a message
+   explaining why the page in front of you is wrong has to stay until the
+   state changes. That reasoning had simply been applied to a second,
+   different job. The split is by job, not severity: a *receipt for something
+   you did* is a toast; the *state of what you are reading* is an inline
+   Alert. Nothing that needs acting on is ever only in a toast. The toast
+   stack is portalled to `<body>` for the same clipping reason the modal uses
+   the top layer, and `hooks/useWriteFeedback.js` raises it for every page at
+   once, so no page wires this up individually.
    Before this, a failure showed a message and a success showed nothing, so
    **silence meant success** — the opposite of what people expect, and it left
    a deactivation (the one irreversible-looking action on the setup pages)

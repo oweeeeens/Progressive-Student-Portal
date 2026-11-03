@@ -22,7 +22,7 @@ export function InterventionHistory({ studentId }) {
   // Same three concerns as the standalone Interventions page, through the
   // same hook — logging an intervention is a record about a named minor, so
   // "did that save?" should not be answered by inference.
-  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
+  const { error, setError, busyKey, runWrite } = useWriteFeedback()
 
   function load() {
     api
@@ -68,7 +68,6 @@ export function InterventionHistory({ studentId }) {
     <div className="record-section">
       <h2>Interventions</h2>
       {error && <Alert>{error}</Alert>}
-      {notice && <Alert variant="success">{notice}</Alert>}
 
       <form onSubmit={handleLog} className="panel intervention-log-form">
         <h3>Log a new intervention</h3>

@@ -9,6 +9,7 @@ import { StatDetail } from '../components/StatDetail'
 import { useStatExplainer } from '../hooks/useStatExplainer'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
+import { Modal } from '../components/Modal'
 import { SkeletonTable } from '../components/Skeleton'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
@@ -105,7 +106,7 @@ export function SchoolYearsPage() {
   // this page. Confirmations matter most here: "Set current" changes which
   // school year the whole app reads by default, and used to report that by
   // refetching a table whose only visible difference is one pill.
-  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
+  const { error, setError, busyKey, runWrite } = useWriteFeedback()
   const { openFor, close: closeStat, cardProps } = useStatExplainer('schoolyear-stat-detail')
 
   const [selectedYearId, setSelectedYearId] = useState('')
@@ -274,11 +275,13 @@ export function SchoolYearsPage() {
       />
 
       {error && <Alert>{error}</Alert>}
-      {notice && <Alert variant="success">{notice}</Alert>}
 
-      {showYearForm && (
+      <Modal
+        open={showYearForm}
+        onClose={() => setShowYearForm(false)}
+        title={editingYearId ? 'Edit School Year' : 'New School Year'}
+      >
         <form onSubmit={handleYearSubmit} className="intervention-log-form">
-          <h3>{editingYearId ? 'Edit School Year' : 'New School Year'}</h3>
           <div className="intervention-log-form__fields">
             <label>Label</label>
             <input
@@ -311,7 +314,7 @@ export function SchoolYearsPage() {
             </button>
           </div>
         </form>
-      )}
+      </Modal>
 
       {loadingYears ? (
         <SkeletonTable rows={4} columns={5} />
@@ -398,9 +401,12 @@ export function SchoolYearsPage() {
           )}
         </div>
 
-        {showPeriodForm && (
+        <Modal
+          open={showPeriodForm}
+          onClose={() => setShowPeriodForm(false)}
+          title={editingPeriodId ? 'Edit Grading Period' : 'New Grading Period'}
+        >
           <form onSubmit={handlePeriodSubmit} className="intervention-log-form">
-            <h3>{editingPeriodId ? 'Edit Grading Period' : 'New Grading Period'}</h3>
             <div className="intervention-log-form__fields">
               <label>Name</label>
               <input
@@ -458,7 +464,7 @@ export function SchoolYearsPage() {
               </button>
             </div>
           </form>
-        )}
+        </Modal>
 
         {!selectedYearId ? (
           <div className="empty-state">

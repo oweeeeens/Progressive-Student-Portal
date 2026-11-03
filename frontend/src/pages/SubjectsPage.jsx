@@ -6,6 +6,7 @@ import { canManageAcademicSetup } from '../utils/permissions'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
+import { Modal } from '../components/Modal'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 import { SUBJECT_CATEGORIES, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
@@ -43,7 +44,7 @@ export function SubjectsPage() {
   // page. Before this, a successful save closed the form and refetched and
   // said nothing at all — so on a page whose only other message is an error,
   // silence was how the user learned it had worked.
-  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
+  const { error, setError, busyKey, runWrite } = useWriteFeedback()
 
   function loadStats() {
     api.get('/subjects/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total))
@@ -173,11 +174,13 @@ export function SubjectsPage() {
       </p>
 
       {error && <Alert>{error}</Alert>}
-      {notice && <Alert variant="success">{notice}</Alert>}
 
-      {showForm && (
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        title={editingId ? 'Edit Subject' : 'New Subject'}
+      >
         <form onSubmit={handleSubmit} className="intervention-log-form">
-          <h3>{editingId ? 'Edit Subject' : 'New Subject'}</h3>
           <div className="intervention-log-form__fields">
             <label>Name</label>
             <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
@@ -225,7 +228,7 @@ export function SubjectsPage() {
             </button>
           </div>
         </form>
-      )}
+      </Modal>
 
       <DataTable
         loading={loading}

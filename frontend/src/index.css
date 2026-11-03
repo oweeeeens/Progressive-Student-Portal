@@ -5230,3 +5230,199 @@ textarea[aria-invalid='true']:focus-visible {
   gap: var(--space-1);
   font-weight: 500;
 }
+
+/* --- Modal dialogs ------------------------------------------------------ */
+
+/* The native <dialog>. Promoted to the browser's top layer by showModal(),
+   which is the whole reason this is a <dialog> and not a div: it escapes
+   .app-shell__content's `overflow-x: clip`, .table-card's overflow and
+   .app-shell__page's stacking context in one go, and needs no z-index
+   chosen against the drawer scrim (40) or RowMenu's sheet (60). */
+.modal {
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-width: min(42rem, calc(100vw - 2 * var(--space-4)));
+  max-height: calc(100vh - 2 * var(--space-5));
+  width: 100%;
+  overflow: visible;
+  color: var(--color-text);
+}
+.modal--wide {
+  max-width: min(56rem, calc(100vw - 2 * var(--space-4)));
+}
+
+.modal::backdrop {
+  /* Matches the drawer scrim's reasoning in Layout.css: a backdrop's job is
+     to darken in BOTH themes, so this is not a white veil in dark mode. */
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.modal__panel {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * var(--space-5));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.35);
+  overflow: hidden;
+}
+
+.modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+.modal__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+.modal__description {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Only the body scrolls, so the title and the save/cancel row stay put on a
+   long form at phone height. */
+.modal__body {
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+/* A form inside a modal has already been introduced by the modal's own
+   heading, and sits on the modal's own surface — so it drops the panel
+   chrome it carries when rendered inline on a page. */
+.modal__body .intervention-log-form {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+.modal__body .intervention-log-form > h3 {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal[open] .modal__panel {
+    animation: modal-in 160ms ease-out;
+  }
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* The phone boundary, written as a literal because custom properties are not
+   valid inside a media condition (see the Responsive Design notes). Below it
+   the dialog becomes a bottom sheet: full width, anchored low, where a thumb
+   is rather than where a mouse is. */
+@media (max-width: 720px) {
+  .modal {
+    max-width: 100%;
+    width: 100%;
+    margin: auto auto 0;
+    max-height: 92vh;
+  }
+  .modal__panel {
+    max-height: 92vh;
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+    border-bottom: none;
+  }
+  .modal__head,
+  .modal__body {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+}
+
+/* --- Toasts ------------------------------------------------------------- */
+
+/* Portalled to <body> (see Toast.jsx) for the same reason RowMenu is: this
+   app's scroll container clips, so a fixed element inside the page tree is
+   unreliable ground. */
+.toast-stack {
+  position: fixed;
+  bottom: var(--space-5);
+  right: var(--space-5);
+  z-index: 70; /* above RowMenu's sheet (60); below the top layer a modal uses */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+.toast-stack > * {
+  pointer-events: auto;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 16rem;
+  max-width: min(26rem, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.3);
+  font-size: var(--font-size-sm);
+}
+.toast--success .toast__icon {
+  color: var(--color-success);
+}
+.toast--info .toast__icon {
+  color: var(--color-info, var(--color-primary));
+}
+.toast__icon {
+  flex-shrink: 0;
+}
+.toast__message {
+  flex: 1;
+}
+.toast__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  padding: var(--space-1);
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.toast__close:hover {
+  color: var(--color-text);
+  background: var(--color-surface-muted, rgba(15, 23, 42, 0.06));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: toast-in 180ms ease-out;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* On a phone the stack spans the width and sits above the thumb, clear of
+   the bottom edge where browser chrome lives. */
+@media (max-width: 720px) {
+  .toast-stack {
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-4);
+  }
+  .toast {
+    max-width: 100%;
+  }
+}

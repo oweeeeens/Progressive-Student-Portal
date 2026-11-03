@@ -6,6 +6,7 @@ import { canManageAcademicSetup } from '../utils/permissions'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
+import { Modal } from '../components/Modal'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
@@ -52,7 +53,7 @@ export function SectionsPage() {
   // said nothing at all — so on a page whose only other message is an error,
   // silence was how the user learned it had worked. The keyed busy flag also
   // stops a double-click sending the same write twice.
-  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
+  const { error, setError, busyKey, runWrite } = useWriteFeedback()
 
   useEffect(() => {
     api.get('/school-years').then((data) => setSchoolYears(data.schoolYears))
@@ -197,11 +198,13 @@ export function SectionsPage() {
       </p>
 
       {error && <Alert>{error}</Alert>}
-      {notice && <Alert variant="success">{notice}</Alert>}
 
-      {showForm && (
+      <Modal
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        title={editingId ? 'Edit Section' : 'New Section'}
+      >
         <form onSubmit={handleSubmit} className="intervention-log-form">
-          <h3>{editingId ? 'Edit Section' : 'New Section'}</h3>
           <div className="intervention-log-form__fields">
             <label>School Year</label>
             <select
@@ -256,7 +259,7 @@ export function SectionsPage() {
             </button>
           </div>
         </form>
-      )}
+      </Modal>
 
       <DataTable
         loading={loading}

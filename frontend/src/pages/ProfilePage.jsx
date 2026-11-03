@@ -225,7 +225,6 @@ export function ProfilePage() {
             </p>
 
             {identity.error && <Alert>{identity.error}</Alert>}
-            {identity.notice && <Alert variant="success">{identity.notice}</Alert>}
 
             <div className="profile-page__actions">
               <button
@@ -305,7 +304,6 @@ export function ProfilePage() {
             </FormField>
 
             {password.error && <Alert>{password.error}</Alert>}
-            {password.notice && <Alert variant="success">{password.notice}</Alert>}
 
             <div className="profile-page__actions">
               <button type="submit" className="btn-primary" disabled={Boolean(password.busyKey)}>

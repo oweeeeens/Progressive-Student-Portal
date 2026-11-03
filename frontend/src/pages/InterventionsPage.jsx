@@ -104,7 +104,7 @@ export function InterventionsPage() {
   // confirmation nor an in-flight guard: the panel's buttons stayed live
   // while the request was out, so two clicks sent two writes, and a
   // successful one reported itself only by the table quietly redrawing.
-  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
+  const { error, setError, busyKey, runWrite } = useWriteFeedback()
   const { openFor, close: closeStat, cardProps } = useStatExplainer('intervention-stat-detail')
 
   useEffect(() => {
@@ -212,7 +212,6 @@ export function InterventionsPage() {
       )}
 
       {error && <Alert>{error}</Alert>}
-      {notice && <Alert variant="success">{notice}</Alert>}
 
       <TableToolbar
         search={search}

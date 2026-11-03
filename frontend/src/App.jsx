@@ -1,6 +1,7 @@
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { ToastProvider } from './context/ToastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
@@ -39,6 +40,10 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
+          {/* Inside AuthProvider so a toast can be raised from anywhere a
+              signed-in page can reach, and inside ErrorBoundary so a crash
+              in a page cannot take the confirmation system down with it. */}
+          <ToastProvider>
           <Router>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
@@ -101,6 +106,7 @@ function App() {
               </Route>
             </Routes>
           </Router>
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

@@ -23,6 +23,7 @@ import { Tabs } from '../components/Tabs'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { TableToolbar, TableFilter } from '../components/table/TableToolbar'
 import { Alert } from '../components/Alert'
+import { Modal } from '../components/Modal'
 import { SkeletonTable } from '../components/Skeleton'
 
 const PAGE_SIZE = 15
@@ -285,9 +286,8 @@ function AllAccountsTab() {
         </Alert>
       )}
 
-      {editingId && (
+      <Modal open={Boolean(editingId)} onClose={() => setEditingId(null)} title="Edit Account">
         <form onSubmit={handleSaveEdit} className="intervention-log-form">
-          <h3>Edit Account</h3>
           <div className="intervention-log-form__fields">
             <label>Full Name</label>
             <input
@@ -331,7 +331,7 @@ function AllAccountsTab() {
             </button>
           </div>
         </form>
-      )}
+      </Modal>
 
       {/* No `loading ? <p>Loading…</p> :` branch — DataTable draws the table
           at the right size while the first request is in flight, which is
