@@ -36,30 +36,49 @@ const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: 
 // grade entry and risk scoring at the same time, so that consequence is
 // stated here rather than discovered.
 function schoolYearStatDetails(schoolYears, currentYear) {
+  // `schoolYears` is null when the read was refused — this page 403s for
+  // every role except admin and principal. "Could not be read" and "there
+  // are none" are different claims and only one is ever true, so the
+  // unreadable case gets its own wording rather than an explanation of a
+  // zero that was never measured.
+  const unreadable = schoolYears === null
+
   return {
     years: {
       title: 'School years',
-      subtitle: schoolYears.length,
-      definition: 'Every school year set up in the system, past and present.',
-      rules: [
-        'Years are never deleted — grades, attendance and sections all reference the year they belong to, so removing one would orphan the records underneath it.',
-        'Each year owns its own grading periods, and a period’s sequence number is unique only WITHIN its year. That is why a learner’s second year in the school does not collide with their first.',
-      ],
+      subtitle: unreadable ? 'Not available' : schoolYears.length,
+      definition: unreadable
+        ? 'This could not be read. Academic Setup is restricted to admin and the principal, so the figure above is unknown rather than zero.'
+        : 'Every school year set up in the system, past and present.',
+      rules: unreadable
+        ? [
+            'Nothing is wrong with the data — you simply do not have permission to read it, and a blank is the honest answer where a 0 would be a false one.',
+          ]
+        : [
+            'Years are never deleted — grades, attendance and sections all reference the year they belong to, so removing one would orphan the records underneath it.',
+            'Each year owns its own grading periods, and a period’s sequence number is unique only WITHIN its year. That is why a learner’s second year in the school does not collide with their first.',
+          ],
     },
     current: {
       title: 'Current school year',
-      subtitle: currentYear ? currentYear.label : 'Not set',
-      definition: currentYear
-        ? `${currentYear.label} is the year every other page treats as “now”.`
-        : 'No year is marked current, so pages that resolve “this year” have nothing to resolve it to.',
-      rules: [
-        'This is a switch, not a label. Attendance, grade entry, the class and section pickers, and risk scoring all resolve “this year” through it.',
-        'Exactly one year can be current. Setting another one takes the flag off this one in the same action.',
-        'Changing it mid-year repoints the whole app, including which sections and class offerings teachers are offered. It is not a display setting.',
-      ],
-      footnote: currentYear
-        ? 'Which grading period is “now” within this year is decided separately, by today’s date against each period’s start and end — using the school’s own timezone, not the server’s.'
-        : 'Until one is set, mark a year current from the table below.',
+      subtitle: unreadable ? 'Not available' : currentYear ? currentYear.label : 'Not set',
+      definition: unreadable
+        ? 'This could not be read, so which year the rest of the app treats as “now” is unknown from here — not unset.'
+        : currentYear
+          ? `${currentYear.label} is the year every other page treats as “now”.`
+          : 'No year is marked current, so pages that resolve “this year” have nothing to resolve it to.',
+      rules: unreadable
+        ? ['Academic Setup is admin and principal only. The rest of the app still resolves “this year” normally; you just cannot see or change which year that is from here.']
+        : [
+            'This is a switch, not a label. Attendance, grade entry, the class and section pickers, and risk scoring all resolve “this year” through it.',
+            'Exactly one year can be current. Setting another one takes the flag off this one in the same action.',
+            'Changing it mid-year repoints the whole app, including which sections and class offerings teachers are offered. It is not a display setting.',
+          ],
+      footnote: unreadable
+        ? undefined
+        : currentYear
+          ? 'Which grading period is “now” within this year is decided separately, by today’s date against each period’s start and end — using the school’s own timezone, not the server’s.'
+          : 'Until one is set, mark a year current from the table below.',
     },
   }
 }
@@ -71,7 +90,12 @@ export function SchoolYearsPage() {
   const { user } = useAuth()
   const canWrite = canManageAcademicSetup(user?.role)
 
-  const [schoolYears, setSchoolYears] = useState([])
+  // null until the server answers, NOT []. A failed read — this page 403s
+  // for every role except admin and principal — otherwise left the stat card
+  // asserting "0 School years" directly beside "You do not have permission
+  // to do this." StatCard already renders null as an em dash for exactly
+  // this reason; it just needed to be given one.
+  const [schoolYears, setSchoolYears] = useState(null)
   const [loadingYears, setLoadingYears] = useState(true)
   const [showYearForm, setShowYearForm] = useState(false)
   const [editingYearId, setEditingYearId] = useState(null)
@@ -209,7 +233,7 @@ export function SchoolYearsPage() {
     )
   }
 
-  const currentYear = schoolYears.find((sy) => sy.is_current)
+  const currentYear = schoolYears?.find((sy) => sy.is_current)
 
   return (
     <div>
@@ -228,7 +252,12 @@ export function SchoolYearsPage() {
       </div>
 
       <StatRow>
-        <StatCard icon={CalendarRange} value={schoolYears.length} label="School years" {...cardProps('years')} />
+        <StatCard
+          icon={CalendarRange}
+          value={schoolYears ? schoolYears.length : null}
+          label="School years"
+          {...cardProps('years')}
+        />
         <StatCard
           icon={Star}
           value={currentYear ? currentYear.label : '—'}
@@ -299,7 +328,7 @@ export function SchoolYearsPage() {
               </tr>
             </thead>
             <tbody>
-              {schoolYears.map((sy) => (
+              {(schoolYears || []).map((sy) => (
                 <tr
                   key={sy.id}
                   className="is-clickable-row"
@@ -354,7 +383,7 @@ export function SchoolYearsPage() {
         <div className="record-section__header-row">
           <h2>
             Grading Periods
-            {selectedYearId && schoolYears.find((sy) => String(sy.id) === selectedYearId) && (
+            {selectedYearId && schoolYears?.find((sy) => String(sy.id) === selectedYearId) && (
               <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>
                 {' '}
                 — {schoolYears.find((sy) => String(sy.id) === selectedYearId).label}
