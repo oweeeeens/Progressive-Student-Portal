@@ -18,7 +18,7 @@ router.use(requireAuth);
 router.get('/', listActiveSubjects);
 
 // Academic Setup — admin only.
-router.get('/admin', requireRole('admin'), listSubjectsForAdmin);
+router.get('/admin', requireRole('admin', 'principal'), listSubjectsForAdmin);
 router.post('/', requireRole('admin'), createSubject);
 router.put('/:id', requireRole('admin'), updateSubject);
 router.post('/:id/deactivate', requireRole('admin'), deactivateSubject);

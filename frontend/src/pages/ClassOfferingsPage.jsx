@@ -1,12 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Plus, Search, BookMarked, CheckCircle2, XCircle, Pencil } from 'lucide-react'
 import { api } from '../api/client'
+import { useAuth } from '../context/AuthContext'
+import { canManageAcademicSetup } from '../utils/permissions'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 
 const PAGE_SIZE = 15
+// Either teaching role can hold either assignment, because that is how the
+// school works: a teacher commonly advises one section and teaches subjects
+// to other sections. Nothing in the database or in any permission check ever
+// forbade it — `sections.adviser_id` and `class_offerings.teacher_id` are
+// plain user references, and every write guard asks who is assigned rather
+// than what the role column says. These two dropdowns were the only thing
+// making the arrangement impossible to set up.
+const ASSIGNABLE_TEACHING_ROLES = ['adviser', 'subject_teacher']
+
 const emptyForm = { schoolYearId: '', sectionId: '', subjectId: '', teacherId: '' }
 
 // Admin-only Academic Setup page assigning "this teacher teaches this
@@ -14,6 +25,12 @@ const emptyForm = { schoolYearId: '', sectionId: '', subjectId: '', teacherId: '
 // hard-deleted — one with grades already recorded against it can't be
 // deactivated (grade history must keep pointing at a real class offering).
 export function ClassOfferingsPage() {
+  // The principal reads these pages and changes nothing on them, so every
+  // write control below is hidden rather than left to fail with a 403 the
+  // page would show as a bare permission error.
+  const { user } = useAuth()
+  const canWrite = canManageAcademicSetup(user?.role)
+
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   // null, not 0: until the count request answers there is no number to
@@ -37,8 +54,13 @@ export function ClassOfferingsPage() {
     api.get('/school-years').then((data) => setSchoolYears(data.schoolYears))
     api.get('/sections').then((data) => setSections(data.sections))
     api.get('/subjects').then((data) => setSubjects(data.subjects))
-    api.get('/users').then((data) => setTeachers(data.users.filter((u) => u.role === 'subject_teacher')))
-  }, [])
+    // Only for someone who can actually create or edit. /users is admin and
+    // registrar only, so a read-only principal asking for it gets a 403 —
+    // and the list exists purely to fill a form they never open.
+    if (canWrite) {
+      api.get('/users').then((data) => setTeachers(data.users.filter((u) => ASSIGNABLE_TEACHING_ROLES.includes(u.role))))
+    }
+  }, [canWrite])
 
   function loadStats() {
     api.get('/class-offerings/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total))
@@ -148,10 +170,12 @@ export function ClassOfferingsPage() {
             />
             Show inactive
           </label>
-          <button type="button" className="btn-primary" onClick={startCreate}>
-            <Plus size={16} strokeWidth={1.75} />
-            New Class Offering
-          </button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={startCreate}>
+              <Plus size={16} strokeWidth={1.75} />
+              New Class Offering
+            </button>
+          )}
         </div>
       </div>
 
@@ -268,12 +292,12 @@ export function ClassOfferingsPage() {
         ]}
         rows={rows}
         rowKey={(r) => r.id}
-        rowActions={(r) => [
+        rowActions={(r) => (!canWrite ? [] : [
           { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => startEdit(r) },
           r.is_active
             ? { key: 'deactivate', label: 'Deactivate', icon: XCircle, danger: true, onSelect: () => handleToggleActive(r) }
             : { key: 'reactivate', label: 'Reactivate', icon: CheckCircle2, onSelect: () => handleToggleActive(r) },
-        ]}
+        ])}
         page={page}
         pageSize={PAGE_SIZE}
         total={total}

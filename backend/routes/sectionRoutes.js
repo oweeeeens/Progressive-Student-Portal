@@ -19,7 +19,7 @@ router.get('/', requireAuth, listSections);
 router.get('/mine', requireAuth, listMySections);
 
 // Academic Setup — admin only.
-router.get('/admin', requireAuth, requireRole('admin'), listSectionsForAdmin);
+router.get('/admin', requireAuth, requireRole('admin', 'principal'), listSectionsForAdmin);
 router.post('/', requireAuth, requireRole('admin'), createSection);
 router.put('/:id', requireAuth, requireRole('admin'), updateSection);
 router.post('/:id/deactivate', requireAuth, requireRole('admin'), deactivateSection);

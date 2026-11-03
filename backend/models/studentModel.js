@@ -39,48 +39,74 @@ const SORT_COLUMNS = {
   status: 's.enrollment_status, s.last_name, s.first_name',
 };
 
+// Roles that read the whole school. Everyone else is scoped by what they are
+// actually ASSIGNED to, below.
+//
+// guidance_counselor will get narrowed to flagged/at-risk students if that is
+// ever requested; for now they see the full roster, same as admin/registrar.
+// The principal is a single school-wide position (CLAUDE.md) and the rest of
+// the app already treats them that way: they verify every submitted grade in
+// the school, and the Analytics dashboard shows them named at-risk students
+// with their risk levels. Omitting them meant those names appeared in the
+// rollup while every link to one returned 404 — the data was not protected,
+// only the navigation was broken. Read scope only; writes stay admin and
+// registrar via the route-level gate in routes/studentRoutes.js.
+const SCHOOL_WIDE_READ_ROLES = ['admin', 'registrar', 'guidance_counselor', 'principal'];
+
 // Appends the WHERE clause fragment (and its bound params) that restricts
-// which students a given user is allowed to see. admin/registrar/
-// guidance_counselor get no restriction here — guidance counselors will get
-// narrowed to flagged/at-risk students if that's ever requested; for now
-// they see the full roster, same as admin/registrar.
+// which students a given user is allowed to see.
+//
+// WHY THIS ASKS "WHAT ARE YOU ASSIGNED TO", NOT "WHAT IS YOUR ROLE"
+//
+// This used to be a switch on user.role with a return in every branch, so
+// exactly one predicate could ever apply — a person was an adviser or a
+// subject teacher, never both. The school does not work that way: a teacher
+// commonly advises one section and teaches subjects to others.
+//
+// Meanwhile every WRITE guard in the app is already assignment-based and
+// says so in its own comment (dailyAttendanceController.assertCanWriteSection,
+// subjectAttendanceController.assertCanWriteOffering, gradeController's
+// teacher_id and adviser_id checks). The two halves disagreed, and the
+// result was that an adviser who also taught could submit a student's grade
+// and then not be allowed to look that student up: 404 on the detail page,
+// no attendance history, no report card, missing from every dashboard count.
+//
+// So the predicates are OR-ed rather than switched. dailyAttendanceController's
+// read guard already demonstrated this shape; this brings the rest of the app
+// in line with it.
+//
+// Fail-closed is preserved exactly: a user who holds no assignment and no
+// school-wide role matches nothing, and gets FALSE.
 function appendScopeClause(user, clauses, params) {
-  switch (user.role) {
-    case 'admin':
-    case 'registrar':
-    case 'guidance_counselor':
-    // The principal is a single school-wide position (CLAUDE.md), and the
-    // rest of the app already treats them that way: they verify every
-    // submitted grade in the school, and the Analytics dashboard shows them
-    // named at-risk students with their risk levels. Falling through to the
-    // default below meant those names were visible in the rollup but every
-    // link to one returned 404 — the data wasn't protected, only the
-    // navigation was broken. Read scope only; writes stay admin/registrar
-    // via the route-level gate in routes/studentRoutes.js.
-    case 'principal':
-      return;
-    case 'adviser':
-      params.push(user.id);
-      clauses.push(`sec.adviser_id = $${params.length}`);
-      return;
-    case 'subject_teacher':
-      // "Taught by this teacher" is a property of the section row itself
-      // (sections are per-school-year, so a section's id already pins it to
-      // one year) — no separate school_year filter needed.
-      params.push(user.id);
-      clauses.push(`EXISTS (
-        SELECT 1 FROM class_offerings co
-        WHERE co.section_id = s.current_section_id AND co.teacher_id = $${params.length}
-      )`);
-      return;
-    case 'student':
-      params.push(user.id);
-      clauses.push(`s.user_id = $${params.length}`);
-      return;
-    default:
-      // Unknown role: fail closed rather than leaking the full roster.
-      clauses.push('FALSE');
+  if (SCHOOL_WIDE_READ_ROLES.includes(user.role)) return;
+
+  // A student sees exactly themselves, and nothing is OR-ed on: a learner is
+  // never also a section's adviser or a class's teacher, and leaving those
+  // predicates in would invite a data error in users.id to widen a child's
+  // view of other children.
+  if (user.role === 'student') {
+    params.push(user.id);
+    clauses.push(`s.user_id = $${params.length}`);
+    return;
   }
+
+  const scopes = [];
+
+  // Sections they advise. No role term: being a section's adviser_id is what
+  // earns this, whatever the role column says.
+  params.push(user.id);
+  scopes.push(`sec.adviser_id = $${params.length}`);
+
+  // Sections they teach into. "Taught by this teacher" is a property of the
+  // section row itself (sections are per-school-year, so a section's id
+  // already pins it to one year) — no separate school_year filter needed.
+  params.push(user.id);
+  scopes.push(`EXISTS (
+    SELECT 1 FROM class_offerings co
+    WHERE co.section_id = s.current_section_id AND co.teacher_id = $${params.length}
+  )`);
+
+  clauses.push(`(${scopes.join(' OR ')})`);
 }
 
 // Request-key -> column, for the learner-status reporting filters below.

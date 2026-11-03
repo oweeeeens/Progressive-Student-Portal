@@ -30,13 +30,36 @@ The client requested removing digital enrollment entirely — they want to keep 
 
 ## User Roles & Access
 - **Admin** — manages accounts (registration is admin-only, no public self-signup)
-- **Principal** — verifies/approves grades submitted by subject teachers (see Grade Approval Workflow below). One school-wide position, so they also *read* school-wide: Analytics, the Academic Progress Tracking dashboard, and student records. They hold no advisory section and teach no class, so the attendance and grade-entry pages are not shown to them. Logging interventions stays with advisers and guidance counselors — the principal approves grades and reads the rollup; the per-learner follow-up is not theirs.
+- **Principal** — verifies/approves grades submitted by subject teachers (see Grade Approval Workflow below). One school-wide position, so they also *read* school-wide: Analytics, the Academic Progress Tracking dashboard, student records, and **Academic Setup — read-only** (school years, sections, subjects, class offerings, grading periods). The structure of the school year is theirs to see; restructuring it stays with the admin, and those four pages hide their write controls rather than letting them fail with a permission error. They hold no advisory section and teach no class, so the attendance and grade-entry pages are not shown to them. Logging interventions stays with advisers and guidance counselors — the principal approves grades and reads the rollup; the per-learner follow-up is not theirs.
 - **Advisers** — see only students in their own advisory section; finalize grades into the official record (final step of the approval workflow)
 - **Subject teachers** — submit initial grades and input attendance for the classes they actually teach (scoped by class/subject, not by advisory section — a teacher may teach students across multiple sections)
 - **Guidance counselors** — view flagged/at-risk students, log interventions
 - **Registrar staff** — manage student records; create student/staff portal accounts once a student has enrolled on paper (see REMOVED: Enrollment Management above)
 - **ICT faculty** — post announcements. Added alongside the Announcements feature (see below) and has no other permissions: the school's ICT staff maintain the noticeboard, they do not mark attendance or handle records. Their navigation is Home and nothing else — the noticeboard lives there. (Until 2026-10-29 the sidebar also offered them the attendance, grade and student pages, because visibility was guessed from the role label; every one of them opened empty, since they advise no section, teach no class, and have no student read scope. The server always refused the writes; it was the navigation that lied.)
 - **Students / Parents** — view own records only (no separate parent role yet — out of scope for Phase 1, students role covers this access level)
+
+**One person can hold two kinds of assignment.** A teacher commonly advises
+one section *and* teaches subjects to other sections, and the system must
+represent that: `sections.adviser_id` and `class_offerings.teacher_id` are
+plain user references with no role constraint, and **every** permission
+decision asks what you are assigned to, never what your role column says.
+Both `adviser` and `subject_teacher` are therefore offered in both pickers in
+Academic Setup.
+
+This was written the other way round until 2026-11-03, and the contradiction
+had consequences. Read scope (`studentModel.appendScopeClause`) was a switch
+on the role label with a `return` in every branch, so exactly one predicate
+could apply — while every write guard was already assignment-based. An
+adviser who also taught could submit a student's grade and then not be
+allowed to open that student's record: 404 on the detail page, no attendance
+history, no report card, and missing from the roster entirely. Two guards
+written `if (role === 'adviser')` also let anyone who advised a section under
+a different role label fall through to school-wide risk data.
+
+A role change is still refused while the user holds assignments **when the
+new role could not hold them** — moving someone out of teaching entirely
+would otherwise leave a registrar with write access to a section's register.
+Moving between `adviser` and `subject_teacher` is free.
 
 **Navigation is driven by assignment, not by role label.** Write access to
 the attendance and grade pages is decided by `sections.adviser_id` and

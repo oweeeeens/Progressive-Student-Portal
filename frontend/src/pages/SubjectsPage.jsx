@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Plus, Search, BookOpen, CheckCircle2, XCircle, Pencil } from 'lucide-react'
 import { api } from '../api/client'
+import { useAuth } from '../context/AuthContext'
+import { canManageAcademicSetup } from '../utils/permissions'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
@@ -13,6 +15,12 @@ const emptyForm = { name: '', code: '', gradeLevel: '' }
 // soft-deactivated, never hard-deleted — one with grades recorded against
 // it, or with an active class offering still assigned, can't be deactivated.
 export function SubjectsPage() {
+  // The principal reads these pages and changes nothing on them, so every
+  // write control below is hidden rather than left to fail with a 403 the
+  // page would show as a bare permission error.
+  const { user } = useAuth()
+  const canWrite = canManageAcademicSetup(user?.role)
+
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   // null, not 0: until the count request answers there is no number to
@@ -125,10 +133,12 @@ export function SubjectsPage() {
             />
             Show inactive
           </label>
-          <button type="button" className="btn-primary" onClick={startCreate}>
-            <Plus size={16} strokeWidth={1.75} />
-            New Subject
-          </button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={startCreate}>
+              <Plus size={16} strokeWidth={1.75} />
+              New Subject
+            </button>
+          )}
         </div>
       </div>
 
@@ -195,12 +205,12 @@ export function SubjectsPage() {
         ]}
         rows={rows}
         rowKey={(r) => r.id}
-        rowActions={(r) => [
+        rowActions={(r) => (!canWrite ? [] : [
           { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => startEdit(r) },
           r.is_active
             ? { key: 'deactivate', label: 'Deactivate', icon: XCircle, danger: true, onSelect: () => handleToggleActive(r) }
             : { key: 'reactivate', label: 'Reactivate', icon: CheckCircle2, onSelect: () => handleToggleActive(r) },
-        ]}
+        ])}
         page={page}
         pageSize={PAGE_SIZE}
         total={total}

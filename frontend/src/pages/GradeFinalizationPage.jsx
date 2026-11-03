@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { api } from '../api/client'
+import { defaultSelection } from '../utils/defaultSelection'
 import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import './GradesShared.css'
@@ -42,8 +43,12 @@ export function GradeFinalizationPage() {
   // sections they actually advise, not just whoever is literally labeled
   // 'adviser' — that column doesn't have to match the role column.
   useEffect(() => {
-    const path = user.role === 'admin' ? '/sections' : '/sections/mine'
-    api.get(path).then((data) => setSections(data.sections))
+    const scopedToMe = user.role !== 'admin'
+    const path = scopedToMe ? '/sections/mine' : '/sections'
+    api.get(path).then((data) => {
+      setSections(data.sections)
+      setSectionId((current) => current || defaultSelection(data.sections, scopedToMe))
+    })
     api.get('/grading-periods').then((data) => setPeriods(data.gradingPeriods))
   }, [user.role])
 

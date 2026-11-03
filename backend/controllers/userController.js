@@ -48,6 +48,12 @@ async function getStats(req, res) {
 // Deliberately not "is the caller an admin": one admin resetting another
 // admin's password is the same escalation in a school that later has two.
 // The only person who may act on an admin account is that account's owner.
+// The roles that may be a section's adviser or a class's teacher. Mirrors
+// the same list in the Sections and Class Offerings pages — a teacher can
+// advise one section and teach others, so neither assignment belongs to one
+// role label.
+const ASSIGNABLE_TEACHING_ROLES = ['adviser', 'subject_teacher'];
+
 function assertCanActOnTarget(req, res, target) {
   if (target.role === 'admin' && target.id !== req.user.id) {
     res.status(403).json({ error: 'Admin accounts can only be managed by that admin.' });
@@ -100,9 +106,23 @@ async function updateAccount(req, res) {
     if (!CREATABLE_ROLES.includes(role)) {
       return res.status(400).json({ error: `role must be one of: ${CREATABLE_ROLES.join(', ')}` });
     }
-    if (await userModel.hasActiveAssignments(id)) {
+    // Only blocked when the NEW role could not hold the assignment at all.
+    //
+    // This used to refuse every role change while the user held any
+    // assignment, on the reasoning that adviser_id and teacher_id must
+    // never point at a user whose role "no longer matches". That premise is
+    // gone: either teaching role may hold either assignment, because a
+    // teacher commonly advises one section and teaches others. Moving
+    // between the two teaching roles is now a no-op for their assignments.
+    //
+    // Moving OUT of teaching entirely still has to be refused — a registrar
+    // or ICT faculty member left as a section's adviser_id would keep write
+    // access to that register through every assignment-based guard in the
+    // app, which is not what "changed their role" is meant to mean.
+    if (!ASSIGNABLE_TEACHING_ROLES.includes(role) && (await userModel.hasActiveAssignments(id))) {
       return res.status(409).json({
-        error: 'This user still advises a section or teaches a class — reassign those in Academic Setup first.',
+        error:
+          'This user still advises a section or teaches a class. Reassign those in Academic Setup before moving them out of a teaching role.',
       });
     }
     data.role = role;

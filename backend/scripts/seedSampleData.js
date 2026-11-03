@@ -21,6 +21,7 @@ const {
   STAFF,
   SECTIONS,
   SUBJECTS,
+  TEACHER_OVERRIDES,
   STUDENTS,
 } = require('./demoDataset');
 
@@ -123,7 +124,7 @@ async function seed() {
         [
           subjectIdByCode.get(subject.code),
           sectionIdByName.get(section.name),
-          userIdByEmail.get(subject.teacher),
+          userIdByEmail.get(TEACHER_OVERRIDES[`${section.name}|${subject.code}`] || subject.teacher),
           schoolYearId,
         ]
       );

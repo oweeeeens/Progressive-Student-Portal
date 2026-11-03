@@ -18,7 +18,7 @@ router.get('/current', requireAuth, getCurrentPeriod);
 router.get('/', requireAuth, listCurrent);
 
 // Academic Setup — admin only.
-router.get('/admin', requireAuth, requireRole('admin'), listBySchoolYear);
+router.get('/admin', requireAuth, requireRole('admin', 'principal'), listBySchoolYear);
 router.post('/', requireAuth, requireRole('admin'), createGradingPeriod);
 router.put('/:id', requireAuth, requireRole('admin'), updateGradingPeriod);
 

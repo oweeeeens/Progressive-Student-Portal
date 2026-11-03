@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { defaultSelection } from '../utils/defaultSelection'
 import { useAuth } from '../context/AuthContext'
 import { AttendanceRosterPanel } from '../components/AttendanceRosterPanel'
 import { todayDateString } from '../utils/dateUtils'
@@ -11,6 +12,8 @@ import { todayDateString } from '../utils/dateUtils'
 // actions, search, notes, the sticky save bar — lives in
 // AttendanceRosterPanel, shared with SubjectAttendancePage so both feel
 // like one consistent pattern.
+
+
 export function DailyAttendancePage() {
   const { user } = useAuth()
   const [sections, setSections] = useState([])
@@ -40,8 +43,12 @@ export function DailyAttendancePage() {
   // and someone whose primary role isn't 'adviser' can still be set as a
   // section's adviser_id).
   useEffect(() => {
-    const path = ['admin', 'registrar'].includes(user.role) ? '/sections' : '/sections/mine'
-    api.get(path).then((data) => setSections(data.sections))
+    const scopedToMe = !['admin', 'registrar'].includes(user.role)
+    const path = scopedToMe ? '/sections/mine' : '/sections'
+    api.get(path).then((data) => {
+      setSections(data.sections)
+      setSectionId((current) => current || defaultSelection(data.sections, scopedToMe))
+    })
   }, [user.role])
 
   useEffect(() => {

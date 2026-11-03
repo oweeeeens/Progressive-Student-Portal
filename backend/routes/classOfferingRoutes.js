@@ -25,7 +25,7 @@ router.get('/mine', requireAuth, listMyClassOfferings);
 router.get('/:id/roster', requireAuth, getRoster);
 
 // Academic Setup — admin only.
-router.get('/admin', requireAuth, requireRole('admin'), listClassOfferingsForAdmin);
+router.get('/admin', requireAuth, requireRole('admin', 'principal'), listClassOfferingsForAdmin);
 router.post('/', requireAuth, requireRole('admin'), createClassOffering);
 router.put('/:id', requireAuth, requireRole('admin'), updateClassOffering);
 router.post('/:id/deactivate', requireAuth, requireRole('admin'), deactivateClassOffering);

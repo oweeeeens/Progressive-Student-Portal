@@ -26,6 +26,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { confirmLeave } from '../utils/unsavedChangesGuard'
 import { roleLabel } from '../utils/roleLabel'
+import { canViewAcademicSetup } from '../utils/permissions'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import './Sidebar.css'
 
@@ -86,7 +87,11 @@ const canSeeInterventions = (role) => ['admin', 'adviser', 'guidance_counselor']
 // Tracking view above; this is the school-wide rollup, admin/principal/
 // guidance_counselor only, matching routes/analyticsRoutes.js's server-side gate.
 const canSeeAnalytics = (role) => ['admin', 'principal', 'guidance_counselor'].includes(role)
-const canManageAcademicSetup = (role) => role === 'admin'
+// Imported rather than written here, so this cannot drift from what the
+// routes allow — the comment above canSeeInterventions records what happened
+// last time a sidebar predicate was widened on its own. The principal reads
+// Academic Setup; the pages hide their write controls for them.
+const canSeeAcademicSetup = canViewAcademicSetup
 
 // Each section groups related pages under a short, sentence-case label (not
 // all-caps — see design guidelines). A section with no visible items for the
@@ -168,10 +173,10 @@ function getNavSections(role, has) {
     {
       label: 'Academic Setup',
       items: [
-        { to: '/academic-setup/school-years', label: 'School Years', icon: CalendarRange, show: canManageAcademicSetup(role) },
-        { to: '/academic-setup/sections', label: 'Sections', icon: Layers, show: canManageAcademicSetup(role) },
-        { to: '/academic-setup/subjects', label: 'Subjects', icon: BookOpen, show: canManageAcademicSetup(role) },
-        { to: '/academic-setup/class-offerings', label: 'Class Offerings', icon: BookMarked, show: canManageAcademicSetup(role) },
+        { to: '/academic-setup/school-years', label: 'School Years', icon: CalendarRange, show: canSeeAcademicSetup(role) },
+        { to: '/academic-setup/sections', label: 'Sections', icon: Layers, show: canSeeAcademicSetup(role) },
+        { to: '/academic-setup/subjects', label: 'Subjects', icon: BookOpen, show: canSeeAcademicSetup(role) },
+        { to: '/academic-setup/class-offerings', label: 'Class Offerings', icon: BookMarked, show: canSeeAcademicSetup(role) },
       ],
     },
   ]

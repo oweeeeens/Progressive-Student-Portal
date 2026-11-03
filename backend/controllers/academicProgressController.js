@@ -15,6 +15,10 @@ const sectionModel = require('../models/sectionModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const { buildAcademicProgress } = require('../services/academicProgressCalculator');
 
+// The roles that may read the whole school at once. Named once because it is
+// asked twice below, and the two answers must not drift apart.
+const SCHOOL_WIDE_ROLES = ['admin', 'principal', 'guidance_counselor'];
+
 async function getAcademicProgress(req, res) {
   const { sectionId } = req.query;
   let { gradingPeriodId } = req.query;
@@ -38,21 +42,30 @@ async function getAcademicProgress(req, res) {
     // section filter is applied. A role missing here is let through the
     // route and then refused the moment it picks a section, so the two have
     // to be kept in step.
-    const allowed =
-      ['admin', 'principal', 'guidance_counselor'].includes(role) ||
-      (role === 'adviser' && section.adviser_id === userId);
+    //
+    // `section.adviser_id === userId` carries NO role conjunct. It used to
+    // read `role === 'adviser' && section.adviser_id === userId`, which
+    // refused someone their own advisory section's progress view purely
+    // because their role column said something else.
+    const allowed = SCHOOL_WIDE_ROLES.includes(role) || section.adviser_id === userId;
     if (!allowed) {
       return res.status(403).json({ error: 'You do not have permission to view this section.' });
     }
-  } else if (req.user.role === 'adviser') {
-    // An adviser with no sectionId filter would otherwise see the whole
-    // school via listForDashboard's unrestricted path — that's reserved for
-    // admin/guidance_counselor. Force advisers to specify their own section.
-    return res.status(400).json({ error: 'sectionId is required for the adviser role.' });
+  } else if (!SCHOOL_WIDE_ROLES.includes(req.user.role)) {
+    // Without a section filter, listForDashboard below is UNRESTRICTED —
+    // every at-risk student in the school. That is reserved for the
+    // school-wide roles.
+    //
+    // This used to test `role === 'adviser'`, which is the wrong question
+    // and left a hole: anyone who advises a section while carrying a
+    // different role label skipped the guard entirely and fell straight
+    // through to the school-wide list. Asking "are you school-wide?"
+    // instead fails closed for everyone who is not.
+    return res.status(400).json({ error: 'Select a section to view its progress.' });
   }
 
   const rows = await riskAssessmentModel.listForDashboard({
-    sectionId: sectionId ? Number(sectionId) : undefined,
+    sectionIds: sectionId ? [Number(sectionId)] : undefined,
     gradingPeriodId: Number(gradingPeriodId),
   });
 

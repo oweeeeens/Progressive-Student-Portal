@@ -25,14 +25,17 @@ async function upsert({ studentId, gradingPeriodId, averageGrade, gradeTrend, at
 // filter, every active student) alongside their latest assessment for one
 // grading period. LEFT JOIN so a student with no assessment yet (no
 // finalized grades or attendance recorded this period) still appears.
-async function listForDashboard({ sectionId, gradingPeriodId }) {
+// `sectionIds` is a LIST, not a single id: a person can advise more than one
+// section, and the caller that used to pass one id quietly dropped every
+// section past the first. Omit it entirely for the school-wide roles.
+async function listForDashboard({ sectionIds, gradingPeriodId }) {
   const clauses = ['s.is_active = TRUE'];
   const params = [gradingPeriodId];
   clauses.push('(ra.grading_period_id = $1 OR ra.grading_period_id IS NULL)');
 
-  if (sectionId) {
-    params.push(sectionId);
-    clauses.push(`s.current_section_id = $${params.length}`);
+  if (sectionIds && sectionIds.length > 0) {
+    params.push(sectionIds);
+    clauses.push(`s.current_section_id = ANY($${params.length}::int[])`);
   }
 
   const result = await pool.query(

@@ -12,6 +12,9 @@ const riskAssessmentModel = require('./riskAssessmentModel');
 const riskCalculator = require('../services/riskCalculator');
 
 const ATTENTION_WIDGET_ROLES = ['admin', 'principal', 'adviser', 'guidance_counselor'];
+// Of those, the ones whose widget covers the whole school. Everyone else is
+// narrowed to the sections they actually advise.
+const SCHOOL_WIDE_ATTENTION_ROLES = ['admin', 'principal', 'guidance_counselor'];
 
 async function countVisibleStudents(user) {
   const clauses = ['s.is_active = TRUE'];
@@ -64,12 +67,30 @@ async function getStats(user) {
   const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
   const stats = {};
 
-  const seesStudents = ['admin', 'registrar', 'guidance_counselor', 'adviser', 'subject_teacher'].includes(user.role);
+  // Counted through studentModel's scope clause, which is assignment-based,
+  // so this only has to decide whether the CARD is meaningful — not who may
+  // see what.
+  //
+  // Two roles get no card. ICT faculty hold no assignment and so have no
+  // roster to count. A STUDENT is excluded for a different and firmer
+  // reason: their scope is themselves, so the count would read "1", and
+  // CLAUDE.md is explicit that no school-wide figure of any kind reaches a
+  // learner's view. A stat card saying "1 student" is a aggregate shaped
+  // like one they should never be shown.
+  const seesStudents = !['ict_faculty', 'student'].includes(user.role);
   if (seesStudents) {
     stats.students = await countVisibleStudents(user);
   }
 
-  const seesRisk = ['admin', 'adviser', 'guidance_counselor'].includes(user.role);
+  // Risk figures follow the same rule, with one addition: anyone who advises
+  // a section gets them, whatever their role label says. It used to be a
+  // bare role list, so a teacher who advised a section saw no at-risk count
+  // for their own advisees.
+  // `||` short-circuits, so the roles that already qualify never pay for the
+  // lookup — only someone outside the list is asked what they advise.
+  const seesRisk =
+    ['admin', 'adviser', 'guidance_counselor'].includes(user.role) ||
+    (user.role !== 'student' && (await sectionModel.listSectionsByAdviser(user.id)).length > 0);
   if (seesRisk) {
     stats.atRiskStudents = await countAtRiskStudents(user, currentPeriod?.id);
     stats.openInterventions = await countOpenInterventions(user);
@@ -113,17 +134,20 @@ async function getTopAtRiskStudents(user, limit = 5) {
   const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
   if (!currentPeriod) return [];
 
-  // listForDashboard takes a single sectionId (or none, for unrestricted
-  // roles) — an adviser's own section, same as every other adviser-scoped
-  // view in this app assumes one advisory section per adviser.
-  let sectionId = null;
-  if (user.role === 'adviser') {
+  // Scoped by what this person ADVISES, not by their role label. Two bugs
+  // lived in the old `if (user.role === 'adviser')` version: anyone who
+  // advised a section while carrying a different role label fell through
+  // with no section filter at all and got the whole school's at-risk list,
+  // and `sections[0]` silently dropped every section past the first for
+  // anyone advising two.
+  let sectionIds;
+  if (!SCHOOL_WIDE_ATTENTION_ROLES.includes(user.role)) {
     const sections = await sectionModel.listSectionsByAdviser(user.id);
     if (sections.length === 0) return [];
-    sectionId = sections[0].id;
+    sectionIds = sections.map((section) => section.id);
   }
 
-  const rows = await riskAssessmentModel.listForDashboard({ sectionId, gradingPeriodId: currentPeriod.id });
+  const rows = await riskAssessmentModel.listForDashboard({ sectionIds, gradingPeriodId: currentPeriod.id });
   const atRisk = rows.filter((r) => r.risk_level === 'high' || r.risk_level === 'medium').slice(0, limit);
 
   return atRisk.map((r) => {

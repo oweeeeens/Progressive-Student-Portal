@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Plus, CalendarRange, Star, Pencil } from 'lucide-react'
 import { api } from '../api/client'
+import { useAuth } from '../context/AuthContext'
+import { canManageAcademicSetup } from '../utils/permissions'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
@@ -18,6 +20,12 @@ const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: 
 // becomes not-current, and every table referencing either one is already
 // protected from accidental removal by its own foreign key.
 export function SchoolYearsPage() {
+  // The principal reads these pages and changes nothing on them, so every
+  // write control below is hidden rather than left to fail with a 403 the
+  // page would show as a bare permission error.
+  const { user } = useAuth()
+  const canWrite = canManageAcademicSetup(user?.role)
+
   const [schoolYears, setSchoolYears] = useState([])
   const [loadingYears, setLoadingYears] = useState(true)
   const [error, setError] = useState(null)
@@ -158,10 +166,12 @@ export function SchoolYearsPage() {
       <div className="page-header">
         <h1>School Years &amp; Grading Periods</h1>
         <div className="page-header__actions">
-          <button type="button" className="btn-primary" onClick={startCreateYear}>
-            <Plus size={16} strokeWidth={1.75} />
-            New School Year
-          </button>
+          {canWrite && (
+            <button type="button" className="btn-primary" onClick={startCreateYear}>
+              <Plus size={16} strokeWidth={1.75} />
+              New School Year
+            </button>
+          )}
         </div>
       </div>
 
@@ -236,30 +246,35 @@ export function SchoolYearsPage() {
                   <td>{sy.end_date}</td>
                   <td>{sy.is_current && <StatusPill label="current" variant="info" />}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                      <button
-                        type="button"
-                        className="btn-subtle"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startEditYear(sy)
-                        }}
-                      >
-                        <Pencil size={13} strokeWidth={1.75} /> Edit
-                      </button>
-                      {!sy.is_current && (
+                    {/* Inline rather than a row menu, and so easy to miss
+                        when hiding write controls — a read-only principal
+                        must get neither. */}
+                    {canWrite && (
+                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                         <button
                           type="button"
                           className="btn-subtle"
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleSetCurrent(sy)
+                            startEditYear(sy)
                           }}
                         >
-                          <Star size={13} strokeWidth={1.75} /> Set current
+                          <Pencil size={13} strokeWidth={1.75} /> Edit
                         </button>
-                      )}
-                    </div>
+                        {!sy.is_current && (
+                          <button
+                            type="button"
+                            className="btn-subtle"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSetCurrent(sy)
+                            }}
+                          >
+                            <Star size={13} strokeWidth={1.75} /> Set current
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -279,7 +294,7 @@ export function SchoolYearsPage() {
               </span>
             )}
           </h2>
-          {selectedYearId && (
+          {selectedYearId && canWrite && (
             <button type="button" className="btn-primary" onClick={startCreatePeriod}>
               <Plus size={16} strokeWidth={1.75} />
               New Grading Period
@@ -362,9 +377,11 @@ export function SchoolYearsPage() {
                     <td>{p.start_date}</td>
                     <td>{p.end_date}</td>
                     <td>
-                      <button type="button" className="btn-subtle" onClick={() => startEditPeriod(p)}>
-                        <Pencil size={13} strokeWidth={1.75} /> Edit
-                      </button>
+                      {canWrite && (
+                        <button type="button" className="btn-subtle" onClick={() => startEditPeriod(p)}>
+                          <Pencil size={13} strokeWidth={1.75} /> Edit
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { defaultSelection } from '../utils/defaultSelection'
 import { AttendanceRosterPanel } from '../components/AttendanceRosterPanel'
 import { todayDateString } from '../utils/dateUtils'
 
@@ -7,6 +8,8 @@ import { todayDateString } from '../utils/dateUtils'
 // class_offering — separate from the adviser's daily register. Same marking
 // UI as DailyAttendancePage (see AttendanceRosterPanel), just scoped to a
 // class offering instead of a section.
+
+
 export function SubjectAttendancePage() {
   const [offerings, setOfferings] = useState([])
   const [classOfferingId, setClassOfferingId] = useState('')
@@ -30,7 +33,12 @@ export function SubjectAttendancePage() {
   // class). The backend scopes this the same way: /class-offerings/mine
   // returns whatever this user id actually teaches, empty if nothing.
   useEffect(() => {
-    api.get('/class-offerings/mine').then((data) => setOfferings(data.classOfferings))
+    api.get('/class-offerings/mine').then((data) => {
+      setOfferings(data.classOfferings)
+      // Always scoped to this user, so there is always something sensible
+      // to open on when they teach anything at all.
+      setClassOfferingId((current) => current || defaultSelection(data.classOfferings, true))
+    })
   }, [])
 
   useEffect(() => {

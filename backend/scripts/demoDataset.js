@@ -56,6 +56,20 @@ const SUBJECTS = [
   { code: 'ABM11', name: 'Business Mathematics', strands: ['ABM'], teacher: 'teacher2@studentportal.local' },
 ];
 
+// Who teaches a given subject TO A GIVEN SECTION, overriding SUBJECTS'
+// default teacher. Keyed `'<section>|<subject code>'`.
+//
+// This exists for one case worth demonstrating: the STEM A adviser also
+// teaches Personal Development to ABM A. That is how the school actually
+// staffs its timetable — a teacher advises one section and teaches subjects
+// to others — and until now no seeded user held both kinds of assignment,
+// so the behaviour could not be exercised or demoed at all. It is also the
+// exact shape that used to break: they could submit those ABM A students'
+// grades and then not be allowed to open their records.
+const TEACHER_OVERRIDES = {
+  'ABM A|PERDEV11': 'adviser@studentportal.local',
+};
+
 // --- How a student performs -------------------------------------------------
 // The risk formula reads two series per student: the average of their
 // FINALIZED grades per period, and their daily attendance rate per period.
@@ -227,6 +241,7 @@ const ANNOUNCEMENTS = [
 ];
 
 module.exports = {
+  TEACHER_OVERRIDES,
   DEMO_PASSWORD,
   STAFF,
   SECTIONS,

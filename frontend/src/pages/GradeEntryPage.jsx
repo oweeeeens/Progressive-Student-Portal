@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
+import { defaultSelection } from '../utils/defaultSelection'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { useUnsavedChangesTracker } from '../hooks/useUnsavedChangesTracker'
@@ -46,7 +47,10 @@ export function GradeEntryPage() {
   const [baselineVersion, setBaselineVersion] = useState(0)
 
   useEffect(() => {
-    api.get('/class-offerings/mine').then((data) => setOfferings(data.classOfferings))
+    api.get('/class-offerings/mine').then((data) => {
+      setOfferings(data.classOfferings)
+      setClassOfferingId((current) => current || defaultSelection(data.classOfferings, true))
+    })
     api.get('/grading-periods').then((data) => setPeriods(data.gradingPeriods))
   }, [])
 
