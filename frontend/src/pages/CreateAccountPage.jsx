@@ -95,7 +95,27 @@ export function CreateAccountPage() {
   }
 
   const isStudentRole = role === 'student'
-  const canSubmit = isStudentRole ? Boolean(selectedStudent && selectedStudent.email) : Boolean(email && fullName)
+
+  // Why the button is disabled, in the same expression that disables it.
+  //
+  // It used to be a bare boolean, so the submit button went grey with no
+  // explanation anywhere on the page — for a student the reason is usually
+  // "you have not picked one yet", which is not obvious when the roster
+  // above is long enough to scroll past the selection. A disabled control
+  // that does not say why is a dead end: the reader can see that the form
+  // will not submit and has nothing to act on.
+  const blockedReason = isStudentRole
+    ? !selectedStudent
+      ? 'Choose a student from the list above to create their account.'
+      : !selectedStudent.email
+        ? 'This student has no personal email on file, so there is no address to sign in with.'
+        : null
+    : !fullName
+      ? 'Enter the staff member’s full name.'
+      : !email
+        ? 'Enter the email address this person will sign in with.'
+        : null
+  const canSubmit = !blockedReason
 
   return (
     <div className="account-form-page">
@@ -221,8 +241,17 @@ export function CreateAccountPage() {
 
         {error && <Alert>{error}</Alert>}
         <button type="submit" className="btn-primary" disabled={submitting || !canSubmit}>
-          {submitting ? 'Creating Account...' : 'Create Account'}
+          {submitting ? 'Creating Account…' : 'Create Account'}
         </button>
+        {/* Below the button rather than above it, so it reads as the answer
+            to "why can't I press this". aria-live so it is announced when
+            the reason changes — a screen reader user otherwise only finds
+            out by tabbing back to a button that is still disabled. */}
+        {blockedReason && !submitting && (
+          <p className="form-note" aria-live="polite">
+            {blockedReason}
+          </p>
+        )}
       </form>
     </div>
   )

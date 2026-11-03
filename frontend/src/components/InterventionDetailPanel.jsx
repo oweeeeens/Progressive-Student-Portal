@@ -18,7 +18,12 @@ export const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'ri
 // on the Student Detail page (InterventionHistory) and as the row-expansion
 // target on the standalone Interventions page — one implementation, two
 // entry points, so status changes can't drift between them.
-export function InterventionDetailPanel({ intervention, studentName, onStatusChange }) {
+// `busy` is set by the caller while a status change it started is still in
+// flight. The control is a <select>, so the risk is not a double-click but a
+// second change made before the first has landed — which would race two
+// writes against the same row and leave the dropdown showing whichever
+// refetch answered last.
+export function InterventionDetailPanel({ intervention, studentName, onStatusChange, busy = false }) {
   return (
     <div className="intervention-detail">
       <dl className="field-grid">
@@ -57,7 +62,11 @@ export function InterventionDetailPanel({ intervention, studentName, onStatusCha
 
       <label className="intervention-detail__status-field">
         Status
-        <select value={intervention.status} onChange={(e) => onStatusChange(intervention.id, e.target.value)}>
+        <select
+          value={intervention.status}
+          disabled={busy}
+          onChange={(e) => onStatusChange(intervention.id, e.target.value)}
+        >
           {Object.keys(INTERVENTION_STATUS_VARIANTS).map((s) => (
             <option key={s} value={s}>
               {s}

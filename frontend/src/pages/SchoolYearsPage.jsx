@@ -7,6 +7,8 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
+import { SkeletonTable } from '../components/Skeleton'
+import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 const emptySchoolYearForm = { label: '', startDate: '', endDate: '' }
 const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: '' }
@@ -28,11 +30,15 @@ export function SchoolYearsPage() {
 
   const [schoolYears, setSchoolYears] = useState([])
   const [loadingYears, setLoadingYears] = useState(true)
-  const [error, setError] = useState(null)
   const [showYearForm, setShowYearForm] = useState(false)
   const [editingYearId, setEditingYearId] = useState(null)
   const [yearForm, setYearForm] = useState(emptySchoolYearForm)
-  const [savingYear, setSavingYear] = useState(false)
+
+  // Failures, confirmations and the in-flight guard for all three writes on
+  // this page. Confirmations matter most here: "Set current" changes which
+  // school year the whole app reads by default, and used to report that by
+  // refetching a table whose only visible difference is one pill.
+  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
 
   const [selectedYearId, setSelectedYearId] = useState('')
   const [periods, setPeriods] = useState([])
@@ -40,7 +46,6 @@ export function SchoolYearsPage() {
   const [showPeriodForm, setShowPeriodForm] = useState(false)
   const [editingPeriodId, setEditingPeriodId] = useState(null)
   const [periodForm, setPeriodForm] = useState(emptyPeriodForm)
-  const [savingPeriod, setSavingPeriod] = useState(false)
 
   function loadSchoolYears() {
     setLoadingYears(true)
@@ -56,7 +61,7 @@ export function SchoolYearsPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoadingYears(false))
   }
-  useEffect(loadSchoolYears, [])
+  useEffect(loadSchoolYears, [setError])
 
   function loadPeriods() {
     if (!selectedYearId) {
@@ -70,7 +75,7 @@ export function SchoolYearsPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoadingPeriods(false))
   }
-  useEffect(loadPeriods, [selectedYearId])
+  useEffect(loadPeriods, [selectedYearId, setError])
 
   function startCreateYear() {
     setEditingYearId(null)
@@ -86,31 +91,33 @@ export function SchoolYearsPage() {
 
   async function handleYearSubmit(e) {
     e.preventDefault()
-    setError(null)
-    setSavingYear(true)
-    try {
-      if (editingYearId) {
-        await api.put(`/school-years/${editingYearId}`, yearForm)
-      } else {
-        await api.post('/school-years', yearForm)
-      }
-      setShowYearForm(false)
-      loadSchoolYears()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSavingYear(false)
-    }
+    const wasEdit = Boolean(editingYearId)
+    await runWrite(
+      'year-form',
+      async () => {
+        if (editingYearId) {
+          await api.put(`/school-years/${editingYearId}`, yearForm)
+        } else {
+          await api.post('/school-years', yearForm)
+        }
+        setShowYearForm(false)
+        loadSchoolYears()
+      },
+      `School year ${yearForm.label} ${wasEdit ? 'updated' : 'created'}.`
+    )
   }
 
   async function handleSetCurrent(sy) {
-    setError(null)
-    try {
-      await api.post(`/school-years/${sy.id}/set-current`)
-      loadSchoolYears()
-    } catch (err) {
-      setError(err.message)
-    }
+    await runWrite(
+      `set-current-${sy.id}`,
+      async () => {
+        await api.post(`/school-years/${sy.id}/set-current`)
+        loadSchoolYears()
+      },
+      // Spelled out rather than "Saved", because this one write changes what
+      // every other page in the app treats as the current year.
+      `${sy.label} is now the current school year.`
+    )
   }
 
   function startCreatePeriod() {
@@ -133,8 +140,7 @@ export function SchoolYearsPage() {
 
   async function handlePeriodSubmit(e) {
     e.preventDefault()
-    setError(null)
-    setSavingPeriod(true)
+    const wasEdit = Boolean(editingPeriodId)
     const payload = {
       schoolYearId: Number(selectedYearId),
       name: periodForm.name,
@@ -142,19 +148,19 @@ export function SchoolYearsPage() {
       startDate: periodForm.startDate,
       endDate: periodForm.endDate,
     }
-    try {
-      if (editingPeriodId) {
-        await api.put(`/grading-periods/${editingPeriodId}`, payload)
-      } else {
-        await api.post('/grading-periods', payload)
-      }
-      setShowPeriodForm(false)
-      loadPeriods()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSavingPeriod(false)
-    }
+    await runWrite(
+      'period-form',
+      async () => {
+        if (editingPeriodId) {
+          await api.put(`/grading-periods/${editingPeriodId}`, payload)
+        } else {
+          await api.post('/grading-periods', payload)
+        }
+        setShowPeriodForm(false)
+        loadPeriods()
+      },
+      `${payload.name} ${wasEdit ? 'updated' : 'created'}.`
+    )
   }
 
   const currentYear = schoolYears.find((sy) => sy.is_current)
@@ -181,6 +187,7 @@ export function SchoolYearsPage() {
       </StatRow>
 
       {error && <Alert>{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
 
       {showYearForm && (
         <form onSubmit={handleYearSubmit} className="intervention-log-form">
@@ -209,8 +216,8 @@ export function SchoolYearsPage() {
             />
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <button type="submit" className="btn-primary" disabled={savingYear}>
-              {savingYear ? 'Saving…' : editingYearId ? 'Save Changes' : 'Create School Year'}
+            <button type="submit" className="btn-primary" disabled={busyKey === 'year-form'}>
+              {busyKey === 'year-form' ? 'Saving…' : editingYearId ? 'Save Changes' : 'Create School Year'}
             </button>
             <button type="button" onClick={() => setShowYearForm(false)}>
               Cancel
@@ -220,7 +227,7 @@ export function SchoolYearsPage() {
       )}
 
       {loadingYears ? (
-        <p>Loading…</p>
+        <SkeletonTable rows={4} columns={5} />
       ) : (
         <div className="table-card">
           <table>
@@ -265,12 +272,14 @@ export function SchoolYearsPage() {
                           <button
                             type="button"
                             className="btn-subtle"
+                            disabled={busyKey === `set-current-${sy.id}`}
                             onClick={(e) => {
                               e.stopPropagation()
                               handleSetCurrent(sy)
                             }}
                           >
-                            <Star size={13} strokeWidth={1.75} /> Set current
+                            <Star size={13} strokeWidth={1.75} />
+                            {busyKey === `set-current-${sy.id}` ? 'Setting…' : 'Set current'}
                           </button>
                         )}
                       </div>
@@ -337,8 +346,8 @@ export function SchoolYearsPage() {
               />
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-              <button type="submit" className="btn-primary" disabled={savingPeriod}>
-                {savingPeriod ? 'Saving…' : editingPeriodId ? 'Save Changes' : 'Create Grading Period'}
+              <button type="submit" className="btn-primary" disabled={busyKey === 'period-form'}>
+                {busyKey === 'period-form' ? 'Saving…' : editingPeriodId ? 'Save Changes' : 'Create Grading Period'}
               </button>
               <button type="button" onClick={() => setShowPeriodForm(false)}>
                 Cancel
@@ -352,7 +361,7 @@ export function SchoolYearsPage() {
             <p>Select a school year above to manage its grading periods.</p>
           </div>
         ) : loadingPeriods ? (
-          <p>Loading…</p>
+          <SkeletonTable rows={3} columns={5} />
         ) : periods.length === 0 ? (
           <div className="empty-state">
             <p>No grading periods yet for this school year.</p>

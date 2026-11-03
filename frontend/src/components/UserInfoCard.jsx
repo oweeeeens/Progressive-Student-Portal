@@ -27,18 +27,21 @@ export function UserInfoCard({ stats }) {
   const [sections, setSections] = useState(null)
   const [classOfferings, setClassOfferings] = useState(null)
 
+  // Both lists, for everyone who can hold either assignment. The previous
+  // if/else-if on the role label meant a teacher who advises one section and
+  // teaches another had one of the two rows silently missing — see the same
+  // fix in StaffHero.jsx.
   useEffect(() => {
-    if (user.role === 'adviser') {
-      api
-        .get('/sections/mine')
-        .then((data) => setSections(data.sections))
-        .catch(() => setSections([]))
-    } else if (user.role === 'subject_teacher') {
-      api
-        .get('/class-offerings/mine')
-        .then((data) => setClassOfferings(data.classOfferings))
-        .catch(() => setClassOfferings([]))
-    }
+    if (user.role === 'student') return
+
+    api
+      .get('/sections/mine')
+      .then((data) => setSections(data.sections || []))
+      .catch(() => setSections([]))
+    api
+      .get('/class-offerings/mine')
+      .then((data) => setClassOfferings(data.classOfferings || []))
+      .catch(() => setClassOfferings([]))
   }, [user.role])
 
   const taskInfo = getTaskInfo(user, stats)

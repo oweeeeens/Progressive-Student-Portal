@@ -24,6 +24,7 @@ import { GradeHistory } from '../components/GradeHistory'
 import { InterventionHistory } from '../components/InterventionHistory'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { Alert } from '../components/Alert'
+import { LoadingAnnouncement, Skeleton, SkeletonTable } from '../components/Skeleton'
 import { humanize } from '../utils/humanize'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
@@ -277,7 +278,16 @@ export function StudentDetailPage() {
     }
   }
 
-  if (loading) return <p>Loading…</p>
+  if (loading) {
+    return (
+      <div className="student-detail-loading">
+        <Skeleton h="1.5rem" w="14rem" />
+        <Skeleton h="1rem" w="9rem" />
+        <SkeletonTable rows={5} columns={4} />
+        <LoadingAnnouncement>Loading this student's record…</LoadingAnnouncement>
+      </div>
+    )
+  }
   if (error) return <Alert>{error}</Alert>
   if (!student) return null
 

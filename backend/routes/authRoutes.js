@@ -7,6 +7,7 @@ const {
   passwordResetAvailability,
   forgotPassword,
   resetPassword,
+  updateProfile,
   me,
 } = require('../controllers/authController');
 const { requireAuth } = require('../middleware/authMiddleware');
@@ -60,6 +61,10 @@ router.post('/register', requireAuth, requireRole('admin', 'registrar'), registe
 // must_change_password account to still reach these two — see the
 // /api/auth/ allowlist in authMiddleware.js.
 router.post('/change-password', requireAuth, changePassword);
+// Self-service name/email edit. No requireRole: every signed-in person owns
+// their own profile, and the handler takes the id from the token rather than
+// the body, so there is no other account it could reach.
+router.patch('/profile', requireAuth, updateProfile);
 router.get('/me', requireAuth, me);
 
 module.exports = router;

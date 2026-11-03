@@ -5,6 +5,7 @@ import { LineChart } from './charts/LineChart'
 import { ChartCard } from './charts/ChartCard'
 import { DataTable, fieldValue } from './table/DataTable'
 import { Alert } from './Alert'
+import { SkeletonTable } from './Skeleton'
 
 const STATUS_VARIANTS = { draft: 'warning', finalized: 'positive' }
 
@@ -24,7 +25,7 @@ export function GradeHistory({ studentId }) {
   }, [studentId])
 
   if (error) return <Alert>{error}</Alert>
-  if (!grades) return <p>Loading…</p>
+  if (!grades) return <SkeletonTable rows={4} columns={5} />
 
   return (
     <div className="record-section">

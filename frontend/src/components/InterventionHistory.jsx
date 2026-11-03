@@ -5,6 +5,8 @@ import { StatusPill } from './StatusPill'
 import { DataTable, fieldValue } from './table/DataTable'
 import { InterventionDetailPanel, INTERVENTION_TYPE_LABELS, INTERVENTION_STATUS_VARIANTS } from './InterventionDetailPanel'
 import { Alert } from './Alert'
+import { SkeletonTable } from './Skeleton'
+import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 // Resolved/Escalated are normally set automatically by the risk engine on
 // the next recalculation (see riskEngine.js) — Open/Monitoring are the two
@@ -13,11 +15,14 @@ import { Alert } from './Alert'
 // value as a manual override/escape hatch.
 export function InterventionHistory({ studentId }) {
   const [interventions, setInterventions] = useState(null)
-  const [error, setError] = useState(null)
   const [type, setType] = useState('parent_conference')
   const [notes, setNotes] = useState('')
-  const [submitting, setSubmitting] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
+
+  // Same three concerns as the standalone Interventions page, through the
+  // same hook — logging an intervention is a record about a named minor, so
+  // "did that save?" should not be answered by inference.
+  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
 
   function load() {
     api
@@ -26,42 +31,44 @@ export function InterventionHistory({ studentId }) {
       .catch((err) => setError(err.message))
   }
 
-  useEffect(load, [studentId])
+  useEffect(load, [studentId, setError])
 
   async function handleLog(e) {
     e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
-      await api.post(`/students/${studentId}/interventions`, { interventionType: type, notes })
-      setNotes('')
-      load()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
+    const typeLabel = INTERVENTION_TYPE_LABELS[type] || type
+    await runWrite(
+      'log',
+      async () => {
+        await api.post(`/students/${studentId}/interventions`, { interventionType: type, notes })
+        setNotes('')
+        load()
+      },
+      `${typeLabel} logged.`
+    )
   }
 
   async function handleStatusChange(id, status) {
-    try {
-      await api.patch(`/interventions/${id}/status`, { status })
-      load()
-    } catch (err) {
-      setError(err.message)
-    }
+    await runWrite(
+      `status-${id}`,
+      async () => {
+        await api.patch(`/interventions/${id}/status`, { status })
+        load()
+      },
+      `Intervention marked ${status.replace(/_/g, ' ')}.`
+    )
   }
 
   function toggleExpanded(id) {
     setExpandedId((current) => (current === id ? null : id))
   }
 
-  if (!interventions) return <p>Loading…</p>
+  if (!interventions) return <SkeletonTable rows={3} columns={4} />
 
   return (
     <div className="record-section">
       <h2>Interventions</h2>
       {error && <Alert>{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
 
       <form onSubmit={handleLog} className="panel intervention-log-form">
         <h3>Log a new intervention</h3>
@@ -85,8 +92,8 @@ export function InterventionHistory({ studentId }) {
             />
           </label>
         </div>
-        <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting ? 'Logging…' : 'Log Intervention'}
+        <button type="submit" className="btn-primary" disabled={busyKey === 'log'}>
+          {busyKey === 'log' ? 'Logging…' : 'Log Intervention'}
         </button>
       </form>
 
@@ -106,7 +113,13 @@ export function InterventionHistory({ studentId }) {
           rowKey={(i) => i.id}
           onRowClick={(i) => toggleExpanded(i.id)}
           renderExpanded={(i) =>
-            expandedId === i.id ? <InterventionDetailPanel intervention={i} onStatusChange={handleStatusChange} /> : null
+            expandedId === i.id ? (
+              <InterventionDetailPanel
+                intervention={i}
+                onStatusChange={handleStatusChange}
+                busy={busyKey === `status-${i.id}`}
+              />
+            ) : null
           }
           rowActions={(i) => [
             {

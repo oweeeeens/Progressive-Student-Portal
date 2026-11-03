@@ -14,6 +14,7 @@ import {
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { TableToolbar, TableFilter } from '../components/table/TableToolbar'
 import { Alert } from '../components/Alert'
+import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 const PAGE_SIZE = 15
 
@@ -28,16 +29,21 @@ export function InterventionsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [interventionType, setInterventionType] = useState('')
-  const [error, setError] = useState(null)
   const [counts, setCounts] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+
+  // A status change is the one write on this page, and it had neither a
+  // confirmation nor an in-flight guard: the panel's buttons stayed live
+  // while the request was out, so two clicks sent two writes, and a
+  // successful one reported itself only by the table quietly redrawing.
+  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
 
   useEffect(() => {
     api
       .get('/interventions/stats')
       .then((data) => setCounts(data.counts))
       .catch((err) => setError(err.message))
-  }, [])
+  }, [setError])
 
   function load() {
     const params = new URLSearchParams({ page, pageSize: PAGE_SIZE })
@@ -65,16 +71,20 @@ export function InterventionsPage() {
   useEffect(() => {
     setExpandedId(null)
     load()
-  }, [page, search, status, interventionType])
+  }, [page, search, status, interventionType, setError])
 
   async function handleStatusChange(id, newStatus) {
-    try {
-      await api.patch(`/interventions/${id}/status`, { status: newStatus })
-      load()
-      api.get('/interventions/stats').then((data) => setCounts(data.counts))
-    } catch (err) {
-      setError(err.message)
-    }
+    await runWrite(
+      `status-${id}`,
+      async () => {
+        await api.patch(`/interventions/${id}/status`, { status: newStatus })
+        load()
+        api.get('/interventions/stats').then((data) => setCounts(data.counts))
+      },
+      // The status word with its underscore removed — these come from the
+      // database as `in_progress`-style values.
+      `Intervention marked ${newStatus.replace(/_/g, ' ')}.`
+    )
   }
 
   function toggleExpanded(id) {
@@ -118,6 +128,7 @@ export function InterventionsPage() {
       )}
 
       {error && <Alert>{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
 
       <TableToolbar
         search={search}
@@ -222,6 +233,7 @@ export function InterventionsPage() {
               intervention={i}
               studentName={`${i.student_last_name}, ${i.student_first_name}`}
               onStatusChange={handleStatusChange}
+              busy={busyKey === `status-${i.id}`}
             />
             ) : null
           }

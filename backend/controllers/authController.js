@@ -14,6 +14,14 @@ const { createStudentAccount } = require('../services/accountCreation');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Emails are stored lowercased (userModel.normalizeEmail), so "is this
+// actually a change?" has to be asked case-insensitively — otherwise
+// re-saving the profile with the address already on file would demand the
+// current password for a no-op.
+function normalizeEmailForCompare(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
 function signToken(user) {
   return jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
@@ -211,6 +219,79 @@ async function resetPassword(req, res) {
   res.json({ message: 'Password reset. You can now log in with your new password.' });
 }
 
+// Self-service profile edit — the person changing their OWN name or email.
+//
+// Distinct from userController.updateAccount, which is an admin/registrar
+// acting on somebody else's account and can also change the role. Nothing
+// here can touch a role, an active flag, or another user's row: the id comes
+// from the verified token, never from the request body.
+//
+// An email change requires the current password, for every role including
+// admin. Whoever controls the address controls password recovery, so this is
+// the one profile field that is really a credential: without the check, a
+// borrowed session or a stolen token could repoint recovery to an attacker's
+// inbox and then take the account permanently with "Forgot password". A name
+// change carries no such consequence and asks for nothing.
+async function updateProfile(req, res) {
+  const { fullName, email, currentPassword } = req.body;
+
+  // The forced-password-change allowlist in authMiddleware is the whole of
+  // /api/auth/, so this route would otherwise be reachable with a temporary
+  // password still in place — before the account is really the user's.
+  if (req.user.must_change_password) {
+    return res.status(403).json({
+      error: 'Change your password before editing your profile.',
+      mustChangePassword: true,
+    });
+  }
+
+  const data = {};
+
+  if (fullName !== undefined) {
+    if (!String(fullName).trim()) {
+      return res.status(400).json({ error: 'Name cannot be empty.' });
+    }
+    data.fullName = String(fullName).trim();
+  }
+
+  const emailChanged = email !== undefined && normalizeEmailForCompare(email) !== normalizeEmailForCompare(req.user.email);
+
+  if (emailChanged) {
+    if (!EMAIL_PATTERN.test(String(email).trim())) {
+      return res.status(400).json({ error: 'That email address does not look valid.' });
+    }
+    if (!currentPassword) {
+      return res.status(400).json({ error: 'Enter your current password to change your email address.' });
+    }
+
+    // Same re-fetch as changePassword: req.user carries PUBLIC_COLUMNS only,
+    // which excludes the hash.
+    const userWithHash = await userModel.findByIdWithHash(req.user.id);
+    if (!userWithHash) {
+      return res.status(401).json({ error: 'Account not found.' });
+    }
+    const passwordMatches = await verifyPassword(currentPassword, userWithHash.password_hash);
+    if (!passwordMatches) {
+      return res.status(401).json({ error: 'Current password is incorrect.' });
+    }
+
+    // Checked before the write as well as by the UNIQUE INDEX on
+    // lower(email), so the user gets this sentence instead of a 500.
+    const existingByEmail = await userModel.findByEmail(email);
+    if (existingByEmail && existingByEmail.id !== req.user.id) {
+      return res.status(409).json({ error: 'An account with that email already exists.' });
+    }
+    data.email = String(email).trim();
+  }
+
+  if (Object.keys(data).length === 0) {
+    return res.json({ user: toPublicUser(req.user) });
+  }
+
+  const updated = await userModel.updateUser(req.user.id, data);
+  res.json({ user: toPublicUser(updated), message: 'Profile updated.' });
+}
+
 async function me(req, res) {
   res.json({ user: toPublicUser(req.user) });
 }
@@ -222,5 +303,6 @@ module.exports = {
   passwordResetAvailability,
   forgotPassword,
   resetPassword,
+  updateProfile,
   me,
 };

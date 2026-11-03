@@ -7,6 +7,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { DataTable, fieldValue } from '../components/table/DataTable'
+import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 const PAGE_SIZE = 15
 // Either teaching role can hold either assignment, because that is how the
@@ -41,12 +42,17 @@ export function SectionsPage() {
   const [includeInactive, setIncludeInactive] = useState(false)
   const [schoolYears, setSchoolYears] = useState([])
   const [advisers, setAdvisers] = useState([])
-  const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
-  const [saving, setSaving] = useState(false)
+
+  // Failures, confirmations and the in-flight guard for every write on this
+  // page. Before this, a successful save closed the form and refetched and
+  // said nothing at all — so on a page whose only other message is an error,
+  // silence was how the user learned it had worked. The keyed busy flag also
+  // stops a double-click sending the same write twice.
+  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
 
   useEffect(() => {
     api.get('/school-years').then((data) => setSchoolYears(data.schoolYears))
@@ -56,7 +62,7 @@ export function SectionsPage() {
     if (canWrite) {
       api.get('/users').then((data) => setAdvisers(data.users.filter((u) => ASSIGNABLE_TEACHING_ROLES.includes(u.role))))
     }
-  }, [canWrite])
+  }, [canWrite, setError])
 
   function loadStats() {
     api.get('/sections/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total))
@@ -77,7 +83,7 @@ export function SectionsPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }
-  useEffect(load, [page, search, includeInactive])
+  useEffect(load, [page, search, includeInactive, setError])
 
   function startCreate() {
     setEditingId(null)
@@ -100,8 +106,7 @@ export function SectionsPage() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    setError(null)
-    setSaving(true)
+    const wasEdit = Boolean(editingId)
     const payload = {
       schoolYearId: Number(form.schoolYearId),
       gradeLevel: Number(form.gradeLevel),
@@ -109,31 +114,35 @@ export function SectionsPage() {
       name: form.name,
       adviserId: Number(form.adviserId),
     }
-    try {
-      if (editingId) {
-        await api.put(`/sections/${editingId}`, payload)
-      } else {
-        await api.post('/sections', payload)
-      }
-      setShowForm(false)
-      load()
-      loadStats()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
+    await runWrite(
+      'form',
+      async () => {
+        if (editingId) {
+          await api.put(`/sections/${editingId}`, payload)
+        } else {
+          await api.post('/sections', payload)
+        }
+        setShowForm(false)
+        load()
+        loadStats()
+      },
+      `${form.name} ${wasEdit ? 'updated' : 'created'}.`
+    )
   }
 
   async function handleToggleActive(row) {
-    setError(null)
-    try {
-      await api.post(`/sections/${row.id}/${row.is_active ? 'deactivate' : 'reactivate'}`)
-      load()
-      loadStats()
-    } catch (err) {
-      setError(err.message)
-    }
+    const deactivating = row.is_active
+    await runWrite(
+      // Keyed on the row so only that row's actions are disabled while the
+      // request is out, rather than freezing the whole table.
+      row.id,
+      async () => {
+        await api.post(`/sections/${row.id}/${deactivating ? 'deactivate' : 'reactivate'}`)
+        load()
+        loadStats()
+      },
+      `${row.name} ${deactivating ? 'deactivated' : 'reactivated'}.`
+    )
   }
 
 
@@ -188,6 +197,7 @@ export function SectionsPage() {
       </p>
 
       {error && <Alert>{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="intervention-log-form">
@@ -238,8 +248,8 @@ export function SectionsPage() {
             </select>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Section'}
+            <button type="submit" className="btn-primary" disabled={busyKey === 'form'}>
+              {busyKey === 'form' ? 'Saving…' : editingId ? 'Save Changes' : 'Create Section'}
             </button>
             <button type="button" onClick={() => setShowForm(false)}>
               Cancel
@@ -281,8 +291,21 @@ export function SectionsPage() {
         rowActions={(r) => (!canWrite ? [] : [
           { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => startEdit(r) },
           r.is_active
-            ? { key: 'deactivate', label: 'Deactivate', icon: XCircle, danger: true, onSelect: () => handleToggleActive(r) }
-            : { key: 'reactivate', label: 'Reactivate', icon: CheckCircle2, onSelect: () => handleToggleActive(r) },
+            ? {
+                key: 'deactivate',
+                label: 'Deactivate',
+                icon: XCircle,
+                danger: true,
+                disabled: busyKey === r.id,
+                onSelect: () => handleToggleActive(r),
+              }
+            : {
+                key: 'reactivate',
+                label: 'Reactivate',
+                icon: CheckCircle2,
+                disabled: busyKey === r.id,
+                onSelect: () => handleToggleActive(r),
+              },
         ])}
         page={page}
         pageSize={PAGE_SIZE}

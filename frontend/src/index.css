@@ -3034,6 +3034,24 @@ svg[data-chart-density='compact'] .chart-reference-label {
 .form-field__feedback--success {
   color: var(--color-success);
 }
+.form-field__feedback--hint {
+  color: var(--color-text-muted);
+}
+
+/* The visual half of aria-invalid. Set on the attribute rather than on a
+   class so it cannot drift from what a screen reader is told: one of the two
+   can no longer be present without the other. Colour is not the only signal
+   — the message below the field carries the reason in words. */
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+input[aria-invalid='true']:focus-visible,
+select[aria-invalid='true']:focus-visible,
+textarea[aria-invalid='true']:focus-visible {
+  outline-color: var(--color-danger);
+}
 
 .intervention-detail__status-field {
   display: inline-block;
@@ -5090,4 +5108,95 @@ svg[data-chart-density='compact'] .chart-reference-label {
   width: auto;
   margin: 0;
   vertical-align: middle;
+}
+
+/* --- Your profile ------------------------------------------------------- */
+
+/* Two narrow panels side by side on a desktop, stacked on a phone. The
+   assignments panel spans both columns because its content is lists, not a
+   form, and reads badly in a 22rem column. */
+/* Two columns above the phone breakpoint, stated rather than derived.
+   `repeat(auto-fit, minmax(20rem, 1fr))` fitted THREE columns on a wide
+   monitor, and since there are only two forms the third sat empty — a third
+   of the page reserved for nothing. These are forms, not cards: their number
+   is fixed at two, so the track count should be too. 720px is the project's
+   phone boundary (see the Responsive Design notes in CLAUDE.md); a custom
+   property cannot be used inside a media condition, hence the literal. */
+.profile-page {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (min-width: 721px) {
+  .profile-page {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.profile-page__panel--wide {
+  grid-column: 1 / -1;
+}
+.profile-page__panel h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+}
+.profile-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.profile-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+.profile-page__assignments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-4);
+}
+.profile-page__assignment h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.profile-page__list {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-4);
+}
+.profile-page__list li {
+  margin-bottom: var(--space-1);
+}
+/* The pages an assignment actually gives you. Laid out as a wrapping row so
+   a teacher with both kinds of assignment does not get two tall stacks. */
+.profile-page__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.profile-page__links a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* App boot, before the router knows which page it is rendering. */
+.app-boot-loading {
+  padding: var(--space-6);
+  color: var(--color-text-muted);
+}
+
+/* The student record page's loading state: a name, a line of meta, a table. */
+.student-detail-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }

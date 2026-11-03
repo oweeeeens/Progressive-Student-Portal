@@ -7,6 +7,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { DataTable, fieldValue } from '../components/table/DataTable'
+import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 const PAGE_SIZE = 15
 const emptyForm = { name: '', code: '', gradeLevel: '' }
@@ -29,12 +30,16 @@ export function SubjectsPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [includeInactive, setIncludeInactive] = useState(false)
-  const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
-  const [saving, setSaving] = useState(false)
+
+  // Failures, confirmations and the in-flight guard for every write on this
+  // page. Before this, a successful save closed the form and refetched and
+  // said nothing at all — so on a page whose only other message is an error,
+  // silence was how the user learned it had worked.
+  const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
 
   function loadStats() {
     api.get('/subjects/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total))
@@ -55,7 +60,7 @@ export function SubjectsPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }
-  useEffect(load, [page, search, includeInactive])
+  useEffect(load, [page, search, includeInactive, setError])
 
   function startCreate() {
     setEditingId(null)
@@ -71,34 +76,40 @@ export function SubjectsPage() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    setError(null)
-    setSaving(true)
     const payload = { name: form.name, code: form.code || null, gradeLevel: form.gradeLevel ? Number(form.gradeLevel) : null }
-    try {
-      if (editingId) {
-        await api.put(`/subjects/${editingId}`, payload)
-      } else {
-        await api.post('/subjects', payload)
-      }
-      setShowForm(false)
-      load()
-      loadStats()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
+    const wasEdit = Boolean(editingId)
+
+    await runWrite(
+      'form',
+      async () => {
+        if (editingId) {
+          await api.put(`/subjects/${editingId}`, payload)
+        } else {
+          await api.post('/subjects', payload)
+        }
+        setShowForm(false)
+        load()
+        loadStats()
+      },
+      // Names the subject back, so the confirmation is about the thing that
+      // was saved rather than a generic "Saved" that could belong to any row.
+      `${form.name} ${wasEdit ? 'updated' : 'created'}.`
+    )
   }
 
   async function handleToggleActive(row) {
-    setError(null)
-    try {
-      await api.post(`/subjects/${row.id}/${row.is_active ? 'deactivate' : 'reactivate'}`)
-      load()
-      loadStats()
-    } catch (err) {
-      setError(err.message)
-    }
+    const deactivating = row.is_active
+    await runWrite(
+      // Keyed on the row so only that row's actions are disabled while the
+      // request is out, rather than freezing the whole table.
+      row.id,
+      async () => {
+        await api.post(`/subjects/${row.id}/${deactivating ? 'deactivate' : 'reactivate'}`)
+        load()
+        loadStats()
+      },
+      `${row.name} ${deactivating ? 'deactivated' : 'reactivated'}.`
+    )
   }
 
 
@@ -153,6 +164,7 @@ export function SubjectsPage() {
       </p>
 
       {error && <Alert>{error}</Alert>}
+      {notice && <Alert variant="success">{notice}</Alert>}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="intervention-log-form">
@@ -176,8 +188,8 @@ export function SubjectsPage() {
             </select>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Subject'}
+            <button type="submit" className="btn-primary" disabled={busyKey === 'form'}>
+              {busyKey === 'form' ? 'Saving…' : editingId ? 'Save Changes' : 'Create Subject'}
             </button>
             <button type="button" onClick={() => setShowForm(false)}>
               Cancel
@@ -208,8 +220,21 @@ export function SubjectsPage() {
         rowActions={(r) => (!canWrite ? [] : [
           { key: 'edit', label: 'Edit', icon: Pencil, onSelect: () => startEdit(r) },
           r.is_active
-            ? { key: 'deactivate', label: 'Deactivate', icon: XCircle, danger: true, onSelect: () => handleToggleActive(r) }
-            : { key: 'reactivate', label: 'Reactivate', icon: CheckCircle2, onSelect: () => handleToggleActive(r) },
+            ? {
+                key: 'deactivate',
+                label: 'Deactivate',
+                icon: XCircle,
+                danger: true,
+                disabled: busyKey === r.id,
+                onSelect: () => handleToggleActive(r),
+              }
+            : {
+                key: 'reactivate',
+                label: 'Reactivate',
+                icon: CheckCircle2,
+                disabled: busyKey === r.id,
+                onSelect: () => handleToggleActive(r),
+              },
         ])}
         page={page}
         pageSize={PAGE_SIZE}

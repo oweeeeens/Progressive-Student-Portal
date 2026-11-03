@@ -11,7 +11,16 @@ export function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   const location = useLocation()
 
-  if (loading) return <p style={{ padding: '2rem' }}>Loading...</p>
+  // The one place a bare word is right: which page is about to render is
+  // not known yet, so there is no shape to draw. role="status" so a screen
+  // reader is told rather than left on a silent page.
+  if (loading) {
+    return (
+      <p className="app-boot-loading" role="status">
+        Loading…
+      </p>
+    )
+  }
   if (!user) return <Navigate to="/login" replace />
   if (user.mustChangePassword && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />

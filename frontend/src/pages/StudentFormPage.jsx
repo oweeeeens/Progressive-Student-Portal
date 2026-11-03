@@ -12,12 +12,12 @@ import {
   School,
   ClipboardCheck,
   Check,
-  CircleAlert,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
+import { FormField } from '../components/FormField'
 import { StatusPill } from '../components/StatusPill'
 import './StudentFormPage.css'
 import { Alert } from '../components/Alert'
@@ -126,29 +126,6 @@ const STEPS = [
 // `width`: 'short' or 'medium' caps the control's width. A 12-digit LRN or
 // a two-option Sex select stretched across a 680px panel reads as a field
 // expecting a sentence; the box should suggest how much is wanted.
-function FormField({ id, icon: Icon, label, required, error, showSuccess, width, children }) {
-  return (
-    <div className={`form-field${width ? ` form-field--${width}` : ''}`}>
-      <label htmlFor={id} className="form-field__label">
-        <Icon size={16} strokeWidth={1.75} />
-        {label}
-        {required && <span className="required-mark"> *</span>}
-      </label>
-      {children}
-      {error && (
-        <p className="form-field__feedback form-field__feedback--error">
-          <CircleAlert size={14} strokeWidth={1.75} /> {error}
-        </p>
-      )}
-      {!error && showSuccess && (
-        <p className="form-field__feedback form-field__feedback--success">
-          <Check size={14} strokeWidth={1.75} /> Looks good
-        </p>
-      )}
-    </div>
-  )
-}
-
 export function StudentFormPage() {
   const { id } = useParams()
   const isEdit = Boolean(id)

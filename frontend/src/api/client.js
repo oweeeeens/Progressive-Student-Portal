@@ -76,6 +76,22 @@ function isCredentialCheck(path) {
   return CREDENTIAL_CHECK_PATHS.includes(pathname);
 }
 
+// The 401 handling that request(), upload() and downloadFile() all share.
+// Returns true when the response was a session-ended 401 and has been dealt
+// with (token cleared, redirect under way); false when the caller should
+// treat the response as an ordinary error and surface the server's own
+// sentence.
+//
+// It exists because the fix for the lockout above originally reached
+// request() only. upload() and downloadFile() kept rewriting every 401 as
+// "session expired", so a file action refused for a credential reason
+// silently signed the user out instead of saying why.
+function consumeSessionEnded(response, path) {
+  if (response.status !== 401 || isCredentialCheck(path)) return false;
+  handleUnauthorized();
+  return true;
+}
+
 function handleUnauthorized() {
   // Guard against a burst of parallel requests each triggering their own
   // redirect, which would cancel the first navigation partway.
@@ -115,8 +131,7 @@ async function request(path, { method = 'GET', body } = {}) {
 
   // A credential endpoint's 401 falls through to the normal error path
   // below, so the server's own wording reaches the page.
-  if (response.status === 401 && !isCredentialCheck(path)) {
-    handleUnauthorized();
+  if (consumeSessionEnded(response, path)) {
     throw new Error('Your session has expired. Please sign in again.');
   }
 
@@ -140,8 +155,7 @@ async function upload(path, formData, method = 'POST') {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const response = await fetch(`/api${path}`, { method, headers, body: formData });
-  if (response.status === 401) {
-    handleUnauthorized();
+  if (consumeSessionEnded(response, path)) {
     throw new Error('Your session has expired. Please sign in again.');
   }
   const data = await response.json().catch(() => null);
@@ -172,8 +186,7 @@ async function downloadFile(path, filename) {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const response = await fetch(`/api${path}`, { headers });
-  if (response.status === 401) {
-    handleUnauthorized();
+  if (consumeSessionEnded(response, path)) {
     throw new Error('Your session has expired. Please sign in again.');
   }
   if (!response.ok) {

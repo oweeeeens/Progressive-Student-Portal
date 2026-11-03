@@ -11,6 +11,7 @@ import { TrendIcon } from '../components/TrendIcon'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { INTERVENTION_TYPE_LABELS } from '../components/InterventionDetailPanel'
 import { Alert } from '../components/Alert'
+import { SkeletonTable } from '../components/Skeleton'
 
 const BAND_PAGE_SIZE = 15
 const LEVEL_VARIANTS = { high: 'risk-high', medium: 'risk-medium', low: 'risk-low' }
@@ -226,7 +227,7 @@ export function AcademicProgressPage() {
       {error && <Alert>{error}</Alert>}
 
       {loading ? (
-        <p>Loading…</p>
+        <SkeletonTable rows={6} columns={5} />
       ) : students.length === 0 ? (
         <div className="empty-state">
           {/* With an error above, an empty list means the data could not be

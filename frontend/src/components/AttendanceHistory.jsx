@@ -6,6 +6,7 @@ import { StatusPill } from './StatusPill'
 import { DataTable, fieldValue } from './table/DataTable'
 import { AttendanceCalendar } from './AttendanceCalendar'
 import { Alert } from './Alert'
+import { SkeletonTable } from './Skeleton'
 
 const STATUS_VARIANTS = { present: 'positive', late: 'warning', absent: 'negative', excused: 'neutral' }
 
@@ -63,7 +64,7 @@ export function AttendanceHistory({ studentId, kind, title }) {
   )
 
   if (error) return <Alert>{error}</Alert>
-  if (!history) return <p>Loading…</p>
+  if (!history) return <SkeletonTable rows={5} columns={4} />
 
   const selectedPeriodName = periodOptions.find((p) => p.id === periodId)?.name
 

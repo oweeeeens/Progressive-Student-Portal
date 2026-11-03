@@ -32,20 +32,41 @@ export function StaffHero({ user, currentPeriod }) {
   // fact that makes the greeting specific to them rather than generic.
   const [assignment, setAssignment] = useState(null)
 
+  // BOTH endpoints, for everyone — not one branch per role label.
+  //
+  // This used to read `if (role === 'adviser') … else if (role ===
+  // 'subject_teacher') …`, so a teacher who advises one section and teaches
+  // subjects to others saw only the half that matched their role column. In
+  // this school that is the ordinary case, not an edge case, and the whole
+  // point of the greeting is to name what this person is actually
+  // responsible for today.
+  //
+  // Students are skipped: they hold neither assignment, so the two requests
+  // could only ever come back empty.
   useEffect(() => {
-    if (user.role === 'adviser') {
-      api
-        .get('/sections/mine')
-        .then((data) => setAssignment(data.sections.map((s) => s.name).join(' · ') || null))
-        .catch(() => setAssignment(null))
-    } else if (user.role === 'subject_teacher') {
-      api
-        .get('/class-offerings/mine')
-        .then((data) => {
-          const subjects = [...new Set(data.classOfferings.map((c) => c.subject_name))]
-          setAssignment(subjects.length ? `${subjects.length} class${subjects.length === 1 ? '' : 'es'}` : null)
-        })
-        .catch(() => setAssignment(null))
+    if (user.role === 'student') return undefined
+
+    let cancelled = false
+    Promise.all([
+      api.get('/sections/mine').catch(() => null),
+      api.get('/class-offerings/mine').catch(() => null),
+    ]).then(([sec, off]) => {
+      if (cancelled) return
+      const sections = sec?.sections || []
+      const offerings = off?.classOfferings || []
+
+      // Advised sections are named; taught classes are counted. A name is
+      // what an adviser recognises their register by, while a teacher with
+      // five classes across three sections would turn this line into a
+      // paragraph — the profile page lists them individually instead.
+      const parts = []
+      if (sections.length) parts.push(sections.map((s) => s.name).join(' · '))
+      if (offerings.length) parts.push(`${offerings.length} class${offerings.length === 1 ? '' : 'es'}`)
+      setAssignment(parts.join(' · ') || null)
+    })
+
+    return () => {
+      cancelled = true
     }
   }, [user.role])
 

@@ -21,6 +21,7 @@ import { Tabs } from '../components/Tabs'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { TableToolbar, TableFilter } from '../components/table/TableToolbar'
 import { Alert } from '../components/Alert'
+import { SkeletonTable } from '../components/Skeleton'
 
 const PAGE_SIZE = 15
 
@@ -543,7 +544,7 @@ function PendingStudentAccountsTab() {
       )}
 
       {loading ? (
-        <p>Loading…</p>
+        <SkeletonTable rows={4} columns={4} />
       ) : students.length === 0 ? (
         <div className="empty-state">
           <p>Every active student already has a portal account.</p>

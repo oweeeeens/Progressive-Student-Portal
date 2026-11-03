@@ -143,6 +143,16 @@ CLAUDE.md's Code Quality Standards ask for per-module orientation notes. Each ba
 - **Analytics** — the school-wide rollup of risk, factors, attendance and intervention effectiveness, with PDF and Excel export. Admin, principal and guidance counselor only; advisers keep the per-section Academic Progress view instead. `services/analyticsCalculator.js` does the maths, `analyticsReportPdf.js` / `analyticsReportWorkbook.js` render it.
 - **Report Card PDF** — a printable card per student, built from finalized grades and daily attendance, scoped to one school year. Adviser (own section), admin, registrar, or the student themselves.
 - **My Progress** (student self-view) — a student's own grades, attendance, risk band and the plain-language version of any triggered factors, including what number they would have to reach to clear each one. Read-only and scoped to themselves; no school-wide figures reach it.
+- **Your profile** (`/profile`, every role) — the one page a person owns: their
+  name and email, their password, and what they advise and teach. The
+  assignment panel calls **both** `/sections/mine` and `/class-offerings/mine`
+  every time rather than branching on the role label, so a teacher who advises
+  one section and teaches another sees both — the presentation half of the
+  scoping rule above. An **email change requires the current password**, for
+  every role including admin: whoever controls the address controls password
+  recovery, so that field is a credential wearing a profile field's clothes.
+  Nothing else about the account is reachable from `PATCH /api/auth/profile` —
+  the id comes from the token and `role` is not a field it reads.
 - **Learner Status fields** (`is_pwd`, `is_4ps`, `is_als_graduate`) — DepEd reporting fields on the student record. **Descriptive only: they never feed the risk formula.** Visibility is per field and per role (`backend/config/learnerStatus.js`): a subject teacher may see a disability flag because they teach the learner, but not 4Ps status, which is household financial information. Students never see any of the three about themselves. The same map gates writes, not just reads.
 
 ## Dates and the School's Timezone
@@ -226,6 +236,33 @@ Based on a reference college portal design the team liked — apply these patter
 4. **Consistent card/panel containers** for content blocks — avoid bare unstyled tables
 5. **Pagination** on any list view with more than ~15 rows
 6. **One consistent icon library** used throughout (sidebar nav, stat cards, action buttons) — no mixing icon styles
+7. **Every write reports itself.** A successful save shows a success `Alert`
+   naming what was saved, not just a closed modal and a refetched table.
+   Before this, a failure showed a message and a success showed nothing, so
+   **silence meant success** — the opposite of what people expect, and it left
+   a deactivation (the one irreversible-looking action on the setup pages)
+   entirely unconfirmed. `hooks/useWriteFeedback.js` owns the error, the
+   confirmation and the in-flight guard together so the three cannot drift
+   apart per page.
+8. **No write can be fired twice.** The same hook keys its busy flag on the
+   row or form being acted on, so only that control is disabled rather than
+   the whole table. The gate is a ref, not state: a double-click runs both
+   handlers before React re-renders, so a state flag would still read as idle
+   in both.
+9. **Field errors are attached to the field.** `components/FormField.jsx`
+   renders the message under the input and clones the control to carry
+   `aria-invalid` and `aria-describedby`. Wiring those by hand per input is
+   the kind of thing that gets done on the first form and forgotten on the
+   rest — the app had zero of either before this. A page-top summary is for
+   what the server said about the request as a whole, not for which of eleven
+   inputs is wrong.
+10. **A disabled control says why.** A greyed-out submit with no explanation
+    is a dead end; the reason goes next to it, in an `aria-live` region so a
+    screen reader hears it change.
+11. **Loading states draw the shape that is coming** (`components/Skeleton.jsx`).
+    "Loading…" as a bare word is reserved for the one case where the shape is
+    genuinely unknown — app boot, before the router has chosen a page.
+
 Apply the navy/gold brand palette (see Brand Colors section above) throughout. Build page by page, verifying each before moving to the next.
 
 ## Responsive Design (phone and desktop)

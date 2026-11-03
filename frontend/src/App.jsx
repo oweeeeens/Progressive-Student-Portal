@@ -19,6 +19,7 @@ import { HomePage } from './pages/HomePage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { InterventionsPage } from './pages/InterventionsPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { CreateAccountPage } from './pages/CreateAccountPage'
 import { UserManagementPage } from './pages/UserManagementPage'
 import { SchoolYearsPage } from './pages/SchoolYearsPage'
@@ -77,7 +78,12 @@ function App() {
                 <Route path="/my-grades" element={<StudentGradesPage />} />
                 <Route path="/my-attendance" element={<StudentAttendancePage />} />
                 <Route path="/my-record" element={<Navigate to="/" replace />} />
-                <Route path="/my-profile/*" element={<Navigate to="/" replace />} />
+                {/* The old redirect-to-home stub is now a real page, and
+                    /my-profile keeps working as an alias so any link or
+                    bookmark from before it existed still lands somewhere
+                    sensible. */}
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/my-profile/*" element={<Navigate to="/profile" replace />} />
                 <Route path="/my-progress/*" element={<Navigate to="/" replace />} />
                 <Route path="/attendance/daily" element={<DailyAttendancePage />} />
                 <Route path="/attendance/subject" element={<SubjectAttendancePage />} />

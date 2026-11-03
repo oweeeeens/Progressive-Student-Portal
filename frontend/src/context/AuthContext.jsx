@@ -36,8 +36,15 @@ export function AuthProvider({ children }) {
 
   // Counted after we know who they are, and not for students, who hold
   // neither kind of assignment and see none of those pages anyway.
+  // Pulled out of `user` by name, because those two fields are the whole of
+  // what this effect depends on: a profile save or markPasswordChanged
+  // replaces the user object and would otherwise re-run two requests whose
+  // answer cannot have changed.
+  const userId = user?.id
+  const userRole = user?.role
+
   useEffect(() => {
-    if (!user || user.role === 'student') {
+    if (!userId || userRole === 'student') {
       setAssignments(null)
       return
     }
@@ -58,7 +65,7 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [userId, userRole])
 
   async function login(email, password, remember = true) {
     const data = await api.post('/auth/login', { email, password })
@@ -78,8 +85,16 @@ export function AuthProvider({ children }) {
     setUser((u) => (u ? { ...u, mustChangePassword: false } : u))
   }
 
+  // Called after a successful PATCH /auth/profile. The server returns the
+  // saved row, so this takes that rather than the form's own state — if the
+  // server normalised the email's case or trimmed the name, the header and
+  // the account menu show what was actually stored.
+  function applyProfileUpdate(updatedUser) {
+    setUser((u) => (u ? { ...u, ...updatedUser } : u))
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, assignments, login, logout, markPasswordChanged }}>
+    <AuthContext.Provider value={{ user, loading, assignments, login, logout, markPasswordChanged, applyProfileUpdate }}>
       {children}
     </AuthContext.Provider>
   )

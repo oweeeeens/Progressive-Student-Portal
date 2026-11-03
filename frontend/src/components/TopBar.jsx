@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Maximize, Minimize, Sun, Moon, PanelLeftClose, PanelLeftOpen, Menu, KeyRound, IdCard, ChevronDown } from 'lucide-react'
+import { Maximize, Minimize, Sun, Moon, PanelLeftClose, PanelLeftOpen, Menu, KeyRound, IdCard, UserCog, ChevronDown } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
@@ -196,6 +196,23 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar, isPhone = false, dra
                   Your record on file
                 </button>
               )}
+
+              {/* First, because it is the page that holds the others: name,
+                  email, password, and what this person advises or teaches.
+                  Change password stays below it as its own item — it is the
+                  one account action people come looking for by name. */}
+              <button
+                type="button"
+                role="menuitem"
+                className="account-menu__item"
+                onClick={() => {
+                  setAccountMenuOpen(false)
+                  navigate('/profile')
+                }}
+              >
+                <UserCog size={15} strokeWidth={1.75} />
+                Your profile
+              </button>
 
               <button
                 type="button"
