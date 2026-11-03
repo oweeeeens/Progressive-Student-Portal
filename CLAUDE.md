@@ -343,6 +343,41 @@ it is immediately recognizable if it comes up again.
 ## System-Wide UI Standards (applies to every page, not just one module)
 Based on a reference college portal design the team liked — apply these patterns consistently app-wide:
 1. **Stat card rows** at the top of list/dashboard pages — icon + number + label summarizing the page's data (e.g. Academic Progress Tracking: At Risk/Average-Steady/Performing Well counts; Interventions: open/monitoring/resolved/escalated counts)
+
+   **Every stat card explains itself.** A card is a disclosure button: clicking
+   it opens a panel underneath the row saying what the number actually counts,
+   what is deliberately excluded, a breakdown where the page already has the
+   data, and a link to the list it summarises. This is not decoration — these
+   figures are quietly ambiguous in ways that change decisions. "At-risk
+   students" on the Dashboard excludes Low risk while the same words on
+   Analytics include it; "Flagged on this page" counts only the rows currently
+   rendered; a resolution rate's denominator is closed cases, not all of them.
+   Each of those is a wrong conclusion waiting to be drawn from a correct
+   number, and the panel is where the number stops being a claim the reader
+   has to take on trust.
+
+   `hooks/useStatExplainer.js` owns the open/closed state and the
+   `onClick` / `aria-expanded` / `aria-controls` wiring — spread
+   `cardProps(key)` onto a card and it is a correct disclosure control.
+   `components/StatDetail.jsx` renders the content declaratively, inside the
+   same `ExplainerPanel` the student pages use, so one idea of "an
+   explanation" serves the whole app. A page with more than one stat row
+   passes a second argument naming that row's panel, so the explanation opens
+   under the row that was clicked.
+
+   **The content rule: a breakdown must come from data the page already
+   fetched, never a second request.** An explanation that re-asks the server
+   can disagree with the figure it sits under, which is worse than no
+   explanation — and reusing the page's own data keeps per-role scoping
+   correct for free, since that data was already fetched under this user's
+   permissions.
+
+   The student-facing figures explain themselves differently and should stay
+   that way: `components/StatExplainer.jsx` shows the actual **arithmetic**
+   (the marks, the division, the result), because those numbers are a
+   calculation the student is entitled to check. Staff-facing counts are
+   filtered lists, where the arithmetic is trivial and the definition is the
+   whole question.
 2. **Breadcrumb navigation** at the top of every page (Home / Section / Subpage)
 3. **Status badges** — all status values (enrollment status, risk level, intervention status, document review status) render as colored pill badges, not plain text. Risk levels keep their own green/amber/red; other statuses use visually distinct colors so they're never confused with risk indicators
 4. **Consistent card/panel containers** for content blocks — avoid bare unstyled tables

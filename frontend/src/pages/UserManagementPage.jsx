@@ -16,6 +16,8 @@ import { useAuth } from '../context/AuthContext'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import { Pagination } from '../components/Pagination'
 import { Tabs } from '../components/Tabs'
 import { DataTable, fieldValue } from '../components/table/DataTable'
@@ -164,6 +166,8 @@ function AllAccountsTab() {
   // information. Total always counts; "Active" is just total-minus-inactive
   // on a roster where almost everyone is active, so the exception states
   // are what's worth a tile — and only once they exist.
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('account-stat-detail')
+
   const tiles = counts
     ? [
         { key: 'total', icon: Users, value: counts.total, label: 'Accounts' },
@@ -181,11 +185,22 @@ function AllAccountsTab() {
   return (
     <div>
       {tiles.length > 0 && (
-        <StatRow>
-          {tiles.map((t) => (
-            <StatCard key={t.key} icon={t.icon} value={t.value} label={t.label} variant={t.variant} />
-          ))}
-        </StatRow>
+        <>
+          <StatRow>
+            {tiles.map((t) => (
+              <StatCard
+                key={t.key}
+                icon={t.icon}
+                value={t.value}
+                label={t.label}
+                variant={t.variant}
+                {...cardProps(t.key)}
+              />
+            ))}
+          </StatRow>
+
+          <StatDetail id="account-stat-detail" detail={accountStatDetails(counts)[openFor()]} onClose={closeStat} />
+        </>
       )}
 
       <TableToolbar
@@ -608,6 +623,53 @@ function PendingStudentAccountsTab() {
 // advisers and subject teachers is intentionally NOT duplicated here — it's
 // already a full admin CRUD surface under Academic Setup (Sections, Class
 // Offerings); this page links to those rather than re-implementing them.
+// What the account figures count.
+//
+// These three are school-wide and unscoped, unlike almost every other count
+// in the app — this page is admin/registrar only, and an account roster that
+// hid some accounts from the people responsible for them would be useless.
+// Worth saying plainly, because the habit everywhere else is the opposite.
+function accountStatDetails(counts) {
+  return {
+    total: {
+      title: 'Accounts',
+      subtitle: counts.total,
+      definition: 'Every portal login that exists, staff and students alike, active or not.',
+      breakdown: [
+        { label: 'Active', value: counts.active },
+        { label: 'Deactivated', value: counts.inactive },
+        { label: 'All accounts', value: counts.total, isTotal: true },
+      ],
+      rules: [
+        'School-wide and unscoped — this page is admin and registrar only, so there is nothing to scope it to.',
+        'An account is not the same thing as a student record. A learner can have a record in Student Records with no login here, which is the normal state until somebody creates one for them.',
+        'Nobody signs themselves up. Every account on this list was created by an admin or a registrar.',
+      ],
+    },
+    inactive: {
+      title: 'Inactive',
+      subtitle: counts.inactive,
+      definition: 'Accounts that have been deactivated and can no longer sign in.',
+      rules: [
+        'Deactivation is used instead of deletion so that everything the account did — grades submitted, interventions logged, attendance marked — stays attached to a real person in the record.',
+        'Access ends immediately, not at the end of a session: every request re-checks this, so an open tab stops working on the next click.',
+        'Reversible. Reactivating restores access with the same password as before.',
+      ],
+    },
+    pending: {
+      title: 'Pending first login',
+      subtitle: counts.pending_first_login,
+      definition:
+        'Accounts created with a temporary password that have not yet had it changed.',
+      rules: [
+        'The account works, but every page is blocked until the person sets their own password — enforced on the server, not just hidden in the interface.',
+        'A large number here usually means credentials were handed out and never passed on, since there is no school email system to deliver them automatically.',
+        'If someone has lost their temporary password, issue a new one from this page rather than trying to recover the old one — it is hashed and cannot be read back.',
+      ],
+    },
+  }
+}
+
 export function UserManagementPage() {
   return (
     <div>

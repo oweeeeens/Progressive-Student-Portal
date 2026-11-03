@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { TableToolbar, TableFilter } from '../components/table/TableToolbar'
 import { Alert } from '../components/Alert'
@@ -21,6 +23,66 @@ const STATUS_VARIANTS = {
   graduated: 'info',
 }
 const RISK_LABELS = { low: 'Low risk', medium: 'Medium risk', high: 'High risk' }
+
+// What each figure above the roster counts.
+//
+// The one that genuinely confuses people is "Flagged on this page", and it is
+// called that for a reason: unlike the others it is counted from the rows
+// currently rendered, not from the whole roster. Paging or filtering changes
+// it. Naming it honestly in the label is half the fix; saying so outright
+// here is the other half.
+function studentStatDetails(counts, students, flagged) {
+  return {
+    total: {
+      title: 'Students',
+      subtitle: counts.total,
+      definition: 'Every learner you can see whose record is still active, across all pages — not just the ones shown below.',
+      breakdown: [
+        { label: 'Enrolled', value: counts.enrolled },
+        { label: 'Pending enrollment', value: counts.pending },
+        { label: 'Dropped', value: counts.dropped },
+        { label: 'Transferred', value: counts.transferred },
+        { label: 'Graduated', value: counts.graduated },
+        { label: 'Total active records', value: counts.total, isTotal: true },
+      ],
+      rules: [
+        'Scoped to what you are assigned to — an adviser sees their advisory section plus any section they teach a class in; admin, registrar, principal and guidance counselors see the school.',
+        'Deactivated records are excluded entirely and appear in none of the figures above.',
+        'Enrollment happens on paper. A record exists here because the registrar added it after the learner enrolled, which is why “enrolled” is the default rather than “pending”.',
+      ],
+    },
+    flagged: {
+      title: 'Flagged on this page',
+      subtitle: flagged,
+      definition:
+        'Learners among the rows currently shown who have a risk level recorded for the current grading period.',
+      rules: [
+        'Counted from THIS PAGE of results only — it moves when you turn the page, search, or change a filter. That is why it is labelled “on this page” rather than simply “flagged”.',
+        `Right now that is ${flagged} of the ${students.length} rows shown.`,
+        'Any risk level counts here, including Low — so this is a wider net than the Dashboard’s at-risk card, which counts only Medium and High.',
+      ],
+      action: { to: '/academic-progress', label: 'See the full picture in Academic Progress' },
+    },
+    pending: {
+      title: 'Pending enrollment',
+      subtitle: counts.pending,
+      definition: 'Active records whose enrollment status is still “pending” rather than “enrolled”.',
+      rules: [
+        'Since enrollment moved to paper, new records default to “enrolled” — so a pending record is usually one deliberately set that way, or one carried over from before that change.',
+        'Pending learners still count in the total above, and still appear in the roster.',
+      ],
+    },
+    dropped: {
+      title: 'Dropped',
+      subtitle: counts.dropped,
+      definition: 'Active records whose enrollment status is “dropped”.',
+      rules: [
+        'The record is kept rather than deleted — grades, attendance and interventions already recorded against it stay intact and still belong to that learner.',
+        'Still counted in the total above, because the record is active even though the learner is not enrolled.',
+      ],
+    },
+  }
+}
 
 export function StudentListPage() {
   const { user } = useAuth()
@@ -117,9 +179,15 @@ export function StudentListPage() {
   // almost nothing. Total always earns its place; the exception states only
   // appear once they actually exist, and "Flagged" is the one number here a
   // reader can't get from the table at a glance.
+  // Lifted out of the tiles memo below so the explanation panel reads the
+  // SAME number the card shows, rather than counting the rows a second time
+  // and risking a quiet disagreement between a figure and its own footnote.
+  const flagged = useMemo(() => students.filter((s) => s.risk_level).length, [students])
+
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('student-stat-detail')
+
   const tiles = useMemo(() => {
     if (!counts) return []
-    const flagged = students.filter((s) => s.risk_level).length
     const shown = [{ key: 'total', icon: Users, value: counts.total, label: 'Students' }]
     if (flagged > 0) {
       shown.push({
@@ -137,7 +205,7 @@ export function StudentListPage() {
       shown.push({ key: 'dropped', icon: UserX, value: counts.dropped, label: 'Dropped', variant: 'negative' })
     }
     return shown
-  }, [counts, students])
+  }, [counts, flagged])
 
   // Identifying column first, supporting detail next, status after that —
   // never lead with an ID number, so LRN sits behind the name.
@@ -192,11 +260,26 @@ export function StudentListPage() {
       </div>
 
       {counts && tiles.length > 0 && (
-        <StatRow>
-          {tiles.map((t) => (
-            <StatCard key={t.key} icon={t.icon} value={t.value} label={t.label} variant={t.variant} />
-          ))}
-        </StatRow>
+        <>
+          <StatRow>
+            {tiles.map((t) => (
+              <StatCard
+                key={t.key}
+                icon={t.icon}
+                value={t.value}
+                label={t.label}
+                variant={t.variant}
+                {...cardProps(t.key)}
+              />
+            ))}
+          </StatRow>
+
+          <StatDetail
+            id="student-stat-detail"
+            detail={studentStatDetails(counts, students, flagged)[openFor()]}
+            onClose={closeStat}
+          />
+        </>
       )}
 
       {error && <Alert>{error}</Alert>}

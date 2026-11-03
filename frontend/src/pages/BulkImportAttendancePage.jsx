@@ -17,6 +17,8 @@ import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import { Alert } from '../components/Alert'
 import { StatusPill } from '../components/StatusPill'
 import { SpotIllustration } from '../components/illustrations/SpotIllustration'
@@ -73,6 +75,71 @@ function symbolLabel(symbol) {
   return symbol === '' ? 'Blank cell' : symbol
 }
 
+// The four figures on the last screen before attendance is written.
+//
+// "Days already recorded" is the one that matters: it is the only number
+// here that can DESTROY existing data rather than add to it, and only if the
+// reader chooses overwrite. It says so.
+function attendanceImportStatDetails(plan, datesToWrite, skippedCount, mode) {
+  const register = mode === 'subject' ? 'subject register' : 'daily (SF2) register'
+
+  return {
+    learners: {
+      title: 'Learners matched',
+      subtitle: plan.summary.studentCount,
+      definition: 'Rows in the sheet matched to a learner already on the system.',
+      rules: [
+        'Matched on LRN where the sheet has one, falling back to name within the section you chose.',
+        'A learner in the sheet who could not be matched is listed separately and imports nothing — the import never creates student records, only attendance.',
+        'An unmatched learner is almost always a typo in the name or an LRN that does not match the record, not a missing student.',
+      ],
+    },
+    days: {
+      title: 'Days to import',
+      subtitle: datesToWrite,
+      definition:
+        skippedCount > 0
+          ? `School days that will be written, after the ${skippedCount} you chose to skip.`
+          : 'School days from the sheet that will be written.',
+      breakdown: [
+        { label: 'Days found in the sheet', value: plan.summary.dateCount },
+        { label: 'Skipped by your choice', value: skippedCount },
+        { label: 'Will be written', value: datesToWrite, isTotal: true },
+      ],
+      rules: [
+        `Every mark lands in the ${register}.`,
+        'A date with no mark for a learner is left alone rather than written as absent — a blank cell in an SF2 is not a statement about that learner.',
+      ],
+    },
+    marks: {
+      title: 'Marks to write',
+      subtitle: plan.summary.entryCount,
+      definition: 'Individual attendance entries — one per learner per day — that this import will create.',
+      rules: [
+        'Roughly learners × days, minus any blank cells, which are skipped rather than guessed at.',
+        'Each mark records that it came from this import, so a day imported by mistake can be told apart from one marked by hand afterwards.',
+        'Correcting a day by hand later clears that attribution, which is correct — it is no longer the import’s number.',
+      ],
+      footnote:
+        'Writing these triggers the same risk recalculation that marking attendance by hand does — once per grading period affected, not once per date.',
+    },
+    conflicts: {
+      title: 'Days already recorded',
+      subtitle: plan.conflicts.length,
+      definition:
+        plan.conflicts.length > 0
+          ? 'Days in the sheet that already have attendance recorded for this section. Nothing is overwritten unless you say so.'
+          : 'No day in this sheet already has attendance recorded, so nothing here can be overwritten.',
+      rules: [
+        'This is the only figure on this screen that can REPLACE existing data rather than add to it.',
+        'Each conflicting day needs an explicit decision — overwrite it with the sheet, or keep what is already there. The import will not proceed while any are undecided.',
+        'Overwriting replaces that day’s marks for every learner in the section, not only the ones that differ.',
+        'Skipping leaves the existing day exactly as it is and removes it from the day count above.',
+      ],
+    },
+  }
+}
+
 export function BulkImportAttendancePage() {
   const { user } = useAuth()
   const [step, setStep] = useState('target')
@@ -111,6 +178,7 @@ export function BulkImportAttendancePage() {
   const [conflictDecisions, setConflictDecisions] = useState({})
 
   const [result, setResult] = useState(null)
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('attendance-import-stat-detail')
 
   const target = mode === 'subject' ? { mode, classOfferingId: Number(classOfferingId) } : { mode, sectionId: Number(sectionId) }
   const targetChosen = mode === 'subject' ? Boolean(classOfferingId) : Boolean(sectionId)
@@ -601,16 +669,34 @@ export function BulkImportAttendancePage() {
           <h2>4. Review before importing</h2>
 
           <StatRow>
-            <StatCard icon={Users} value={plan.summary.studentCount} label="Learners matched" />
-            <StatCard icon={CalendarRange} value={datesToWrite} label="Days to import" />
-            <StatCard icon={CheckCircle2} value={plan.summary.entryCount} label="Marks to write" variant="positive" />
+            <StatCard
+              icon={Users}
+              value={plan.summary.studentCount}
+              label="Learners matched"
+              {...cardProps('learners')}
+            />
+            <StatCard icon={CalendarRange} value={datesToWrite} label="Days to import" {...cardProps('days')} />
+            <StatCard
+              icon={CheckCircle2}
+              value={plan.summary.entryCount}
+              label="Marks to write"
+              variant="positive"
+              {...cardProps('marks')}
+            />
             <StatCard
               icon={AlertTriangle}
               value={plan.conflicts.length}
               label="Days already recorded"
               variant={plan.conflicts.length > 0 ? 'warning' : undefined}
+              {...cardProps('conflicts')}
             />
           </StatRow>
+
+          <StatDetail
+            id="attendance-import-stat-detail"
+            detail={attendanceImportStatDetails(plan, datesToWrite, skippedCount, mode)[openFor()]}
+            onClose={closeStat}
+          />
 
           {plan.summary.firstDate && (
             <p style={{ color: 'var(--color-text-muted)' }}>

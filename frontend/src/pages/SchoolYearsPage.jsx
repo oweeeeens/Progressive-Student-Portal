@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext'
 import { canManageAcademicSetup } from '../utils/permissions'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { SkeletonTable } from '../components/Skeleton'
@@ -25,6 +27,43 @@ const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: 
 // see the is-active migration's comment for why — a school year simply
 // becomes not-current, and every table referencing either one is already
 // protected from accidental removal by its own foreign key.
+// What these two figures mean — and in the current year's case, what it
+// silently decides everywhere else.
+//
+// "Current school year" looks like a label and behaves like a switch: almost
+// every other page in the app resolves "this year" through it. Someone
+// changing it to fix a display on this page would be repointing attendance,
+// grade entry and risk scoring at the same time, so that consequence is
+// stated here rather than discovered.
+function schoolYearStatDetails(schoolYears, currentYear) {
+  return {
+    years: {
+      title: 'School years',
+      subtitle: schoolYears.length,
+      definition: 'Every school year set up in the system, past and present.',
+      rules: [
+        'Years are never deleted — grades, attendance and sections all reference the year they belong to, so removing one would orphan the records underneath it.',
+        'Each year owns its own grading periods, and a period’s sequence number is unique only WITHIN its year. That is why a learner’s second year in the school does not collide with their first.',
+      ],
+    },
+    current: {
+      title: 'Current school year',
+      subtitle: currentYear ? currentYear.label : 'Not set',
+      definition: currentYear
+        ? `${currentYear.label} is the year every other page treats as “now”.`
+        : 'No year is marked current, so pages that resolve “this year” have nothing to resolve it to.',
+      rules: [
+        'This is a switch, not a label. Attendance, grade entry, the class and section pickers, and risk scoring all resolve “this year” through it.',
+        'Exactly one year can be current. Setting another one takes the flag off this one in the same action.',
+        'Changing it mid-year repoints the whole app, including which sections and class offerings teachers are offered. It is not a display setting.',
+      ],
+      footnote: currentYear
+        ? 'Which grading period is “now” within this year is decided separately, by today’s date against each period’s start and end — using the school’s own timezone, not the server’s.'
+        : 'Until one is set, mark a year current from the table below.',
+    },
+  }
+}
+
 export function SchoolYearsPage() {
   // The principal reads these pages and changes nothing on them, so every
   // write control below is hidden rather than left to fail with a 403 the
@@ -43,6 +82,7 @@ export function SchoolYearsPage() {
   // school year the whole app reads by default, and used to report that by
   // refetching a table whose only visible difference is one pill.
   const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('schoolyear-stat-detail')
 
   const [selectedYearId, setSelectedYearId] = useState('')
   const [periods, setPeriods] = useState([])
@@ -188,9 +228,21 @@ export function SchoolYearsPage() {
       </div>
 
       <StatRow>
-        <StatCard icon={CalendarRange} value={schoolYears.length} label="School years" />
-        <StatCard icon={Star} value={currentYear ? currentYear.label : '—'} label="Current school year" variant="info" />
+        <StatCard icon={CalendarRange} value={schoolYears.length} label="School years" {...cardProps('years')} />
+        <StatCard
+          icon={Star}
+          value={currentYear ? currentYear.label : '—'}
+          label="Current school year"
+          variant="info"
+          {...cardProps('current')}
+        />
       </StatRow>
+
+      <StatDetail
+        id="schoolyear-stat-detail"
+        detail={schoolYearStatDetails(schoolYears, currentYear)[openFor()]}
+        onClose={closeStat}
+      />
 
       {error && <Alert>{error}</Alert>}
       {notice && <Alert variant="success">{notice}</Alert>}

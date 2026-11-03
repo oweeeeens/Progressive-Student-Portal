@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ShieldAlert, Activity, Award, HeartHandshake, ChevronUp, ChevronRight, ExternalLink } from 'lucide-react'
+import { ShieldAlert, Activity, Award, CircleHelp, HeartHandshake, ChevronUp, ChevronRight, ExternalLink } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import { formatGrade, formatRate, formatTrend } from '../utils/formatNumber'
 import { TrendIcon } from '../components/TrendIcon'
 import { DataTable, fieldValue } from '../components/table/DataTable'
@@ -27,6 +29,73 @@ const NOT_CALCULATED_EXPLANATION = 'Not enough grading periods of finalized data
 // straight from the API (academicProgressController re-derives them from
 // the same stored risk_assessments numbers the engine computed, so this
 // page can never disagree with how a student got classified).
+// What each band counts, and the rule that decides it.
+//
+// The band rules are quoted from the spec they are implemented against
+// (backend/services/academicProgressCalculator.js, layered on top of
+// riskCalculator.js) rather than paraphrased — these three numbers are the
+// headline claim this whole module makes, and a reader who asks "why is this
+// learner in that column" deserves the actual rule.
+//
+// The breakdowns come from `students`, which the page already fetched, so
+// they can never disagree with the figures above them.
+function bandStatDetails({ atRisk, average, performingWell, notYetCalculated }) {
+  const byLevel = (level) => atRisk.filter((s) => s.risk_level === level).length
+
+  return {
+    atRisk: {
+      title: 'At Risk',
+      subtitle: atRisk.length,
+      definition:
+        'Learners with at least one risk factor triggered. Any score above zero puts a learner here, however small.',
+      breakdown: [
+        { label: 'Low (1–2 points)', value: byLevel('low') },
+        { label: 'Medium (3–5 points)', value: byLevel('medium') },
+        { label: 'High (6+ points)', value: byLevel('high') },
+        { label: 'Total flagged', value: atRisk.length, isTotal: true },
+      ],
+      rules: [
+        'Four factors, two points each: a current grade below 75, a grade trend falling 5 or more points a period, attendance below the required rate, and an attendance trend falling 5 or more points a period.',
+        'Low risk still appears here — one triggered factor is still a factor. The Dashboard’s “at-risk” card counts only Medium and High, so that number is deliberately smaller than this one.',
+        'Only FINALIZED grades count. A mark still with the principal or the subject teacher is not in the score yet, which is why this can lag the classroom.',
+      ],
+      footnote:
+        'Each flagged learner’s row shows which specific factors fired and a suggested next step, so the band is never the whole answer.',
+    },
+    average: {
+      title: 'Average / Steady',
+      subtitle: average.length,
+      definition:
+        'Learners with no risk factors triggered at all, who are not yet clearing the bar for Performing Well.',
+      rules: [
+        'This is the healthy middle, not a warning. Nothing is wrong with these learners — they simply have no factor flagged and no distinction yet.',
+        'A learner moves out of here in either direction: one triggered factor sends them to At Risk, an average of 90+ or a trend improving 5+ points a period sends them to Performing Well.',
+      ],
+    },
+    performingWell: {
+      title: 'Performing Well',
+      subtitle: performingWell.length,
+      definition:
+        'Learners with no risk factors triggered AND either an average of 90 or above, or a grade trend improving by 5 or more points a period.',
+      rules: [
+        '90 is DepEd’s “Outstanding” band, so the first route is the department’s own standard rather than one this system invented.',
+        'The second route is deliberate: a learner climbing steeply from a low base is doing something worth recognising even before their average catches up.',
+        'Clearing every risk factor is a precondition — improvement alone does not qualify a learner who is still flagged.',
+      ],
+    },
+    notYetCalculated: {
+      title: 'Not yet calculated',
+      subtitle: notYetCalculated.length,
+      definition:
+        'Learners in view with no risk assessment stored for this grading period, so they cannot be placed in a band.',
+      rules: [
+        'Normal early in a period: a score is written when grades are finalized or attendance is recorded, so a learner with neither yet has nothing to score.',
+        'These learners are not “fine” — they are simply unmeasured. Treat an unexpectedly large number here as a sign that grades have not been finalized, not as good news.',
+      ],
+    },
+  }
+}
+
 export function AcademicProgressPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -35,6 +104,7 @@ export function AcademicProgressPage() {
   const [sectionId, setSectionId] = useState('')
   const [gradingPeriodId, setGradingPeriodId] = useState('')
   const [students, setStudents] = useState([])
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('progress-stat-detail')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
@@ -217,11 +287,35 @@ export function AcademicProgressPage() {
       </div>
 
       {!loading && students.length > 0 && (
-        <StatRow>
-          <StatCard icon={ShieldAlert} value={atRisk.length} label="At Risk" variant="negative" />
-          <StatCard icon={Activity} value={average.length} label="Average / Steady" variant="info" />
-          <StatCard icon={Award} value={performingWell.length} label="Performing Well" variant="positive" />
-        </StatRow>
+        <>
+          <StatRow>
+            <StatCard icon={ShieldAlert} value={atRisk.length} label="At Risk" variant="negative" {...cardProps('atRisk')} />
+            <StatCard icon={Activity} value={average.length} label="Average / Steady" variant="info" {...cardProps('average')} />
+            <StatCard
+              icon={Award}
+              value={performingWell.length}
+              label="Performing Well"
+              variant="positive"
+              {...cardProps('performingWell')}
+            />
+            {/* Only when there are any — a zero here is the normal state
+                mid-period and would just be a card saying nothing. */}
+            {notYetCalculated.length > 0 && (
+              <StatCard
+                icon={CircleHelp}
+                value={notYetCalculated.length}
+                label="Not yet calculated"
+                {...cardProps('notYetCalculated')}
+              />
+            )}
+          </StatRow>
+
+          <StatDetail
+            id="progress-stat-detail"
+            detail={bandStatDetails({ atRisk, average, performingWell, notYetCalculated })[openFor()]}
+            onClose={closeStat}
+          />
+        </>
       )}
 
       {error && <Alert>{error}</Alert>}

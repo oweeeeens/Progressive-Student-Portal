@@ -23,6 +23,8 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import { StaffHero } from '../components/StaffHero'
 import { Pagination } from '../components/Pagination'
 import { QuickActions } from '../components/QuickActions'
@@ -30,6 +32,72 @@ import { StudentsNeedingAttention } from '../components/StudentsNeedingAttention
 import { ActivityFeed } from '../components/ActivityFeed'
 import './DashboardPage.css'
 import { Alert } from '../components/Alert'
+
+// What each headline figure on this page actually counts.
+//
+// Every sentence here is checked against the query that produces the number
+// (backend/models/dashboardModel.js), not against what the label implies —
+// the label is the thing that was already ambiguous. Two in particular are
+// easy to misread and are stated outright: "at risk" deliberately excludes
+// the Low band, and both student-facing counts are scoped to what YOU are
+// assigned to, which is why two people can sit side by side and see
+// different numbers under the same heading.
+//
+// `period` is the current grading period's name, or null outside one.
+function dashboardStatDetails(stats, period) {
+  return {
+    students: {
+      title: 'Active students',
+      subtitle: stats.students,
+      definition:
+        'Learners you can see, whose record is still active. Not the whole school unless your role covers the whole school.',
+      rules: [
+        'Scoped to what you are assigned to — an adviser sees their advisory section plus any section they teach a class in; admin, registrar, principal and guidance counselors see the school.',
+        'A record is excluded once it is deactivated, whatever its enrollment status. Pending, dropped and transferred learners still count here while their record is active — Student Records breaks those out separately.',
+      ],
+      action: { to: '/students', label: 'Open Student Records' },
+    },
+    atRiskStudents: {
+      title: 'At-risk students',
+      subtitle: stats.atRiskStudents,
+      definition: period
+        ? `Learners whose risk level for ${period} came out Medium or High.`
+        : 'Learners whose risk level for the current grading period came out Medium or High.',
+      rules: [
+        'Low risk is deliberately left out. This card is meant to be the number worth acting on, not a restatement of the roster size.',
+        'Counted from the stored risk assessment for the CURRENT grading period only. A learner flagged last quarter who has since recovered is not here.',
+        'Risk is recalculated when grades are finalized or attendance is recorded — not continuously — so this can lag the classroom by design (see the approval workflow).',
+        'Outside any grading period this reads 0, because there is no period to score against.',
+      ],
+      action: { to: '/academic-progress', label: 'Open Academic Progress' },
+    },
+    openInterventions: {
+      title: 'Open interventions',
+      subtitle: stats.openInterventions,
+      definition: 'Support logged against a learner that nobody has closed out yet.',
+      rules: [
+        'Counts both Open and Monitoring. Resolved and Escalated are finished states and are left out.',
+        'Escalated is NOT counted here even though it needs attention — it has already been handed on, so it is no longer waiting on you.',
+        'Scoped to the learners you can see, the same way the student count above is.',
+      ],
+      action: { to: '/interventions', label: 'Open Interventions' },
+    },
+    gradesAwaitingVerification: {
+      title: 'Grades awaiting verification',
+      subtitle: stats.gradesAwaitingVerification,
+      definition: period
+        ? `Grades submitted by subject teachers for ${period} that are waiting on the principal.`
+        : 'Grades submitted by subject teachers that are waiting on the principal.',
+      rules: [
+        'Stage 2 of the three-stage approval chain: a subject teacher submits, the principal verifies, the adviser finalizes into the official record.',
+        'School-wide, not scoped — the principal is one person for the whole school, so this is their entire queue.',
+        'Only the current grading period. A grade still sitting unverified from an earlier period is not counted.',
+        'Already-verified grades move to the adviser and leave this number, so 0 means the principal is caught up, not that no grades exist.',
+      ],
+      action: { to: '/grades/verify', label: 'Open Verify Grades' },
+    },
+  }
+}
 
 // Role-specific shortcuts, placed prominently near the top of the page.
 // Admin's "Post Announcement" opens the inline form already on this page
@@ -153,6 +221,10 @@ export function DashboardPage() {
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [stats, setStats] = useState(null)
+  // One panel under the stat row, whichever figure is open. See
+  // hooks/useStatExplainer.js — the hook owns the aria wiring so it cannot
+  // drift between the four cards here and the rows on every other page.
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('dashboard-stat-detail')
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
 
@@ -236,27 +308,48 @@ export function DashboardPage() {
       <QuickActions actions={quickActions} />
 
       {stats && Object.keys(stats).length > 0 && (
-        <StatRow compact>
-          {stats.students !== undefined && (
-            <StatCard icon={Users} value={stats.students} label="Active students" />
-          )}
-          {stats.atRiskStudents !== undefined && (
-            <StatCard icon={AlertTriangle} value={stats.atRiskStudents} label="At-risk students" variant="negative" />
-          )}
-          {stats.openInterventions !== undefined && (
-            <StatCard icon={ClipboardList} value={stats.openInterventions} label="Open interventions" variant="accent" />
-          )}
-          {/* The principal's own queue. Shown to them and to admin only —
-              nobody else can act on it. */}
-          {stats.gradesAwaitingVerification !== undefined && (
-            <StatCard
-              icon={ShieldCheck}
-              value={stats.gradesAwaitingVerification}
-              label="Grades awaiting verification"
-              variant={stats.gradesAwaitingVerification > 0 ? 'warning' : 'positive'}
-            />
-          )}
-        </StatRow>
+        <>
+          <StatRow compact>
+            {stats.students !== undefined && (
+              <StatCard icon={Users} value={stats.students} label="Active students" {...cardProps('students')} />
+            )}
+            {stats.atRiskStudents !== undefined && (
+              <StatCard
+                icon={AlertTriangle}
+                value={stats.atRiskStudents}
+                label="At-risk students"
+                variant="negative"
+                {...cardProps('atRiskStudents')}
+              />
+            )}
+            {stats.openInterventions !== undefined && (
+              <StatCard
+                icon={ClipboardList}
+                value={stats.openInterventions}
+                label="Open interventions"
+                variant="accent"
+                {...cardProps('openInterventions')}
+              />
+            )}
+            {/* The principal's own queue. Shown to them and to admin only —
+                nobody else can act on it. */}
+            {stats.gradesAwaitingVerification !== undefined && (
+              <StatCard
+                icon={ShieldCheck}
+                value={stats.gradesAwaitingVerification}
+                label="Grades awaiting verification"
+                variant={stats.gradesAwaitingVerification > 0 ? 'warning' : 'positive'}
+                {...cardProps('gradesAwaitingVerification')}
+              />
+            )}
+          </StatRow>
+
+          <StatDetail
+            id="dashboard-stat-detail"
+            detail={dashboardStatDetails(stats, currentPeriod?.name)[openFor()]}
+            onClose={closeStat}
+          />
+        </>
       )}
 
       {error && <Alert>{error}</Alert>}

@@ -5,6 +5,8 @@ import { api } from '../api/client'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import {
   InterventionDetailPanel,
   INTERVENTION_TYPE_LABELS,
@@ -22,6 +24,72 @@ const PAGE_SIZE = 15
 // adviser/own-section scoping the backend already applies everywhere else.
 // Clicking a row expands the exact same detail/edit panel used inline on
 // the Student Detail page, so status changes go through one code path.
+// What each status means, and — more usefully — what is supposed to happen
+// next from it.
+//
+// Two of the four are set BY THE SYSTEM, not by a person, and that is the
+// single most misread thing on this page: Resolved and Escalated are written
+// automatically at the next risk recalculation by comparing the learner's new
+// risk level against their level when the intervention was logged. Somebody
+// reading "Escalated" as an accusation, or "Resolved" as a colleague's
+// judgement call, has the wrong model of the page.
+function interventionStatDetails(counts) {
+  const total = counts.open + counts.monitoring + counts.resolved + counts.escalated
+
+  const breakdown = [
+    { label: 'Open', value: counts.open },
+    { label: 'Monitoring', value: counts.monitoring },
+    { label: 'Resolved', value: counts.resolved },
+    { label: 'Escalated', value: counts.escalated },
+    { label: 'Total logged', value: total, isTotal: true },
+  ]
+
+  return {
+    open: {
+      title: 'Open',
+      subtitle: counts.open,
+      definition: 'Support logged against a learner that nobody has started following up on yet.',
+      breakdown,
+      rules: [
+        'The state every intervention starts in, set when an adviser or guidance counselor logs it.',
+        'Move it to Monitoring yourself once follow-up is actually under way — that is a manual step, not an automatic one.',
+      ],
+    },
+    monitoring: {
+      title: 'Monitoring',
+      subtitle: counts.monitoring,
+      definition: 'Follow-up is under way and somebody is watching whether it works.',
+      breakdown,
+      rules: [
+        'Set by hand when you begin acting on an Open intervention.',
+        'From here the system takes over: at the next risk recalculation it compares the learner’s new risk level against their level when this was logged, and closes it as Resolved or Escalated for you.',
+      ],
+    },
+    resolved: {
+      title: 'Resolved',
+      subtitle: counts.resolved,
+      definition: 'The learner’s risk level improved after this support was logged.',
+      breakdown,
+      rules: [
+        'Set AUTOMATICALLY, not by a person — the risk engine compares the new risk level against the level recorded when the intervention was logged, and marks it resolved when it has improved.',
+        'This is the closed loop the whole module exists for: it is evidence the support actually helped, rather than just evidence that it happened.',
+        'It does not mean the learner is no longer at risk — only that they are better off than when this was logged.',
+      ],
+    },
+    escalated: {
+      title: 'Escalated',
+      subtitle: counts.escalated,
+      definition: 'The learner’s risk level stayed the same or got worse after this support was logged.',
+      breakdown,
+      rules: [
+        'Also set automatically by the same comparison — it is a statement about the outcome, not about the person who logged it.',
+        'These are the ones worth reading first: something was tried and it did not move the learner, so the next step probably has to be different rather than more of the same.',
+        'The Dashboard’s “open interventions” card does NOT count these, because they have already been handed on rather than waiting on you.',
+      ],
+    },
+  }
+}
+
 export function InterventionsPage() {
   const [interventions, setInterventions] = useState(null)
   const [total, setTotal] = useState(0)
@@ -37,6 +105,7 @@ export function InterventionsPage() {
   // while the request was out, so two clicks sent two writes, and a
   // successful one reported itself only by the table quietly redrawing.
   const { error, setError, notice, busyKey, runWrite } = useWriteFeedback()
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('intervention-stat-detail')
 
   useEffect(() => {
     api
@@ -113,18 +182,33 @@ export function InterventionsPage() {
           earns a tile — but only once it has something in it. A row of
           zeroes tells a reader nothing they can act on. */}
       {counts && (
-        <StatRow>
-          {[
-            { key: 'open', icon: CircleDot, value: counts.open, label: 'Open' },
-            { key: 'monitoring', icon: Eye, value: counts.monitoring, label: 'Monitoring', variant: 'info' },
-            { key: 'resolved', icon: CheckCircle2, value: counts.resolved, label: 'Resolved', variant: 'positive' },
-            { key: 'escalated', icon: ArrowUpCircle, value: counts.escalated, label: 'Escalated', variant: 'negative' },
-          ]
-            .filter((t) => t.value > 0)
-            .map((t) => (
-              <StatCard key={t.key} icon={t.icon} value={t.value} label={t.label} variant={t.variant} />
-            ))}
-        </StatRow>
+        <>
+          <StatRow>
+            {[
+              { key: 'open', icon: CircleDot, value: counts.open, label: 'Open' },
+              { key: 'monitoring', icon: Eye, value: counts.monitoring, label: 'Monitoring', variant: 'info' },
+              { key: 'resolved', icon: CheckCircle2, value: counts.resolved, label: 'Resolved', variant: 'positive' },
+              { key: 'escalated', icon: ArrowUpCircle, value: counts.escalated, label: 'Escalated', variant: 'negative' },
+            ]
+              .filter((t) => t.value > 0)
+              .map((t) => (
+                <StatCard
+                  key={t.key}
+                  icon={t.icon}
+                  value={t.value}
+                  label={t.label}
+                  variant={t.variant}
+                  {...cardProps(t.key)}
+                />
+              ))}
+          </StatRow>
+
+          <StatDetail
+            id="intervention-stat-detail"
+            detail={interventionStatDetails(counts)[openFor()]}
+            onClose={closeStat}
+          />
+        </>
       )}
 
       {error && <Alert>{error}</Alert>}

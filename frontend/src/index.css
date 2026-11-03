@@ -5200,3 +5200,33 @@ textarea[aria-invalid='true']:focus-visible {
   flex-direction: column;
   gap: var(--space-3);
 }
+
+/* --- Stat card explanations (staff-facing) ------------------------------ */
+
+/* The "what is included / what is left out" bullets. Disc markers rather
+   than the checks-list's icons: these are statements of a rule, not pass/
+   fail results, and borrowing the flagged/clear icons would imply a verdict
+   that isn't being given. */
+.stat-detail__rules {
+  margin: var(--space-3) 0 0;
+  padding-left: var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+.stat-detail__rules li + li {
+  margin-top: var(--space-2);
+}
+
+/* The way out of the panel and into the list it describes — "2 at-risk
+   students" is only useful if you can then go and see which two. */
+.stat-detail__action {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-sm);
+}
+.stat-detail__action a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 500;
+}

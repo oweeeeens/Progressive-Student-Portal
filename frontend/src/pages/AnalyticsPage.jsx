@@ -18,6 +18,8 @@ import { api } from '../api/client'
 import { useMediaQuery, PHONE_QUERY } from '../hooks/useMediaQuery'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import { SkeletonChart, SkeletonTable, LoadingAnnouncement } from '../components/Skeleton'
 import { StatusPill } from '../components/StatusPill'
 import { Tabs } from '../components/Tabs'
@@ -161,6 +163,209 @@ function ChartEmptyState({ message, isFiltered, onClear }) {
 // That's also why the Attendance tab no longer has its own per-chart section
 // picker: the page-level Section filter does that job now, for every chart
 // at once instead of one.
+// What the school-wide figures count, and what the filters above them do to
+// each one.
+//
+// Everything on this page moves when a filter changes, which is the single
+// most important thing to say about every figure here — an unqualified "118
+// students" read off a filtered page is how an analytics screen starts
+// producing confident wrong numbers in a presentation.
+//
+// The resolution rate's denominator is the other trap: it is CLOSED
+// interventions, not all of them, so a page with mostly open cases shows a
+// rate computed from a small handful. Stated plainly rather than left to be
+// inferred from a percentage that looks authoritative.
+function analyticsStatDetails({ distribution, effectiveness, latestAttendanceRate, isFiltered }) {
+  const filterNote = isFiltered
+    ? 'Filters are active, so this covers the filtered view — not the whole school.'
+    : 'No filters are active, so this covers everything you can see.'
+
+  const details = {}
+
+  if (distribution) {
+    const bands = distribution.overall.counts
+    const atRiskTotal = bands.at_risk_high + bands.at_risk_medium + bands.at_risk_low
+
+    details.students = {
+      title: 'Students in view',
+      subtitle: distribution.overall.total,
+      definition: 'Learners included in every figure and chart on this page.',
+      breakdown: [
+        { label: 'At Risk', value: atRiskTotal },
+        { label: 'Average / Steady', value: bands.average },
+        { label: 'Performing Well', value: bands.performing_well },
+        { label: 'Students in view', value: distribution.overall.total, isTotal: true },
+      ],
+      rules: [
+        filterNote,
+        'Only learners with a risk assessment for the selected grading period. A learner with no grades or attendance recorded yet has nothing to assess and is not counted.',
+        'That makes this smaller than the roster in Student Records, by design — it is the population that could be measured, not the population that exists.',
+      ],
+    }
+
+    details.atRisk = {
+      title: 'At Risk (all levels)',
+      subtitle: atRiskTotal,
+      definition: 'Learners with at least one risk factor triggered, at any severity.',
+      breakdown: [
+        { label: 'High (6+ points)', value: bands.at_risk_high },
+        { label: 'Medium (3-5 points)', value: bands.at_risk_medium },
+        { label: 'Low (1-2 points)', value: bands.at_risk_low },
+        { label: 'At risk, all levels', value: atRiskTotal, isTotal: true },
+      ],
+      rules: [
+        'All three levels, including Low — which is why this is larger than the Dashboard\u2019s at-risk card, which counts only Medium and High.',
+        'Four factors, two points each: grade below 75, grade falling 5+ a period, attendance below the required rate, attendance falling 5+ a period.',
+        filterNote,
+      ],
+      action: { to: '/academic-progress', label: 'See these learners in Academic Progress' },
+    }
+  }
+
+  if (effectiveness) {
+    const c = effectiveness.overall.counts
+    const closed = c.resolved + c.escalated
+
+    details.interventions = {
+      title: 'Interventions logged',
+      subtitle: effectiveness.overall.total,
+      definition: 'Every intervention logged against a learner in view, in any status.',
+      breakdown: [
+        { label: 'Open', value: c.open },
+        { label: 'Monitoring', value: c.monitoring },
+        { label: 'Resolved', value: c.resolved },
+        { label: 'Escalated', value: c.escalated },
+        { label: 'Total logged', value: effectiveness.overall.total, isTotal: true },
+      ],
+      rules: [
+        filterNote,
+        'Counts interventions, not learners — one learner with three interventions logged contributes three.',
+      ],
+    }
+
+    details.resolutionRate = {
+      title: 'Resolution rate',
+      subtitle:
+        effectiveness.overall.resolutionRate != null
+          ? `${effectiveness.overall.resolutionRate}%`
+          : 'No closed cases yet',
+      definition:
+        'Of the interventions that have REACHED an outcome, the share where the learner\u2019s risk level improved.',
+      breakdown: [
+        { label: 'Resolved (improved)', value: c.resolved },
+        { label: 'Escalated (same or worse)', value: c.escalated },
+        { label: 'Closed cases — the denominator', value: closed, isTotal: true },
+      ],
+      rules: [
+        'The denominator is CLOSED cases only — resolved plus escalated. Interventions still Open or Monitoring are excluded, because they have no outcome yet.',
+        `That means this is computed from ${closed} case${closed === 1 ? '' : 's'}, not all ${effectiveness.overall.total}. With few closed cases it will swing hard on a single outcome.`,
+        'Resolved and Escalated are set automatically by the risk engine at the next recalculation, by comparing the learner\u2019s new risk level against their level when the intervention was logged — not by anyone\u2019s judgement.',
+        'The per-type rows below use this exact formula on each type\u2019s own closed cases.',
+      ],
+    }
+
+    details.resolved = {
+      title: 'Resolved',
+      subtitle: c.resolved,
+      definition: 'Interventions where the learner\u2019s risk level improved after the support was logged.',
+      rules: [
+        'Set automatically, by comparing risk levels across the recalculation — it is evidence the support helped, not a note somebody wrote.',
+        'Improvement is relative to when the intervention was logged. It does not mean the learner is no longer at risk.',
+      ],
+    }
+
+    details.escalated = {
+      title: 'Escalated',
+      subtitle: c.escalated,
+      definition: 'Interventions where the learner\u2019s risk level stayed the same or got worse.',
+      rules: [
+        'Also set automatically by the same comparison — a statement about the outcome, not about whoever logged it.',
+        'These are the most useful rows on the page: something was tried and did not move the learner, so the next step probably needs to be different in kind.',
+      ],
+    }
+
+    // One entry per intervention TYPE, for the per-type rows further down.
+    //
+    // These were very nearly left as plain cards on the reasoning that they
+    // would only repeat the overall explanation above. That was wrong: each
+    // one has its own denominator, and comparing types is the entire point
+    // of that section — "which kind of support actually works here" is the
+    // question this page exists to answer, and a 100% rate computed from two
+    // closed cases should not look identical to one computed from forty.
+    for (const row of effectiveness.byType) {
+      const label = INTERVENTION_TYPE_LABELS[row.interventionType] || row.interventionType
+      const typeClosed = row.counts.resolved + row.counts.escalated
+      const typeBreakdown = [
+        { label: 'Resolved (improved)', value: row.counts.resolved },
+        { label: 'Escalated (same or worse)', value: row.counts.escalated },
+        { label: 'Closed cases — the denominator', value: typeClosed, isTotal: true },
+      ]
+
+      details[`type-${row.interventionType}-rate`] = {
+        title: `${label} — resolution rate`,
+        subtitle: row.resolutionRate != null ? `${row.resolutionRate}%` : 'No closed cases yet',
+        definition: `Of the ${label.toLowerCase()} interventions that have reached an outcome, the share where the learner’s risk level improved.`,
+        breakdown: typeBreakdown,
+        rules: [
+          `Computed from this type’s own ${typeClosed} closed case${typeClosed === 1 ? '' : 's'}, not from all ${row.total} logged — the same closed-only denominator the overall rate uses.`,
+          typeClosed > 0 && typeClosed < 5
+            ? `With only ${typeClosed} closed case${typeClosed === 1 ? '' : 's'}, this percentage moves a long way on a single outcome. Read it as a hint, not a measurement.`
+            : 'Compare it against the other types above and below rather than against an absolute target — the useful question is which support works best here.',
+          filterNote,
+        ],
+      }
+
+      details[`type-${row.interventionType}-resolved`] = {
+        title: `${label} — resolved`,
+        subtitle: row.counts.resolved,
+        definition: `${label} interventions after which the learner’s risk level improved.`,
+        breakdown: typeBreakdown,
+        rules: [
+          'Set automatically by the risk engine comparing the learner’s new level against their level when the intervention was logged.',
+          filterNote,
+        ],
+      }
+
+      details[`type-${row.interventionType}-escalated`] = {
+        title: `${label} — escalated`,
+        subtitle: row.counts.escalated,
+        definition: `${label} interventions after which the learner’s risk level stayed the same or got worse.`,
+        breakdown: typeBreakdown,
+        rules: [
+          'A statement about the outcome, not about whoever logged it — the engine sets this, not a person.',
+          'A type with consistently high escalation is worth questioning as an approach, rather than applying harder.',
+          filterNote,
+        ],
+      }
+    }
+
+    details.stillOpen = {
+      title: 'Still open / monitoring',
+      subtitle: c.open + c.monitoring,
+      definition: 'Interventions that have not reached an outcome yet.',
+      rules: [
+        'Excluded from the resolution rate entirely — counting an unfinished case as a failure would understate the rate, and as a success would overstate it.',
+        'These resolve themselves at the next risk recalculation, when the engine compares the learner\u2019s new level against the level recorded at logging.',
+      ],
+    }
+  }
+
+  details.attendance = {
+    title: 'Latest attendance rate',
+    subtitle: latestAttendanceRate != null ? `${latestAttendanceRate}%` : 'Not available',
+    definition:
+      'The average daily attendance rate across learners in view, for the most recent grading period that has attendance recorded.',
+    rules: [
+      'The DAILY homeroom register — the official SF2 record the school reports on, and the only one the risk formula reads.',
+      'Subject-level attendance is kept separately by each teacher and is deliberately NOT included here. The two numbers will legitimately differ.',
+      'Arriving late still counts as attending. An excused absence still counts as a day missed, because the class time is missed either way.',
+      filterNote,
+    ],
+  }
+
+  return details
+}
+
 export function AnalyticsPage() {
   const navigate = useNavigate()
   const [periods, setPeriods] = useState([])
@@ -306,6 +511,11 @@ export function AnalyticsPage() {
 
   const isFiltered = activeFilterChips.length > 0
 
+  // Two stat rows on this page, in two different tabs, sharing one open-panel
+  // state — only one row is ever mounted at a time, so a single hook is the
+  // honest shape rather than two that could both be open invisibly.
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('analytics-stat-detail')
+
   // Only the five real bands feed the bar and its legend; the
   // not-yet-assessed count is reported separately below the chart.
   const distributionBars = useMemo(() => {
@@ -450,6 +660,12 @@ export function AnalyticsPage() {
     return null
   }, [attendancePoints])
 
+  // Declared here and not up with the other derived values, because it reads
+  // latestAttendanceRate directly above — placed any earlier it is a
+  // temporal-dead-zone crash that takes the whole page down rather than a
+  // missing figure, since every `const` above it is still uninitialised.
+  const statDetails = analyticsStatDetails({ distribution, effectiveness, latestAttendanceRate, isFiltered })
+
   // Two series sharing one x-axis (grading periods) — the actually-useful
   // comparison this tab exists for, per the dataviz skill's "the series
   // ARE the subject" case: the point is comparing the two cohorts' identity,
@@ -541,22 +757,39 @@ export function AnalyticsPage() {
   const overviewTab = (
     <div>
       {distribution && (
-        <StatRow>
-          <StatCard icon={Users} value={distribution.overall.total} label="Students in view" />
-          <StatCard
-            icon={AlertTriangle}
-            value={distribution.overall.counts.at_risk_high + distribution.overall.counts.at_risk_medium + distribution.overall.counts.at_risk_low}
-            label="At Risk (all levels)"
-            variant="negative"
-          />
-          <StatCard icon={HeartHandshake} value={effectiveness?.overall.total ?? '—'} label="Interventions logged" variant="info" />
-          <StatCard
-            icon={CalendarCheck}
-            value={formatPercent(latestAttendanceRate)}
-            label="Latest attendance rate"
-            variant={latestAttendanceRate != null ? 'info' : undefined}
-          />
-        </StatRow>
+        <>
+          <StatRow>
+            <StatCard
+              icon={Users}
+              value={distribution.overall.total}
+              label="Students in view"
+              {...cardProps('students')}
+            />
+            <StatCard
+              icon={AlertTriangle}
+              value={distribution.overall.counts.at_risk_high + distribution.overall.counts.at_risk_medium + distribution.overall.counts.at_risk_low}
+              label="At Risk (all levels)"
+              variant="negative"
+              {...cardProps('atRisk')}
+            />
+            <StatCard
+              icon={HeartHandshake}
+              value={effectiveness?.overall.total ?? '—'}
+              label="Interventions logged"
+              variant="info"
+              {...cardProps('interventions')}
+            />
+            <StatCard
+              icon={CalendarCheck}
+              value={formatPercent(latestAttendanceRate)}
+              label="Latest attendance rate"
+              variant={latestAttendanceRate != null ? 'info' : undefined}
+              {...cardProps('attendance')}
+            />
+          </StatRow>
+
+          <StatDetail id="analytics-stat-detail" detail={statDetails[openFor()]} onClose={closeStat} />
+        </>
       )}
 
       <div className="record-section">
@@ -848,16 +1081,32 @@ export function AnalyticsPage() {
                 value={effectiveness.overall.resolutionRate != null ? formatPercent(effectiveness.overall.resolutionRate) : '—'}
                 label="Resolution rate (of closed interventions)"
                 variant="positive"
+                {...cardProps('resolutionRate')}
               />
-              <StatCard icon={HeartHandshake} value={effectiveness.overall.counts.resolved} label="Resolved" variant="positive" />
-              <StatCard icon={HeartHandshake} value={effectiveness.overall.counts.escalated} label="Escalated" variant="negative" />
+              <StatCard
+                icon={HeartHandshake}
+                value={effectiveness.overall.counts.resolved}
+                label="Resolved"
+                variant="positive"
+                {...cardProps('resolved')}
+              />
+              <StatCard
+                icon={HeartHandshake}
+                value={effectiveness.overall.counts.escalated}
+                label="Escalated"
+                variant="negative"
+                {...cardProps('escalated')}
+              />
               <StatCard
                 icon={HeartHandshake}
                 value={effectiveness.overall.counts.open + effectiveness.overall.counts.monitoring}
                 label="Still open / monitoring"
                 variant="info"
+                {...cardProps('stillOpen')}
               />
             </StatRow>
+
+            <StatDetail id="analytics-stat-detail" detail={statDetails[openFor()]} onClose={closeStat} />
 
             {/* Only worth a breakdown once there's more than one type to
                 tell apart — with a single type, it's identical to the
@@ -874,10 +1123,29 @@ export function AnalyticsPage() {
                       value={row.resolutionRate != null ? formatPercent(row.resolutionRate) : '—'}
                       label="Resolution rate"
                       variant="positive"
+                      {...cardProps(`type-${row.interventionType}-rate`, `analytics-stat-detail-${row.interventionType}`)}
                     />
-                    <StatCard icon={HeartHandshake} value={row.counts.resolved} label="Resolved" variant="positive" />
-                    <StatCard icon={HeartHandshake} value={row.counts.escalated} label="Escalated" variant="negative" />
+                    <StatCard
+                      icon={HeartHandshake}
+                      value={row.counts.resolved}
+                      label="Resolved"
+                      variant="positive"
+                      {...cardProps(`type-${row.interventionType}-resolved`, `analytics-stat-detail-${row.interventionType}`)}
+                    />
+                    <StatCard
+                      icon={HeartHandshake}
+                      value={row.counts.escalated}
+                      label="Escalated"
+                      variant="negative"
+                      {...cardProps(`type-${row.interventionType}-escalated`, `analytics-stat-detail-${row.interventionType}`)}
+                    />
                   </StatRow>
+
+                  <StatDetail
+                    id={`analytics-stat-detail-${row.interventionType}`}
+                    detail={statDetails[openFor(`analytics-stat-detail-${row.interventionType}`)]}
+                    onClose={closeStat}
+                  />
                 </div>
               ))}
 

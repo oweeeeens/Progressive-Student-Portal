@@ -4,6 +4,8 @@ import { Check, Download, Upload, CheckCircle2, XCircle, ArrowLeft, Users } from
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
+import { StatDetail } from '../components/StatDetail'
+import { useStatExplainer } from '../hooks/useStatExplainer'
 import { Alert } from '../components/Alert'
 import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 
@@ -18,8 +20,50 @@ const IMPORT_STEPS = [
   { key: 'result', label: 'Done' },
 ]
 
+// The two figures on the last screen before anything is written.
+//
+// This is the most consequential stat row in the app — the reader is one
+// click from creating records — so "what exactly will happen to the rows I
+// cannot see" deserves a real answer rather than a count and a hope.
+function importStatDetails(summary) {
+  return {
+    valid: {
+      title: 'Rows ready to import',
+      subtitle: summary.validCount,
+      definition: 'Rows that passed every check and will become student records when you confirm.',
+      breakdown: [
+        { label: 'Ready to import', value: summary.validCount },
+        { label: 'Skipped (has errors)', value: summary.invalidCount },
+        { label: 'Rows in your file', value: summary.validCount + summary.invalidCount, isTotal: true },
+      ],
+      rules: [
+        'Checked again on the server when you confirm, not just here — this preview cannot be the only thing standing between a bad row and the database.',
+        'Each row needs a 12-digit LRN that no existing record already uses, a first and last name, and a valid section if one was given.',
+        'Importing creates student RECORDS, not portal logins. Accounts are created separately and deliberately, which you can do straight from the result screen.',
+      ],
+    },
+    invalid: {
+      title: 'Rows with errors (skipped)',
+      subtitle: summary.invalidCount,
+      definition:
+        'Rows that failed a check. They will be left out entirely — the import does not stop, and nothing partial is written for them.',
+      breakdown: [
+        { label: 'Ready to import', value: summary.validCount },
+        { label: 'Skipped (has errors)', value: summary.invalidCount },
+        { label: 'Rows in your file', value: summary.validCount + summary.invalidCount, isTotal: true },
+      ],
+      rules: [
+        'Every skipped row is listed below with the specific reason, by row number, so you can fix the spreadsheet rather than guess.',
+        'The usual causes are a duplicate or malformed LRN, a missing name, or a section name that does not match one in Academic Setup.',
+        'Nothing is half-imported. Fix the rows and re-upload the file — the rows that already imported will be rejected as duplicates rather than doubled.',
+      ],
+    },
+  }
+}
+
 export function BulkImportStudentsPage() {
   const [step, setStep] = useState('upload')
+  const { openFor, close: closeStat, cardProps } = useStatExplainer('import-stat-detail')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -293,9 +337,23 @@ export function BulkImportStudentsPage() {
           <h2>3. Review before importing</h2>
 
           <StatRow>
-            <StatCard icon={CheckCircle2} value={summary.validCount} label="Rows ready to import" variant="positive" />
-            <StatCard icon={XCircle} value={summary.invalidCount} label="Rows with errors (skipped)" variant="negative" />
+            <StatCard
+              icon={CheckCircle2}
+              value={summary.validCount}
+              label="Rows ready to import"
+              variant="positive"
+              {...cardProps('valid')}
+            />
+            <StatCard
+              icon={XCircle}
+              value={summary.invalidCount}
+              label="Rows with errors (skipped)"
+              variant="negative"
+              {...cardProps('invalid')}
+            />
           </StatRow>
+
+          <StatDetail id="import-stat-detail" detail={importStatDetails(summary)[openFor()]} onClose={closeStat} />
 
           {/* Rows where "ALS" was matched in free-text last-school data.
               These ARE valid and WILL import — the flag just isn't trusted,
