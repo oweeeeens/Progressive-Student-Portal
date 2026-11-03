@@ -2,10 +2,11 @@
 // read-only picker used by the Academic Setup > Class Offerings form; the
 // rest is the admin CRUD surface for the Subjects page itself.
 const { pool } = require('../config/db');
+const { DEFAULT_SUBJECT_CATEGORY } = require('../config/academicTerms');
 
 async function listActiveSubjects() {
   const result = await pool.query(
-    'SELECT id, name, code, grade_level FROM subjects WHERE is_active = TRUE ORDER BY name'
+    'SELECT id, name, code, grade_level, category FROM subjects WHERE is_active = TRUE ORDER BY name'
   );
   return result.rows;
 }
@@ -31,27 +32,31 @@ async function listSubjectsForAdmin({ search, gradeLevel, includeInactive, page 
   const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
   const dataParams = [...params, limit, offset];
   const dataResult = await pool.query(
-    `SELECT id, name, code, grade_level, is_active FROM subjects ${where}
+    `SELECT id, name, code, grade_level, category, is_active FROM subjects ${where}
      ORDER BY name LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
     dataParams
   );
   return { rows: dataResult.rows, total };
 }
 
-async function createSubject({ name, code, gradeLevel }) {
+// `category` decides whether this subject runs the whole year regardless of
+// how its class offerings are termed — see config/academicTerms.js. It
+// falls back to the default rather than NULL so the column can stay NOT NULL
+// and every read can rely on a value being there.
+async function createSubject({ name, code, gradeLevel, category }) {
   const result = await pool.query(
-    `INSERT INTO subjects (name, code, grade_level) VALUES ($1, $2, $3)
-     RETURNING id, name, code, grade_level, is_active`,
-    [name, code || null, gradeLevel || null]
+    `INSERT INTO subjects (name, code, grade_level, category) VALUES ($1, $2, $3, $4)
+     RETURNING id, name, code, grade_level, category, is_active`,
+    [name, code || null, gradeLevel || null, category || DEFAULT_SUBJECT_CATEGORY]
   );
   return result.rows[0];
 }
 
-async function updateSubject(id, { name, code, gradeLevel }) {
+async function updateSubject(id, { name, code, gradeLevel, category }) {
   const result = await pool.query(
-    `UPDATE subjects SET name = $2, code = $3, grade_level = $4 WHERE id = $1
-     RETURNING id, name, code, grade_level, is_active`,
-    [id, name, code || null, gradeLevel || null]
+    `UPDATE subjects SET name = $2, code = $3, grade_level = $4, category = $5 WHERE id = $1
+     RETURNING id, name, code, grade_level, category, is_active`,
+    [id, name, code || null, gradeLevel || null, category || DEFAULT_SUBJECT_CATEGORY]
   );
   return result.rows[0] || null;
 }

@@ -155,6 +155,58 @@ CLAUDE.md's Code Quality Standards ask for per-module orientation notes. Each ba
   the id comes from the token and `role` is not a field it reads.
 - **Learner Status fields** (`is_pwd`, `is_4ps`, `is_als_graduate`) — DepEd reporting fields on the student record. **Descriptive only: they never feed the risk formula.** Visibility is per field and per role (`backend/config/learnerStatus.js`): a subject teacher may see a disability flag because they teach the learner, but not 4Ps status, which is household financial information. Students never see any of the three about themselves. The same map gates writes, not just reads.
 
+## Subjects Per Term, Grades Per Quarter
+
+The school's timetable, confirmed with the client: a **Grade 11 subject runs
+all three quarters** of the year; a **Grade 12 subject changes every
+semester**; a **specialized subject runs the whole year in both grade
+levels**. "Term" means a semester.
+
+Three stored columns carry that, and the policy that reads them lives in one
+place: `backend/config/academicTerms.js`, mirrored for display only in
+`frontend/src/utils/academicTerms.js`.
+
+- **`subjects.category`** — `core | applied | specialized`, DepEd's own
+  grouping, set on the Subjects form. Defaults to `core`.
+- **`grading_periods.semester`** — 1 or 2, **set by the admin per quarter**
+  in Academic Setup. It cannot be derived: *three quarters do not divide
+  evenly into two semesters*, so only the school knows where their boundary
+  falls. NULL until assigned.
+- **`class_offerings.term`** — `full_year | sem1 | sem2`, NOT NULL DEFAULT
+  `full_year`, and the UNIQUE now includes it, because the same subject
+  legitimately IS offered to one section twice in a year — once per semester.
+  An enum rather than a nullable `semester` on purpose: Postgres treats NULLs
+  as distinct in a UNIQUE, so a nullable column meaning "whole year" would
+  silently permit two whole-year rows for the same subject and section.
+
+**Two fail-open rules keep this safe on data that predates it.** A
+`full_year` class covers every quarter — which is what every offering
+recorded before this feature means — and a quarter with **no semester
+assigned yet is treated as covered**, so a school part-way through its
+Academic Setup sees all its grades rather than none.
+
+**Grade viewing is one table per quarter** (`StudentGradesPage`), listing
+only the subjects actually running in it, with a "Whole year" tab keeping the
+report-card grid. It opens on the current quarter. A single wide table showed
+a Grade 12 learner every subject they take at any point in the year with
+dashes where one was not running — and a dash meaning "not taught this
+quarter" looked exactly like one meaning "no mark recorded yet".
+
+**Three bugs fixed alongside it**, all pre-existing:
+
+- `gradeModel.getHistoryForStudent` had **no school-year filter** while every
+  other per-period reader did. `sequence_number` is unique only within a
+  year, so a learner's Grade 11 "Q1" and Grade 12 "Q1" landed in the same
+  cell and the later row silently won.
+- Subjects were matched **by name** in `myProgressController`,
+  `StudentGradesPage` and the report card's pivot, justified by a comment
+  claiming subject names are unique. Only `code` is — a Grade 11 and a Grade
+  12 "Practical Research" merged into one row. All three now key on
+  `subject_id`.
+- `GradeHistory.jsx` still keyed its status colours on `draft`, a status
+  removed when the approval chain was introduced, so three of the four
+  statuses rendered unstyled.
+
 ## Dates and the School's Timezone
 Every "which grading period are we in" decision uses the school's local date, not the server's UTC date — `backend/utils/schoolDate.js`, configurable via `SCHOOL_TIMEZONE`, defaulting to `Asia/Manila`. The school is at UTC+8, so a UTC date names *yesterday* for the whole morning, and on the first or last day of a quarter that resolves to the wrong grading period.
 

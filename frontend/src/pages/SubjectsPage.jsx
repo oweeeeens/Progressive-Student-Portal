@@ -8,9 +8,13 @@ import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
+import { SUBJECT_CATEGORIES, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
 
 const PAGE_SIZE = 15
-const emptyForm = { name: '', code: '', gradeLevel: '' }
+// 'core' rather than blank: it is the largest group, and the column is NOT
+// NULL — a blank would just become 'core' on the server anyway, so the form
+// may as well say so.
+const emptyForm = { name: '', code: '', gradeLevel: '', category: 'core' }
 
 // Admin-only Academic Setup page for subjects. Like sections, subjects are
 // soft-deactivated, never hard-deleted — one with grades recorded against
@@ -70,13 +74,18 @@ export function SubjectsPage() {
 
   function startEdit(row) {
     setEditingId(row.id)
-    setForm({ name: row.name, code: row.code || '', gradeLevel: row.grade_level || '' })
+    setForm({ name: row.name, code: row.code || '', gradeLevel: row.grade_level || '', category: row.category || 'core' })
     setShowForm(true)
   }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    const payload = { name: form.name, code: form.code || null, gradeLevel: form.gradeLevel ? Number(form.gradeLevel) : null }
+    const payload = {
+      name: form.name,
+      code: form.code || null,
+      gradeLevel: form.gradeLevel ? Number(form.gradeLevel) : null,
+      category: form.category,
+    }
     const wasEdit = Boolean(editingId)
 
     await runWrite(
@@ -180,6 +189,26 @@ export function SubjectsPage() {
               placeholder="e.g. MATH11"
             />
 
+            <label htmlFor="subject-category">Type</label>
+            <select
+              id="subject-category"
+              value={form.category}
+              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+            >
+              {SUBJECT_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            {/* The one consequence worth stating on the form itself, since it
+                is not guessable from the word "Specialized". */}
+            <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
+              {form.category === 'specialized'
+                ? 'Specialized subjects run the whole school year in both grade levels, whatever term their classes are given.'
+                : 'Core and applied subjects run for as long as their class offering says — the whole year, or one semester.'}
+            </p>
+
             <label>Grade Level (optional)</label>
             <select value={form.gradeLevel} onChange={(e) => setForm((f) => ({ ...f, gradeLevel: e.target.value }))}>
               <option value="">Offered in both grade levels</option>
@@ -204,6 +233,13 @@ export function SubjectsPage() {
         columns={[
           { key: 'name', header: 'Name', primary: true, plainText: (r) => r.name, render: (r) => r.name },
           { key: 'code', header: 'Code', render: (r) => fieldValue(r.code) },
+          {
+            key: 'category',
+            header: 'Type',
+            uniformValue: (r) => r.category,
+            quietValue: 'core',
+            render: (r) => SUBJECT_CATEGORY_LABELS[r.category] || fieldValue(r.category),
+          },
           { key: 'level', header: 'Grade Level', render: (r) => r.grade_level || 'Both' },
           {
             key: 'status',

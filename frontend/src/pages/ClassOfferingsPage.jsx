@@ -8,6 +8,7 @@ import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
+import { CLASS_TERMS, CLASS_TERM_SHORT } from '../utils/academicTerms'
 
 const PAGE_SIZE = 15
 // Either teaching role can hold either assignment, because that is how the
@@ -19,7 +20,9 @@ const PAGE_SIZE = 15
 // making the arrangement impossible to set up.
 const ASSIGNABLE_TEACHING_ROLES = ['adviser', 'subject_teacher']
 
-const emptyForm = { schoolYearId: '', sectionId: '', subjectId: '', teacherId: '' }
+// 'full_year' is the default because it is what every class recorded before
+// this field existed means, and what a Grade 11 class is.
+const emptyForm = { schoolYearId: '', sectionId: '', subjectId: '', teacherId: '', term: 'full_year' }
 
 // Admin-only Academic Setup page assigning "this teacher teaches this
 // subject to this section this school year." Soft-deactivated, never
@@ -103,6 +106,7 @@ export function ClassOfferingsPage() {
       sectionId: String(row.section_id),
       subjectId: String(row.subject_id),
       teacherId: String(row.teacher_id),
+      term: row.term || 'full_year',
     })
     setShowForm(true)
   }
@@ -115,6 +119,7 @@ export function ClassOfferingsPage() {
       sectionId: Number(form.sectionId),
       subjectId: Number(form.subjectId),
       teacherId: Number(form.teacherId),
+      term: form.term,
     }
     await runWrite(
       'form',
@@ -260,6 +265,30 @@ export function ClassOfferingsPage() {
                 </option>
               ))}
             </select>
+
+            {/* How long this class runs. A Grade 11 class runs all year; a
+                Grade 12 core or applied class changes each semester, so the
+                same subject can be offered to the same section twice in one
+                year — which is why the uniqueness constraint now includes
+                this field. */}
+            <label htmlFor="offering-term">Runs for</label>
+            <select
+              id="offering-term"
+              value={form.term}
+              onChange={(e) => setForm((f) => ({ ...f, term: e.target.value }))}
+            >
+              {CLASS_TERMS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            {form.term !== 'full_year' && (
+              <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                This class shows up only in the quarters assigned to that semester. Assign each quarter its semester
+                under Academic Setup → School Years.
+              </p>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
             <button type="submit" className="btn-primary" disabled={busyKey === 'form'}>
@@ -290,6 +319,16 @@ export function ClassOfferingsPage() {
           },
           { key: 'teacher', header: 'Teacher', truncate: true, plainText: (r) => r.teacher_name, render: (r) => fieldValue(r.teacher_name) },
           { key: 'year', header: 'School Year', uniformValue: (r) => r.school_year_label, render: (r) => r.school_year_label },
+          {
+            key: 'term',
+            header: 'Runs for',
+            // The quiet value is the whole year, so only a class that stops
+            // at a semester draws the eye — which is the exception worth
+            // seeing in a list of mostly full-year classes.
+            uniformValue: (r) => r.term,
+            quietValue: 'full_year',
+            render: (r) => CLASS_TERM_SHORT[r.term] || fieldValue(r.term),
+          },
           {
             key: 'status',
             header: 'Status',

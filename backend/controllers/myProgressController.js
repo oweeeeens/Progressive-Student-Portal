@@ -181,12 +181,16 @@ async function getMySubjects(req, res) {
 
   // Latest finalized mark per subject. The history comes back ordered by
   // sequence_number, so the last row seen for a subject is its most recent
-  // period — no sorting needed here. Matched on subject NAME because that
-  // is what both queries return, and subject names are unique in the
-  // subjects table.
+  // period — no sorting needed here.
+  //
+  // Keyed on subject_id, not name. The old comment here claimed subject
+  // names are unique in the subjects table; only `code` carries a UNIQUE
+  // constraint. Two subjects sharing a name — which is exactly what a Grade
+  // 11 and a Grade 12 "Practical Research" are — collapsed into one row,
+  // and the learner saw one of the two marks against both.
   const latestBySubject = new Map();
   for (const row of finalized) {
-    latestBySubject.set(row.subject_name, {
+    latestBySubject.set(row.subject_id, {
       grade: Number(row.grade_value),
       gradingPeriodName: row.grading_period_name,
     });
@@ -198,10 +202,16 @@ async function getMySubjects(req, res) {
     // the frontend never writes 75 down (config/riskConfig.js owns it).
     passingGrade: GRADE_AT_RISK_THRESHOLD,
     subjects: offerings.map((o) => ({
+      subjectId: o.subject_id,
       subjectName: o.subject_name,
+      // How long this class runs and what kind of subject it is — the two
+      // facts that decide which quarters it appears in. See
+      // config/academicTerms.js.
+      term: o.term,
+      category: o.subject_category,
       teacherName: o.teacher_name,
-      latestGrade: latestBySubject.get(o.subject_name)?.grade ?? null,
-      latestGradePeriod: latestBySubject.get(o.subject_name)?.gradingPeriodName ?? null,
+      latestGrade: latestBySubject.get(o.subject_id)?.grade ?? null,
+      latestGradePeriod: latestBySubject.get(o.subject_id)?.gradingPeriodName ?? null,
     })),
   });
 }

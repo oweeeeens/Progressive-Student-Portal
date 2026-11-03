@@ -6,10 +6,11 @@
 // appearing for grade/attendance entry. Everything below is the admin CRUD
 // surface for the Academic Setup > Class Offerings page.
 const { pool } = require('../config/db');
+const { DEFAULT_CLASS_TERM } = require('../config/academicTerms');
 
 async function getById(id) {
   const result = await pool.query(
-    'SELECT id, subject_id, section_id, teacher_id, school_year_id FROM class_offerings WHERE id = $1',
+    'SELECT id, subject_id, section_id, teacher_id, school_year_id, term FROM class_offerings WHERE id = $1',
     [id]
   );
   return result.rows[0] || null;
@@ -17,7 +18,8 @@ async function getById(id) {
 
 async function listByTeacher(teacherId) {
   const result = await pool.query(
-    `SELECT co.id, subj.name AS subject_name, sec.name AS section_name, sec.grade_level
+    `SELECT co.id, co.term, subj.name AS subject_name, subj.category AS subject_category,
+            sec.name AS section_name, sec.grade_level
      FROM class_offerings co
      JOIN subjects subj ON subj.id = co.subject_id
      JOIN sections sec ON sec.id = co.section_id
@@ -38,7 +40,14 @@ async function listByTeacher(teacherId) {
 // timetable; the schema has no schedule to show.
 async function listBySection(sectionId) {
   const result = await pool.query(
-    `SELECT co.id, subj.name AS subject_name, u.full_name AS teacher_name
+    // subject_id, category and term travel with the row because the grade
+    // views group by quarter: which of these subjects a learner is taking in
+    // a given quarter depends on all three (config/academicTerms.js). The id
+    // also replaces matching a subject by NAME, which the student grade view
+    // used to do — only `code` is unique, so two subjects sharing a name
+    // merged into one row.
+    `SELECT co.id, co.term, subj.id AS subject_id, subj.name AS subject_name,
+            subj.category AS subject_category, u.full_name AS teacher_name
      FROM class_offerings co
      JOIN subjects subj ON subj.id = co.subject_id
      JOIN users u ON u.id = co.teacher_id
@@ -108,8 +117,8 @@ async function listClassOfferingsForAdmin({ search, schoolYearId, sectionId, sub
   const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
   const dataParams = [...params, limit, offset];
   const dataResult = await pool.query(
-    `SELECT co.id, co.is_active,
-            subj.id AS subject_id, subj.name AS subject_name,
+    `SELECT co.id, co.is_active, co.term,
+            subj.id AS subject_id, subj.name AS subject_name, subj.category AS subject_category,
             sec.id AS section_id, sec.name AS section_name, sec.grade_level,
             u.id AS teacher_id, u.full_name AS teacher_name,
             sy.id AS school_year_id, sy.label AS school_year_label
@@ -121,22 +130,25 @@ async function listClassOfferingsForAdmin({ search, schoolYearId, sectionId, sub
   return { rows: dataResult.rows, total };
 }
 
-async function createClassOffering({ subjectId, sectionId, teacherId, schoolYearId }) {
+// `term` says how long this class runs: the whole year, or one semester.
+// Defaults to the whole year, which is what every offering recorded before
+// this column existed means, and what a Grade 11 class is.
+async function createClassOffering({ subjectId, sectionId, teacherId, schoolYearId, term }) {
   const result = await pool.query(
-    `INSERT INTO class_offerings (subject_id, section_id, teacher_id, school_year_id)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id, subject_id, section_id, teacher_id, school_year_id, is_active`,
-    [subjectId, sectionId, teacherId, schoolYearId]
+    `INSERT INTO class_offerings (subject_id, section_id, teacher_id, school_year_id, term)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, subject_id, section_id, teacher_id, school_year_id, term, is_active`,
+    [subjectId, sectionId, teacherId, schoolYearId, term || DEFAULT_CLASS_TERM]
   );
   return result.rows[0];
 }
 
-async function updateClassOffering(id, { subjectId, sectionId, teacherId, schoolYearId }) {
+async function updateClassOffering(id, { subjectId, sectionId, teacherId, schoolYearId, term }) {
   const result = await pool.query(
-    `UPDATE class_offerings SET subject_id = $2, section_id = $3, teacher_id = $4, school_year_id = $5
+    `UPDATE class_offerings SET subject_id = $2, section_id = $3, teacher_id = $4, school_year_id = $5, term = $6
      WHERE id = $1
-     RETURNING id, subject_id, section_id, teacher_id, school_year_id, is_active`,
-    [id, subjectId, sectionId, teacherId, schoolYearId]
+     RETURNING id, subject_id, section_id, teacher_id, school_year_id, term, is_active`,
+    [id, subjectId, sectionId, teacherId, schoolYearId, term || DEFAULT_CLASS_TERM]
   );
   return result.rows[0] || null;
 }

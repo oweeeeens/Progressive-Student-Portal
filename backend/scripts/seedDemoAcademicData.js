@@ -29,22 +29,23 @@ const {
   CURRENT_PERIOD_LANES,
   INTERVENTIONS,
   ANNOUNCEMENTS,
+  SECTIONS,
+  PERIOD_SEMESTERS,
 } = require('./demoDataset');
+const { offeringCoversPeriod } = require('../config/academicTerms');
 
 const BASE_URL = (process.env.SEED_BASE_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/$/, '');
 
-// The accounts this script signs in as. Deliberately exactly nine, because
-// the login endpoint allows ten attempts per IP per 15 minutes
-// (routes/authRoutes.js) — a tenth would make the script trip its own rate
-// limit.
+// The accounts this script signs in as. The list is deduplicated before use
+// (see main) because the login endpoint allows ten attempts per IP per 15
+// minutes — and one teacher can advise two sections.
 const PRINCIPAL = 'principal@studentportal.local';
 const REGISTRAR = 'registrar@studentportal.local';
 const GUIDANCE = 'guidance@studentportal.local';
-const ADVISER_BY_SECTION = {
-  'STEM A': 'adviser@studentportal.local',
-  'STEM B': 'adviser2@studentportal.local',
-  'ABM A': 'adviser3@studentportal.local',
-};
+// Derived from the dataset rather than listed again here, so adding a
+// section cannot leave it without an adviser token and silently ungraded —
+// which is exactly what happened the first time a Grade 12 section was added.
+const ADVISER_BY_SECTION = Object.fromEntries(SECTIONS.map((sec) => [sec.name, sec.adviser]));
 
 // The subject teachers, taken from the dataset rather than listed again here.
 function teacherEmails() {
@@ -191,10 +192,26 @@ async function submitGrades({
 async function main() {
   console.log(`Seeding demo academic data against ${BASE_URL}`);
 
+  // Deduplicated, and that matters: the login endpoint allows ten attempts
+  // per IP per 15 minutes (routes/authRoutes.js), and one teacher advising
+  // two sections appears twice in ADVISER_BY_SECTION. Adding the Grade 12
+  // section — advised by the same person as STEM B — took the list to
+  // exactly ten logins for nine accounts, with the second one spent
+  // re-authenticating as somebody the script had already signed in as. The
+  // Set makes the count the number of distinct people, which is the number
+  // that should ever have governed it.
   const tokens = {};
-  for (const email of [PRINCIPAL, REGISTRAR, GUIDANCE, ...Object.values(ADVISER_BY_SECTION), ...teacherEmails()]) {
+  const accounts = [...new Set([
+    PRINCIPAL,
+    REGISTRAR,
+    GUIDANCE,
+    ...Object.values(ADVISER_BY_SECTION),
+    ...teacherEmails(),
+  ])];
+  for (const email of accounts) {
     tokens[email] = await login(email, DEMO_PASSWORD);
   }
+  console.log(`  signed in as ${accounts.length} accounts`);
   const principal = tokens[PRINCIPAL];
   const adviserToken = (sectionName) => tokens[ADVISER_BY_SECTION[sectionName]];
 
@@ -226,6 +243,18 @@ async function main() {
 
       for (const subject of offeringsFor(sectionName)) {
         if (heldBack.includes(subject.code) || ungraded.includes(subject.code)) continue;
+        // A class that runs for one semester does not get marks in the other
+        // one. Q1 and Q2 are the first semester in this demo school (see
+        // PERIOD_SEMESTERS), so a Grade 12 second-semester subject is skipped
+        // here and shows up with no marks in the Q3 tab — the honest state
+        // for a quarter the school has not reached yet.
+        if (!offeringCoversPeriod({
+          term: subject.term,
+          subjectCategory: subject.category,
+          periodSemester: PERIOD_SEMESTERS[periodKey],
+        })) {
+          continue;
+        }
         const gradeIds = await submitGrades({
           tokens,
           offeringId: offeringByKey.get(`${sectionName}|${subject.code}`),

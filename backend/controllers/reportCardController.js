@@ -24,18 +24,23 @@ const SCHOOL = {
 // get a column, matching "grading period completed so far".
 function pivotFinalizedGrades(rows) {
   const periodsBySeq = new Map();
-  const subjectsByName = new Map();
+  // Keyed on subject_id, not name. Two subjects can share a name — only
+  // `code` is UNIQUE on the subjects table — and a Grade 11 and a Grade 12
+  // "Practical Research" are exactly that case. Keyed by name they merged
+  // into one row of the printed card, with one subject's marks sitting
+  // under both, on a document the school hands to a parent.
+  const subjectsById = new Map();
 
   for (const row of rows) {
     periodsBySeq.set(row.sequence_number, { name: row.grading_period_name, sequenceNumber: row.sequence_number });
-    if (!subjectsByName.has(row.subject_name)) {
-      subjectsByName.set(row.subject_name, { name: row.subject_name, gradesBySeq: new Map() });
+    if (!subjectsById.has(row.subject_id)) {
+      subjectsById.set(row.subject_id, { name: row.subject_name, gradesBySeq: new Map() });
     }
-    subjectsByName.get(row.subject_name).gradesBySeq.set(row.sequence_number, Number(row.grade_value));
+    subjectsById.get(row.subject_id).gradesBySeq.set(row.sequence_number, Number(row.grade_value));
   }
 
   const periods = [...periodsBySeq.values()].sort((a, b) => a.sequenceNumber - b.sequenceNumber);
-  const subjects = [...subjectsByName.values()]
+  const subjects = [...subjectsById.values()]
     .map((s) => {
       const values = periods.map((p) => s.gradesBySeq.get(p.sequenceNumber) ?? null);
       const present = values.filter((v) => v != null);

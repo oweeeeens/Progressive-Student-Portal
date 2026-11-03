@@ -41,19 +41,50 @@ const SECTIONS = [
   { name: 'STEM A', strand: 'STEM', gradeLevel: 11, adviser: 'adviser@studentportal.local' },
   { name: 'STEM B', strand: 'STEM', gradeLevel: 11, adviser: 'adviser2@studentportal.local' },
   { name: 'ABM A', strand: 'ABM', gradeLevel: 11, adviser: 'adviser3@studentportal.local' },
+  // The Grade 12 section exists so the per-semester timetable can be shown
+  // at all. Until it did, the seed held three Grade 11 sections, eight Grade
+  // 11 subjects and nothing that ran for only part of the year — so
+  // "subjects change every semester except the specialized one" was
+  // describable but not demonstrable.
+  { name: 'STEM 12-A', strand: 'STEM', gradeLevel: 12, adviser: 'adviser2@studentportal.local' },
 ];
+
+// Which semester each quarter belongs to.
+//
+// Three quarters do not split evenly into two semesters, which is exactly
+// why grading_periods.semester is a stored column an admin fills in rather
+// than something derived. This is the demo school's answer: the first two
+// quarters are the first semester, the third is the second.
+const PERIOD_SEMESTERS = { Q1: 1, Q2: 1, Q3: 2 };
 
 // Grade 11 core subjects, plus one specialised subject per strand so the
 // Class Offerings page shows that not every section takes every subject.
+//
+// `category` is DepEd's grouping (core / applied / specialized) and
+// `gradeLevel` says which year takes it. `term` is how long the class runs:
+// Grade 11 classes run the whole year, Grade 12 core and applied classes
+// change each semester, and a specialized subject runs all year in both —
+// which is the rule this data exists to demonstrate.
 const SUBJECTS = [
-  { code: 'MATH11', name: 'General Mathematics', strands: ['STEM', 'ABM'], teacher: 'subject_teacher@studentportal.local' },
-  { code: 'ENG11', name: 'Oral Communication', strands: ['STEM', 'ABM'], teacher: 'teacher2@studentportal.local' },
-  { code: 'SCI11', name: 'Earth and Life Science', strands: ['STEM', 'ABM'], teacher: 'teacher3@studentportal.local' },
-  { code: 'PEH11', name: 'Physical Education and Health', strands: ['STEM', 'ABM'], teacher: 'teacher2@studentportal.local' },
-  { code: 'UCSP11', name: 'Understanding Culture, Society and Politics', strands: ['STEM', 'ABM'], teacher: 'teacher3@studentportal.local' },
-  { code: 'PERDEV11', name: 'Personal Development', strands: ['STEM', 'ABM'], teacher: 'subject_teacher@studentportal.local' },
-  { code: 'CHEM11', name: 'General Chemistry 1', strands: ['STEM'], teacher: 'teacher3@studentportal.local' },
-  { code: 'ABM11', name: 'Business Mathematics', strands: ['ABM'], teacher: 'teacher2@studentportal.local' },
+  { code: 'MATH11', name: 'General Mathematics', gradeLevel: 11, category: 'core', term: 'full_year', strands: ['STEM', 'ABM'], teacher: 'subject_teacher@studentportal.local' },
+  { code: 'ENG11', name: 'Oral Communication', gradeLevel: 11, category: 'core', term: 'full_year', strands: ['STEM', 'ABM'], teacher: 'teacher2@studentportal.local' },
+  { code: 'SCI11', name: 'Earth and Life Science', gradeLevel: 11, category: 'core', term: 'full_year', strands: ['STEM', 'ABM'], teacher: 'teacher3@studentportal.local' },
+  { code: 'PEH11', name: 'Physical Education and Health', gradeLevel: 11, category: 'core', term: 'full_year', strands: ['STEM', 'ABM'], teacher: 'teacher2@studentportal.local' },
+  { code: 'UCSP11', name: 'Understanding Culture, Society and Politics', gradeLevel: 11, category: 'core', term: 'full_year', strands: ['STEM', 'ABM'], teacher: 'teacher3@studentportal.local' },
+  { code: 'PERDEV11', name: 'Personal Development', gradeLevel: 11, category: 'core', term: 'full_year', strands: ['STEM', 'ABM'], teacher: 'subject_teacher@studentportal.local' },
+  { code: 'CHEM11', name: 'General Chemistry 1', gradeLevel: 11, category: 'specialized', term: 'full_year', strands: ['STEM'], teacher: 'teacher3@studentportal.local' },
+  { code: 'ABM11', name: 'Business Mathematics', gradeLevel: 11, category: 'specialized', term: 'full_year', strands: ['ABM'], teacher: 'teacher2@studentportal.local' },
+
+  // --- Grade 12 -------------------------------------------------------------
+  // Two core subjects in the first semester, two in the second, and one
+  // specialized subject running across both. On the learner's grade view
+  // that reads as: different subjects in the Q1/Q2 tabs than in the Q3 tab,
+  // with Research in Daily Life present in all three.
+  { code: 'PHILO12', name: 'Introduction to the Philosophy of the Human Person', gradeLevel: 12, category: 'core', term: 'sem1', strands: ['STEM'], teacher: 'teacher3@studentportal.local' },
+  { code: 'MIL12', name: 'Media and Information Literacy', gradeLevel: 12, category: 'core', term: 'sem1', strands: ['STEM'], teacher: 'teacher2@studentportal.local' },
+  { code: 'ENTREP12', name: 'Entrepreneurship', gradeLevel: 12, category: 'applied', term: 'sem2', strands: ['STEM'], teacher: 'teacher2@studentportal.local' },
+  { code: 'INQ12', name: 'Inquiries, Investigations and Immersion', gradeLevel: 12, category: 'applied', term: 'sem2', strands: ['STEM'], teacher: 'subject_teacher@studentportal.local' },
+  { code: 'RDL12', name: 'Research in Daily Life 2', gradeLevel: 12, category: 'specialized', term: 'full_year', strands: ['STEM'], teacher: 'teacher3@studentportal.local' },
 ];
 
 // Who teaches a given subject TO A GIVEN SECTION, overriding SUBJECTS'
@@ -157,6 +188,18 @@ const STUDENTS = [
   { lrn: '100000000034', first: 'Noel', middle: 'Jacinto', last: 'Suarez', sex: 'M', section: 'ABM A', grades: 'failing', attendance: 'spotty', email: 'noel.suarez@example.com', flags: { is4ps: true, isPwd: true } },
   { lrn: '100000000035', first: 'Olivia', middle: 'Katigbak', last: 'Tan', sex: 'F', section: 'ABM A', grades: 'excellent', attendance: 'good', email: 'olivia.tan@example.com' },
   { lrn: '100000000036', first: 'Paolo', middle: 'Lacson', last: 'Uy', sex: 'M', section: 'ABM A', grades: 'average', attendance: 'good', email: 'paolo.uy@example.com', enrollmentStatus: 'dropped' },
+
+  // --- STEM 12-A --------------------------------------------------------------
+  // A small Grade 12 cohort, enough to show the per-semester timetable and to
+  // put a learner in each band. One has a login, so the quarter tabs on the
+  // student's own grade view can be demonstrated from the inside — which is
+  // where the difference between Q1 and Q3 subjects is actually visible.
+  { lrn: '100000000037', first: 'Rafael', middle: 'Mercado', last: 'Abad', sex: 'M', section: 'STEM 12-A', grades: 'excellent', attendance: 'perfect', email: 'rafael.abad@example.com', login: true },
+  { lrn: '100000000038', first: 'Sofia', middle: 'Nery', last: 'Bermudez', sex: 'F', section: 'STEM 12-A', grades: 'strong', attendance: 'good', email: 'sofia.bermudez@example.com' },
+  { lrn: '100000000039', first: 'Teodoro', middle: 'Ongpin', last: 'Carpio', sex: 'M', section: 'STEM 12-A', grades: 'average', attendance: 'good', email: 'teodoro.carpio@example.com' },
+  { lrn: '100000000040', first: 'Ursula', middle: 'Pineda', last: 'Dimaculangan', sex: 'F', section: 'STEM 12-A', grades: 'improving', attendance: 'good', email: 'ursula.dimaculangan@example.com' },
+  { lrn: '100000000041', first: 'Vicente', middle: 'Quiambao', last: 'Esguerra', sex: 'M', section: 'STEM 12-A', grades: 'slipping', attendance: 'dipping', email: 'vicente.esguerra@example.com' },
+  { lrn: '100000000042', first: 'Wilma', middle: 'Reyes', last: 'Fajardo', sex: 'F', section: 'STEM 12-A', grades: 'struggling', attendance: 'spotty', email: 'wilma.fajardo@example.com', flags: { is4ps: true } },
 ];
 
 // --- The school calendar ----------------------------------------------------
@@ -242,6 +285,7 @@ const ANNOUNCEMENTS = [
 
 module.exports = {
   TEACHER_OVERRIDES,
+  PERIOD_SEMESTERS,
   DEMO_PASSWORD,
   STAFF,
   SECTIONS,

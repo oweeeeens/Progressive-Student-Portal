@@ -9,6 +9,8 @@ import { StatusPill } from '../components/StatusPill'
 import { ChartCard } from '../components/charts/ChartCard'
 import { ChangeBarChart } from '../components/charts/ChangeBarChart'
 import { DataTable } from '../components/table/DataTable'
+import { Tabs } from '../components/Tabs'
+import { offeringCoversPeriod, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
 import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
 
 // The student's grades, on their own page: the report-card matrix, the
@@ -135,13 +137,33 @@ export function StudentGradesPage() {
   const gradeMatrix = useMemo(() => {
     const rows = new Map()
     for (const s of subjects?.subjects || []) {
-      rows.set(s.subjectName, { subjectName: s.subjectName, teacherName: s.teacherName, cells: {} })
+      // Keyed on subjectId, not the name. The name was used because "subject
+      // names are unique" — only `code` carries a UNIQUE constraint, so a
+      // Grade 11 and a Grade 12 subject sharing a name merged into one row
+      // and one of the two sets of marks was lost.
+      rows.set(s.subjectId, {
+        subjectId: s.subjectId,
+        subjectName: s.subjectName,
+        teacherName: s.teacherName,
+        // How long this class runs, and what kind of subject it is: together
+        // these decide which quarters it belongs in.
+        term: s.term,
+        category: s.category,
+        cells: {},
+      })
     }
     for (const g of grades || []) {
-      if (!rows.has(g.subject_name)) {
-        rows.set(g.subject_name, { subjectName: g.subject_name, teacherName: null, cells: {} })
+      if (!rows.has(g.subject_id)) {
+        rows.set(g.subject_id, {
+          subjectId: g.subject_id,
+          subjectName: g.subject_name,
+          teacherName: null,
+          term: g.term,
+          category: g.subject_category,
+          cells: {},
+        })
       }
-      const row = rows.get(g.subject_name)
+      const row = rows.get(g.subject_id)
       const existing = row.cells[g.grading_period_name]
       if (!existing || GRADE_STATUS_RANK[g.status] > GRADE_STATUS_RANK[existing.status]) {
         row.cells[g.grading_period_name] = { value: Number(g.grade_value), status: g.status }
@@ -212,6 +234,62 @@ export function StudentGradesPage() {
       worst: marks.length > 1 ? ranked[ranked.length - 1] : null,
     }
   }, [subjectGrades, passingGrade])
+
+  // One tab per quarter, plus the whole-year grid.
+  //
+  // Which subjects belong in a quarter is decided per row, not per table: a
+  // class running for one semester appears only in that semester's quarters,
+  // while a specialized subject runs all year in both grade levels. The rule
+  // itself lives in utils/academicTerms.js and mirrors the server's.
+  //
+  // A quarter with no subjects in it still gets a tab. Hiding it would turn
+  // "nothing is scheduled for you in Q3" — which a learner needs to be able
+  // to see and ask about — into a quarter that appears not to exist.
+  const quarterTabs = useMemo(() => {
+    const perQuarter = gradingPeriods.map((period) => ({
+      key: `period-${period.id}`,
+      label: period.name,
+      content: (
+        <QuarterTable
+          period={period}
+          rows={gradeMatrix.filter((row) =>
+            offeringCoversPeriod({ term: row.term, category: row.category, semester: period.semester })
+          )}
+          passingGrade={passingGrade}
+          error={error}
+        />
+      ),
+    }))
+
+    return [
+      ...perQuarter,
+      {
+        key: 'all',
+        label: 'Whole year',
+        content: (
+          <WholeYearGrid
+            gradeMatrix={gradeMatrix}
+            gradingPeriods={gradingPeriods}
+            passingGrade={passingGrade}
+            error={error}
+            expandedSubject={expandedSubject}
+            setExpandedSubject={setExpandedSubject}
+          />
+        ),
+      },
+    ]
+  }, [gradingPeriods, gradeMatrix, passingGrade, error, expandedSubject])
+
+  // Open on the quarter the school is actually in, falling back to the whole
+  // year when today is outside every quarter — the long break, when "the
+  // current quarter" has no answer and the year as a whole is what there is
+  // to look at. `periodName` comes from the server's own current-period
+  // resolution (school timezone, not the server's — see utils/schoolDate.js),
+  // so this does not re-derive "what quarter is it" on the client.
+  const defaultQuarterTab = useMemo(() => {
+    const current = gradingPeriods.find((p) => p.name === subjectGrades?.periodName)
+    return current ? `period-${current.id}` : 'all'
+  }, [gradingPeriods, subjectGrades])
 
   function toggleStat(key) {
     setOpenStat((current) => (current === key ? null : key))
@@ -326,7 +404,53 @@ export function StudentGradesPage() {
 
       <div className="record-section">
         <h2>Your Subjects &amp; Grades</h2>
-        <DataTable illustration="grades"
+        {/* One view per quarter, plus the whole-year grid.
+            
+            A Grade 12 learner does not take the same subjects all year: core
+            and applied subjects change each semester, so a single wide table
+            showed them every subject they take at any point in the year with
+            dashes where a subject was not running — a dash that means "not
+            taught this quarter" looked exactly like one that means "no mark
+            recorded yet". Which quarter a class runs in comes from its term
+            and the quarter's semester; a specialized subject ignores both and
+            runs all year. See utils/academicTerms.js. */}
+        <Tabs defaultTab={defaultQuarterTab} tabs={quarterTabs} />
+      </div>
+
+      <div className="record-section">
+        <ChartCard
+          title="Movement Since Last Period"
+          description="How each subject changed between its last two finalized marks — biggest drop first."
+          legend={[
+            { label: 'Improved', color: 'var(--band-performing-well)' },
+            { label: 'Dropped', color: 'var(--band-at-risk-high)' },
+          ]}
+          isEmpty={subjectChanges.length === 0}
+          emptyMessage="Two grading periods of finalized marks are needed before movement can be shown."
+          interpretation={describeMovement(subjectChanges)}
+        >
+          <ChangeBarChart rows={subjectChanges} />
+        </ChartCard>
+      </div>
+    </div>
+  )
+}
+
+// The whole-year grid: every subject down the side, every quarter across the
+// top. This is the report-card shape the school already uses on paper, and it
+// stays available as its own tab because a parent reading a card wants the
+// year at once — the per-quarter tabs answer "what am I taking now", which is
+// a different question.
+function WholeYearGrid({
+  gradeMatrix,
+  gradingPeriods,
+  passingGrade,
+  error,
+  expandedSubject,
+  setExpandedSubject,
+}) {
+  return (
+    <DataTable illustration="grades"
           columns={[
             {
               key: 'subject',
@@ -376,10 +500,10 @@ export function StudentGradesPage() {
             },
           ]}
           rows={gradeMatrix}
-          rowKey={(r) => r.subjectName}
+          rowKey={(r) => r.subjectId}
           error={error}
-          onRowClick={(r) => setExpandedSubject((current) => (current === r.subjectName ? null : r.subjectName))}
-          renderExpanded={(r) => (expandedSubject === r.subjectName ? <SubjectDetail row={r} periods={gradingPeriods} /> : null)}
+          onRowClick={(r) => setExpandedSubject((current) => (current === r.subjectId ? null : r.subjectId))}
+          renderExpanded={(r) => (expandedSubject === r.subjectId ? <SubjectDetail row={r} periods={gradingPeriods} /> : null)}
           legend={
             passingGrade != null
               ? `Marks below the passing grade of ${passingGrade} are shown in red. Only finalized marks count towards the average — anything still in review is marked as such.`
@@ -391,24 +515,73 @@ export function StudentGradesPage() {
               <p>Your subjects appear here once the registrar assigns you to a section with classes.</p>
             </>
           }
-        />
-      </div>
+    />
+  )
+}
 
-      <div className="record-section">
-        <ChartCard
-          title="Movement Since Last Period"
-          description="How each subject changed between its last two finalized marks — biggest drop first."
-          legend={[
-            { label: 'Improved', color: 'var(--band-performing-well)' },
-            { label: 'Dropped', color: 'var(--band-at-risk-high)' },
-          ]}
-          isEmpty={subjectChanges.length === 0}
-          emptyMessage="Two grading periods of finalized marks are needed before movement can be shown."
-          interpretation={describeMovement(subjectChanges)}
-        >
-          <ChangeBarChart rows={subjectChanges} />
-        </ChartCard>
-      </div>
-    </div>
+// One quarter: only the subjects actually running in it, with that quarter's
+// mark. No columns of dashes for subjects that are not taught this term — a
+// dash here means "no mark recorded yet", and nothing else.
+function QuarterTable({ period, rows, passingGrade, error }) {
+  return (
+    <DataTable illustration="grades"
+      columns={[
+        {
+          key: 'subject',
+          header: 'Subject',
+          render: (r) => (
+            <>
+              <span className="cell-primary">{r.subjectName}</span>
+              <span className="cell-secondary">{r.teacherName || 'No teacher assigned'}</span>
+            </>
+          ),
+        },
+        {
+          key: 'type',
+          header: 'Type',
+          // Quiet for a core subject, which is most of them — so the column
+          // only draws attention to the specialized subject that is the
+          // reason this one appears in every quarter.
+          uniformValue: (r) => r.category,
+          quietValue: 'core',
+          render: (r) => SUBJECT_CATEGORY_LABELS[r.category] || '—',
+        },
+        {
+          key: 'mark',
+          header: `${period.name} mark`,
+          align: 'right',
+          render: (r) => {
+            const cell = r.cells[period.name]
+            if (!cell) return <span className="grade-cell__empty">—</span>
+            const note = GRADE_STATUS_NOTES[cell.status]
+            return (
+              <>
+                <span className={`cell-primary${passingGrade != null && cell.value < passingGrade ? ' is-below' : ''}`}>
+                  {cell.value}
+                </span>
+                {note && <span className="cell-secondary">{note}</span>}
+              </>
+            )
+          },
+        },
+      ]}
+      rows={rows}
+      rowKey={(r) => r.subjectId}
+      error={error}
+      legend={
+        passingGrade != null
+          ? `Marks below the passing grade of ${passingGrade} are shown in red. Only a finalized mark is official — anything still in review is labelled as such.`
+          : null
+      }
+      emptyState={
+        <>
+          <p>No subjects running in {period.name}.</p>
+          <p>
+            A class that runs for one semester only appears in that semester&rsquo;s quarters. Ask the registrar if you
+            expected a subject here.
+          </p>
+        </>
+      }
+    />
   )
 }

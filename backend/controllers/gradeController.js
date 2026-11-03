@@ -4,6 +4,7 @@
 // "recalculated whenever new grades/attendance are entered."
 const gradeModel = require('../models/gradeModel');
 const studentModel = require('../models/studentModel');
+const gradingPeriodModel = require('../models/gradingPeriodModel');
 const classOfferingModel = require('../models/classOfferingModel');
 const sectionModel = require('../models/sectionModel');
 const riskEngine = require('../services/riskEngine');
@@ -186,13 +187,25 @@ async function finalizeGrades(req, res) {
 }
 
 async function getHistoryForStudent(req, res) {
-  const grades = await gradeModel.getHistoryForStudent(req.scopedStudent.id);
+  // Resolved first, because BOTH queries below need it. The grade history
+  // used to be fetched without it while the averages beside it were scoped —
+  // so a learner in their second year had two sets of quarters in one table
+  // and one set in the chart under it.
+  const schoolYearId = await studentModel.resolveSchoolYearId(req.scopedStudent.id);
+
+  const grades = await gradeModel.getHistoryForStudent(req.scopedStudent.id, schoolYearId);
   // The per-period average series already existed for the risk engine's own
   // trend calc (see gradeModel.getFinalizedAveragesByPeriod) — reused as-is
   // for the detail page's sparkline rather than re-deriving it from `grades`.
-  const schoolYearId = await studentModel.resolveSchoolYearId(req.scopedStudent.id);
   const periodAverages = await gradeModel.getFinalizedAveragesByPeriod(req.scopedStudent.id, schoolYearId);
-  res.json({ grades, periodAverages });
+
+  // The quarters this year actually has, so the reader can group by them
+  // without inferring the list from whichever grades happen to exist — a
+  // quarter with no marks yet is information, and inferring the list hides
+  // it. Carries `semester`, which decides which subjects run in it.
+  const gradingPeriods = await gradingPeriodModel.listBySchoolYear(schoolYearId);
+
+  res.json({ grades, periodAverages, gradingPeriods, schoolYearId });
 }
 
 module.exports = {

@@ -196,17 +196,37 @@ async function finalizeSectionGrades(sectionId, gradingPeriodId, finalizedBy) {
   return [...new Set(result.rows.map((r) => r.student_id))]; // one student can have multiple subjects finalized at once
 }
 
-async function getHistoryForStudent(studentId) {
+// Every grade a student has, at any approval status — the Student Detail
+// page's Grades tab and the student's own grade view.
+//
+// **Scoped to one school year, and it has to be.** This was the one
+// per-period reader that was not, while getFinalizedHistoryForStudent and
+// getFinalizedAveragesByPeriod both are and both carry a comment saying why.
+// `grading_periods.sequence_number` is unique only WITHIN a school year, so
+// a Grade 12 learner has two periods named Q1 and numbered 1 — one from each
+// year. Every consumer pivots these rows into a subject x period grid keyed
+// on the period, so without the scope the two Q1s land in the same cell and
+// whichever row arrives last silently wins. Invisible in a school's first
+// year of use, wrong in every year after it.
+//
+// subject_id, category, term and semester travel with each row because the
+// grade view groups by quarter and has to know which subjects run in it
+// (config/academicTerms.js) — and because matching a subject by NAME, which
+// the student view used to do, merges two subjects that share one.
+async function getHistoryForStudent(studentId, schoolYearId) {
   const result = await pool.query(
     `SELECT g.id, g.grade_value, g.status, g.recorded_at, g.finalized_at,
-            subj.name AS subject_name, gp.name AS grading_period_name, gp.sequence_number
+            co.term,
+            subj.id AS subject_id, subj.name AS subject_name, subj.category AS subject_category,
+            gp.id AS grading_period_id, gp.name AS grading_period_name,
+            gp.sequence_number, gp.semester
      FROM grades g
      JOIN class_offerings co ON co.id = g.class_offering_id
      JOIN subjects subj ON subj.id = co.subject_id
      JOIN grading_periods gp ON gp.id = g.grading_period_id
-     WHERE g.student_id = $1
+     WHERE g.student_id = $1 AND gp.school_year_id = $2
      ORDER BY gp.sequence_number DESC, subj.name`,
-    [studentId]
+    [studentId, schoolYearId]
   );
   return result.rows;
 }
@@ -223,7 +243,13 @@ async function getHistoryForStudent(studentId) {
 // a heading naming a single school year.
 async function getFinalizedHistoryForStudent(studentId, schoolYearId) {
   const result = await pool.query(
-    `SELECT g.grade_value, subj.name AS subject_name, gp.name AS grading_period_name, gp.sequence_number
+    // subject_id as well as the name: callers used to key on the NAME,
+    // justified by a comment claiming subject names are unique. Only `code`
+    // is — two subjects sharing a name silently merged into one row.
+    `SELECT g.grade_value, co.term,
+            subj.id AS subject_id, subj.name AS subject_name, subj.category AS subject_category,
+            gp.id AS grading_period_id, gp.name AS grading_period_name,
+            gp.sequence_number, gp.semester
      FROM grades g
      JOIN class_offerings co ON co.id = g.class_offering_id
      JOIN subjects subj ON subj.id = co.subject_id

@@ -11,7 +11,11 @@ import { SkeletonTable } from '../components/Skeleton'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 const emptySchoolYearForm = { label: '', startDate: '', endDate: '' }
-const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: '' }
+// `semester` starts unset. Three quarters do not divide evenly into two
+// semesters, so there is nothing to pre-fill it from — only the school knows
+// where their boundary falls. An unset quarter is read as belonging to both,
+// so leaving it blank never hides a grade.
+const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: '', semester: '' }
 
 // Admin-only Academic Setup page. School years and grading periods are
 // managed together deliberately — a grading period only makes sense in the
@@ -134,6 +138,7 @@ export function SchoolYearsPage() {
       sequenceNumber: String(p.sequence_number),
       startDate: p.start_date,
       endDate: p.end_date,
+      semester: p.semester == null ? '' : String(p.semester),
     })
     setShowPeriodForm(true)
   }
@@ -147,6 +152,7 @@ export function SchoolYearsPage() {
       sequenceNumber: Number(periodForm.sequenceNumber),
       startDate: periodForm.startDate,
       endDate: periodForm.endDate,
+      semester: periodForm.semester,
     }
     await runWrite(
       'period-form',
@@ -344,6 +350,23 @@ export function SchoolYearsPage() {
                 onChange={(e) => setPeriodForm((f) => ({ ...f, endDate: e.target.value }))}
                 required
               />
+              {/* Set by hand, because it cannot be derived: three quarters do
+                  not split evenly into two semesters, so where the boundary
+                  falls is the school's decision, not arithmetic. */}
+              <label htmlFor="period-semester">Semester</label>
+              <select
+                id="period-semester"
+                value={periodForm.semester}
+                onChange={(e) => setPeriodForm((f) => ({ ...f, semester: e.target.value }))}
+              >
+                <option value="">Not set</option>
+                <option value="1">First semester</option>
+                <option value="2">Second semester</option>
+              </select>
+              <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                This decides which subjects appear in this quarter: a class that runs for one semester only shows up in
+                that semester&rsquo;s quarters. Leave it unset and every class shows in this quarter.
+              </p>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
               <button type="submit" className="btn-primary" disabled={busyKey === 'period-form'}>
@@ -375,6 +398,7 @@ export function SchoolYearsPage() {
                   <th>Name</th>
                   <th>Start</th>
                   <th>End</th>
+                  <th>Semester</th>
                   <th></th>
                 </tr>
               </thead>
@@ -385,6 +409,9 @@ export function SchoolYearsPage() {
                     <td>{p.name}</td>
                     <td>{p.start_date}</td>
                     <td>{p.end_date}</td>
+                    {/* "Not set" rather than a dash: a blank is a decision
+                        the admin has not made yet, and the word says so. */}
+                    <td>{p.semester ? `Semester ${p.semester}` : <span className="is-empty-value">Not set</span>}</td>
                     <td>
                       {canWrite && (
                         <button type="button" className="btn-subtle" onClick={() => startEditPeriod(p)}>

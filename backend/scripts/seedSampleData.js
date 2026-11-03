@@ -23,6 +23,7 @@ const {
   SUBJECTS,
   TEACHER_OVERRIDES,
   STUDENTS,
+  PERIOD_SEMESTERS,
 } = require('./demoDataset');
 
 // Upsert by email so re-seeding never invalidates a login someone is already
@@ -77,9 +78,13 @@ async function seed() {
   ];
   for (const [name, sequence, start, end] of periods) {
     await pool.query(
-      `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [schoolYearId, name, sequence, start, end]
+      // `semester` comes from the dataset rather than being computed: three
+      // quarters do not split evenly into two semesters, so where the
+      // boundary falls is the school's decision. It is what makes a
+      // one-semester class show up in some quarters and not others.
+      `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date, semester)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [schoolYearId, name, sequence, start, end, PERIOD_SEMESTERS[name] ?? null]
     );
   }
 
@@ -102,11 +107,18 @@ async function seed() {
   const subjectIdByCode = new Map();
   for (const subject of SUBJECTS) {
     const result = await pool.query(
-      `INSERT INTO subjects (name, code, grade_level)
-       VALUES ($1, $2, 11)
-       ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name
+      // grade_level comes from the dataset now rather than being hardcoded
+      // to 11 — there is a Grade 12 cohort. category is DepEd's grouping,
+      // and is what makes a specialized subject run all year whatever its
+      // offering says.
+      `INSERT INTO subjects (name, code, grade_level, category)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (code) DO UPDATE SET
+         name = EXCLUDED.name,
+         grade_level = EXCLUDED.grade_level,
+         category = EXCLUDED.category
        RETURNING id`,
-      [subject.name, subject.code]
+      [subject.name, subject.code, subject.gradeLevel, subject.category]
     );
     subjectIdByCode.set(subject.code, result.rows[0].id);
   }
@@ -118,14 +130,19 @@ async function seed() {
   for (const section of SECTIONS) {
     for (const subject of SUBJECTS) {
       if (!subject.strands.includes(section.strand)) continue;
+      // Grade level as well as strand, now that there is a Grade 12 section:
+      // without this, STEM 12-A would be given the Grade 11 subjects too and
+      // the Grade 11 sections would be given the Grade 12 ones.
+      if (subject.gradeLevel !== section.gradeLevel) continue;
       await pool.query(
-        `INSERT INTO class_offerings (subject_id, section_id, teacher_id, school_year_id)
-         VALUES ($1, $2, $3, $4)`,
+        `INSERT INTO class_offerings (subject_id, section_id, teacher_id, school_year_id, term)
+         VALUES ($1, $2, $3, $4, $5)`,
         [
           subjectIdByCode.get(subject.code),
           sectionIdByName.get(section.name),
           userIdByEmail.get(TEACHER_OVERRIDES[`${section.name}|${subject.code}`] || subject.teacher),
           schoolYearId,
+          subject.term,
         ]
       );
       offeringCount += 1;

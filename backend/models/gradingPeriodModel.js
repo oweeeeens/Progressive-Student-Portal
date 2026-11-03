@@ -80,7 +80,11 @@ async function listForCurrentSchoolYear() {
     // days behind "3 days absent" rather than just the number. They come
     // back as plain YYYY-MM-DD strings (see the DATE parser in config/db.js),
     // so a date range is a string comparison with no timezone in play.
-    `SELECT gp.id, gp.name, gp.sequence_number, gp.start_date, gp.end_date
+    // `semester` travels with the period because the grade views group by
+    // quarter and have to know which subjects run in it — see
+    // config/academicTerms.js. NULL until an admin assigns it, which every
+    // reader treats as "covered" rather than "hidden".
+    `SELECT gp.id, gp.name, gp.sequence_number, gp.start_date, gp.end_date, gp.semester
      FROM grading_periods gp
      JOIN school_years sy ON sy.id = gp.school_year_id
      WHERE sy.is_current = TRUE
@@ -93,29 +97,33 @@ async function listForCurrentSchoolYear() {
 // school year's periods at a time.
 async function listBySchoolYear(schoolYearId) {
   const result = await pool.query(
-    `SELECT id, school_year_id, name, sequence_number, start_date, end_date
+    `SELECT id, school_year_id, name, sequence_number, start_date, end_date, semester
      FROM grading_periods WHERE school_year_id = $1 ORDER BY sequence_number`,
     [schoolYearId]
   );
   return result.rows;
 }
 
-async function createGradingPeriod({ schoolYearId, name, sequenceNumber, startDate, endDate }) {
+// `semester` is set by the admin per quarter and cannot be derived: three
+// quarters do not divide evenly into two semesters, so only the school knows
+// where their boundary falls. Left NULL when not supplied rather than
+// guessed, and a NULL is read as "every term covers this quarter".
+async function createGradingPeriod({ schoolYearId, name, sequenceNumber, startDate, endDate, semester }) {
   const result = await pool.query(
-    `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, school_year_id, name, sequence_number, start_date, end_date`,
-    [schoolYearId, name, sequenceNumber, startDate, endDate]
+    `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date, semester)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, school_year_id, name, sequence_number, start_date, end_date, semester`,
+    [schoolYearId, name, sequenceNumber, startDate, endDate, semester ?? null]
   );
   return result.rows[0];
 }
 
-async function updateGradingPeriod(id, { name, sequenceNumber, startDate, endDate }) {
+async function updateGradingPeriod(id, { name, sequenceNumber, startDate, endDate, semester }) {
   const result = await pool.query(
-    `UPDATE grading_periods SET name = $2, sequence_number = $3, start_date = $4, end_date = $5
+    `UPDATE grading_periods SET name = $2, sequence_number = $3, start_date = $4, end_date = $5, semester = $6
      WHERE id = $1
-     RETURNING id, school_year_id, name, sequence_number, start_date, end_date`,
-    [id, name, sequenceNumber, startDate, endDate]
+     RETURNING id, school_year_id, name, sequence_number, start_date, end_date, semester`,
+    [id, name, sequenceNumber, startDate, endDate, semester ?? null]
   );
   return result.rows[0] || null;
 }

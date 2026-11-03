@@ -1,4 +1,5 @@
 const classOfferingModel = require('../models/classOfferingModel');
+const { CLASS_TERMS } = require('../config/academicTerms');
 
 // For a subject teacher building the subject-attendance input sheet: which
 // classes do they actually teach, this school year.
@@ -38,9 +39,14 @@ async function listClassOfferingsForAdmin(req, res) {
 }
 
 function validateOfferingBody(body) {
-  const { subjectId, sectionId, teacherId, schoolYearId } = body;
+  const { subjectId, sectionId, teacherId, schoolYearId, term } = body;
   if (!subjectId || !sectionId || !teacherId || !schoolYearId) {
     return 'subjectId, sectionId, teacherId, and schoolYearId are required.';
+  }
+  // Optional — an omitted term means the whole school year. Checked here as
+  // well as by the column's CHECK so a bad value is a sentence, not a 500.
+  if (term && !CLASS_TERMS.includes(term)) {
+    return `term must be one of: ${CLASS_TERMS.join(', ')}.`;
   }
   return null;
 }
@@ -49,18 +55,19 @@ async function createClassOffering(req, res) {
   const validationError = validateOfferingBody(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
-  const { subjectId, sectionId, teacherId, schoolYearId } = req.body;
+  const { subjectId, sectionId, teacherId, schoolYearId, term } = req.body;
   try {
     const offering = await classOfferingModel.createClassOffering({
       subjectId: Number(subjectId),
       sectionId: Number(sectionId),
       teacherId: Number(teacherId),
       schoolYearId: Number(schoolYearId),
+      term,
     });
     res.status(201).json({ classOffering: offering });
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(409).json({ error: 'This subject is already offered to this section for this school year.' });
+      return res.status(409).json({ error: 'This subject is already offered to this section for this school year and term.' });
     }
     throw err;
   }
@@ -70,19 +77,20 @@ async function updateClassOffering(req, res) {
   const validationError = validateOfferingBody(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
-  const { subjectId, sectionId, teacherId, schoolYearId } = req.body;
+  const { subjectId, sectionId, teacherId, schoolYearId, term } = req.body;
   try {
     const offering = await classOfferingModel.updateClassOffering(Number(req.params.id), {
       subjectId: Number(subjectId),
       sectionId: Number(sectionId),
       teacherId: Number(teacherId),
       schoolYearId: Number(schoolYearId),
+      term,
     });
     if (!offering) return res.status(404).json({ error: 'Class offering not found.' });
     res.json({ classOffering: offering });
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(409).json({ error: 'This subject is already offered to this section for this school year.' });
+      return res.status(409).json({ error: 'This subject is already offered to this section for this school year and term.' });
     }
     throw err;
   }
