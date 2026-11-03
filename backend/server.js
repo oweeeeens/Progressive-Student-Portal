@@ -12,8 +12,41 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 
 const app = require('./app');
+const emailService = require('./services/emailService');
+const { IS_PRODUCTION } = require('./config/environment');
 
 const PORT = process.env.PORT || 5000;
+
+// Says once, at boot, whether "Forgot password" can reach anybody — so the
+// answer to "why did nothing arrive?" is in the log from the start rather
+// than being reconstructed after a user is already locked out.
+//
+// It lives here and not in app.js because the integration suite imports
+// app.js to start its own listener, and this would then print on every test
+// run. Nothing below opens a connection; `npm run check:email` is the one
+// that actually authenticates.
+function logEmailConfiguration() {
+  const transport = emailService.activeEmailTransport();
+
+  if (!transport) {
+    console.log('Email: not configured — "Forgot password" is switched off and the login page says so.');
+  } else {
+    const { smtp } = emailService.emailConfigSummary();
+    const sender = transport === 'smtp' ? ` as ${smtp.from}` : '';
+    console.log(`Email: ${transport} transport${sender}. Run "npm run check:email" to test the credentials.`);
+  }
+
+  // The variable that fails silently. The send succeeds, the link arrives,
+  // and it points at a machine the recipient does not have — so this is a
+  // warning rather than a note, and only on a real deployment, where the
+  // localhost default can never be what was meant.
+  if (IS_PRODUCTION && !process.env.FRONTEND_URL) {
+    console.warn(
+      'FRONTEND_URL is not set on a production deployment. Password-reset links will be built ' +
+        'against http://localhost:5173 and will be unusable. Set it to this service\'s public URL.'
+    );
+  }
+}
 
 // Starts the embedded dev PostgreSQL server when no system-wide PostgreSQL
 // install is configured (see config/embeddedPostgres.js). Skipped entirely
@@ -28,6 +61,7 @@ async function start() {
 
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    logEmailConfiguration();
   });
 }
 

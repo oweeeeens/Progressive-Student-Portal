@@ -268,7 +268,30 @@ silently fails either way — check it with
 For a Gmail account that means `smtp.gmail.com`, port `465`, and a
 **16-character App Password** rather than the account password — the
 generator at <https://myaccount.google.com/apppasswords> only appears once
-2-Step Verification is switched on for that account.
+2-Step Verification is switched on for that account. Paste it with or without
+the spaces Google displays; both work.
+
+**Set `FRONTEND_URL` as well.** It is the one that fails *silently*: without
+it, links are built against `http://localhost:5173`, the email sends
+perfectly, and the recipient gets a dead link. The server now warns about
+this at boot on a production deployment, and names its email transport in the
+same place.
+
+**Test the credentials, don't assume them.** `{"selfService":true}` means the
+three variables are *present*, not that they *work* — a mistyped App Password
+still reads as configured and fails only at send time, leaving one line in a
+deploy log while the user is told a link was sent. So:
+
+```bash
+railway run npm run check:email                   # config + a real login to the mail server
+railway run npm run check:email -- you@gmail.com  # the above, then an actual test message
+```
+
+It opens a real connection, authenticates, and translates what comes back —
+`EAUTH` is a wrong App Password or 2-Step Verification being off, `ETIMEDOUT`
+is usually the port, `EDNS` is a typo in the host. It never prints the
+password. Run it locally the same way, without `railway run`, to check a
+`.env`.
 
 Without email, the only way a user gets back in is a temporary password
 issued from **User Management** by an **admin or registrar** — not an adviser

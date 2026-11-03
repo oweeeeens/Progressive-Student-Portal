@@ -268,9 +268,37 @@ The old Staff-only account list is now a full **User Management** module (Admin 
 
 ## Forgot Password / Reset Flow
 - "Forgot Password" link on login page → user enters email → system sends a time-limited reset link (expires in ~1 hour) via email
-- Email service: **Resend** (resend.com) — generous free tier (3,000 emails/month), simple Node.js API, easier to set up than SMTP for a capstone project
-- Requires a `password_reset_tokens` table (token, user_id, expires_at, used)
+- Requires a `password_reset_tokens` table (token, user_id, expires_at, used). Only the token's **hash** is stored
 - **Fallback for demo/defense reliability:** admin/registrar can also manually trigger a password reset for any user (generates a new temp password, forces change on next login) — don't depend solely on live email delivery during the defense demo
+
+**Email service: SMTP, not Resend.** This section specified Resend, and the
+code shipped with it, but SMTP is now the preferred transport and Resend is
+the fallback — a deliberate reversal, recorded here rather than left to
+contradict `backend/services/emailService.js`. The reason: Resend's free
+sending identity `onboarding@resend.dev` delivers **only to the address that
+owns the Resend account**, and every other recipient is refused with a 403.
+On this system the people who most need a reset link are *students, at their
+own personal addresses*, so the free tier cannot reach the users the feature
+exists for. Sending to arbitrary recipients through Resend needs a verified
+domain, which the school does not have. When both are configured, SMTP wins.
+
+**"Configured" is not "working", and the difference used to be invisible.**
+`canSendEmail()` checks that `SMTP_HOST`, `SMTP_USER` and `SMTP_PASS` are
+non-empty — which a wrong App Password satisfies. The flow then switches
+itself on, the user is told "if an account exists, a link has been sent"
+(said deliberately, so the endpoint cannot be used to discover which
+addresses have accounts), and the send fails into a deploy log. **`npm run
+check:email`** closes that gap: it opens a real connection, authenticates,
+and names the failure (`EAUTH` = wrong App Password or 2-Step Verification
+off; `ETIMEDOUT` = usually the port; `EDNS` = a typo in the host). With an
+address it sends a real test message through the same code path production
+uses. It never prints the password. Run it against the deployment with
+`railway run npm run check:email`.
+
+**`FRONTEND_URL` is the silent one.** `passwordReset.js` defaults it to
+`http://localhost:5173`, so without it the email sends perfectly and the link
+is dead on arrival. The server warns about this at boot on a production
+deployment, and names its email transport in the same line.
 
 ## Announcements (client-requested, added post-Phase-1)
 - A home page / announcement banner feature, requested directly by the client
