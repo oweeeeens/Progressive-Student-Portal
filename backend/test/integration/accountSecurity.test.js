@@ -88,6 +88,19 @@ after(async () => {
   // fixtures, so teardown's id list would not know about them.
   await pool.query("DELETE FROM users WHERE email LIKE 'sec-api-%@integration.test'");
 
+  // The portal account provisioned for ownStudent in the scoping test. Also
+  // created through the API, so no fixture id list knows about it — and it
+  // leaked one orphaned user into the database on EVERY run until this was
+  // added. Eighteen of them had accumulated.
+  //
+  // It has to go through teardown's `userIds` rather than a DELETE here:
+  // students.user_id is ON DELETE RESTRICT, and the student row is only
+  // removed inside teardown, which deletes students before users for exactly
+  // this reason.
+  const { rows: studentAccounts } = await pool.query(
+    "SELECT id FROM users WHERE email LIKE 'sec-own-student-%@integration.test'"
+  );
+
   await fixtures.teardown({
     schoolYearId: ctx.schoolYearId,
     ownSchoolYear: true,
@@ -98,6 +111,7 @@ after(async () => {
       ctx.otherAdviser.id,
       ctx.teacher.id,
       ctx.counselor.id,
+      ...studentAccounts.map((row) => row.id),
     ],
     studentIds: [ctx.ownStudent.id, ctx.otherStudent.id],
     subjectIds: [ctx.subject.id],
