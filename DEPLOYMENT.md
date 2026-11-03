@@ -257,7 +257,25 @@ array`. It does not create duplicates; it simply cannot run twice.
 - Never run either script against a deployment that already holds real
   data.
 
-**Email.** SMTP is what makes "Forgot password" work. Set `SMTP_HOST`,
+**Email.** Before setting any of this up — **Railway's Hobby, Free and Trial
+plans block outbound SMTP entirely**; only Pro and above allow it. This is
+confirmed, not a guess: it was hit on this exact deployment, diagnosed down
+to nodemailer's own `CONNECT_TIMEOUT` (a TCP connection that gets no
+response at all, which only fails after a 2-minute clock — a wrong
+credential fails immediately instead), and corroborated across several
+threads on Railway's own support forum with staff replies. If this project
+is still on Hobby, raw SMTP as described below **will not work**, no matter
+how correct the credentials are — `npm run check:email` will report it by
+name (`CONNECT_TIMEOUT`) rather than leave you guessing, which is the fast
+way to recognize this if it comes up again. The two ways around it: upgrade
+to Pro, or switch the transport to an HTTPS-based email API (Resend, already
+wired into `emailService.js` — needs a verified sending domain to reach
+arbitrary recipients; or a single-sender service like SendGrid/Brevo, which
+needs new code). On this deployment the decision was to skip email entirely
+and rely on the admin/registrar manual reset below — see `CLAUDE.md`'s
+Forgot Password section for the full account.
+
+SMTP is what makes "Forgot password" work, on a plan that allows it. Set `SMTP_HOST`,
 `SMTP_USER` and `SMTP_PASS` (plus `SMTP_PORT`, and `SMTP_FROM` if the sending
 address differs from the account) and the flow switches itself on; leave them
 unset and the page says plainly that reset by email isn't available. Nothing

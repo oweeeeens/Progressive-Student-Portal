@@ -300,6 +300,38 @@ uses. It never prints the password. Run it against the deployment with
 is dead on arrival. The server warns about this at boot on a production
 deployment, and names its email transport in the same line.
 
+**2026-11-03 — self-service reset by email was built, tested, configured,
+and then found to be blocked by the hosting platform itself.** SMTP
+credentials were set on Railway and attempted a real send; the result was
+`Error: Connection timeout` — a very specific failure shape, confirmed by
+reading nodemailer's own source (`smtp-connection/index.js`): no response at
+all to the TCP connection, which only fires after nodemailer's own 2-minute
+clock runs out. A wrong credential fails fast (`EAUTH`) and did not happen
+here. Cross-checked against Railway's own support forum (several
+staff-corroborated threads, including one titled exactly *"Connection
+Timeout with smtp.gmail.com on Port 465"*): **Railway's Hobby, Free and
+Trial plans block outbound SMTP entirely** — only Pro and above allow it.
+This is a platform restriction, not a bug in this codebase, and not
+something `SMTP_PASS` being right or wrong changes.
+
+**The decision, given no budget for Railway Pro and no domain to verify with
+Resend** (the free tier's shared sender can only reach the Resend account's
+own owner, as above — useless for reaching students at arbitrary addresses):
+ship what already works. **The admin/registrar manual reset — already built,
+already tested — is therefore the supported recovery path on this
+deployment, not a backup for one.** The SMTP variables have been removed
+from Railway again, which restores the honest "Password reset by email is
+not set up for this school" message instead of a 502 that reads as
+transient and invites retrying something that can never succeed. If this is
+revisited later, the two realistic paths are a verified domain with Resend
+(free, already wired into `emailService.js`, HTTPS rather than SMTP so it
+sidesteps the block entirely) or a single-sender HTTPS API such as SendGrid
+or Brevo (no domain needed, verifies one existing address by email
+confirmation, but needs a new transport added to `emailService.js` — not
+built today). `npm run check:email` now recognizes this exact failure by
+name (`CONNECT_TIMEOUT`) and says so, rather than printing a bare error, so
+it is immediately recognizable if it comes up again.
+
 ## Announcements (client-requested, added post-Phase-1)
 - A home page / announcement banner feature, requested directly by the client
 - Posting access: **admin, registrar, guidance counselor, or ICT faculty** (not advisers/subject teachers/students)

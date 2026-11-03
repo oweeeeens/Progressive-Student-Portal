@@ -35,6 +35,25 @@ const emailService = require('../services/emailService');
 // them. nodemailer surfaces these as `err.code`; anything not listed falls
 // through to the raw message rather than being guessed at.
 const ERROR_HINTS = {
+  // CONFIRMED CAUSE, not a guess: Railway's Hobby, Free and Trial plans
+  // block outbound SMTP at the network level — only Pro and above allow it.
+  // The giveaway is this exact shape: no EAUTH, no ECONNREFUSED, just
+  // silence until nodemailer's own 2-minute clock runs out. A real
+  // credential problem fails fast (EAUTH); this fails slow, because nothing
+  // on the other end is reachable at all for a connection to be refused by.
+  //
+  // This is reported via `error.timeoutType`, not `error.code` — see
+  // TIMEOUT_TYPE_HINTS below, which is what actually fires for this case.
+  // Kept here too so the lookup finds it however the error is shaped in a
+  // future nodemailer version.
+  CONNECT_TIMEOUT:
+    'No response at all to the connection attempt — on Railway this almost always means\n' +
+    '      the Hobby/Free/Trial plan, which blocks outbound SMTP entirely. Wrong credentials\n' +
+    '      fail immediately (EAUTH); this fails only after nodemailer\'s own 2-minute clock\n' +
+    '      runs out, which is the signature of the network silently dropping the connection\n' +
+    '      rather than your SMTP_* values being wrong. Pro and above allow outbound SMTP;\n' +
+    '      switching to an HTTPS-based email API (Resend, SendGrid, Brevo) is the other way\n' +
+    '      round it, and does not depend on the plan tier.',
   EAUTH:
     'The server rejected the username or password.\n' +
     '      For Gmail this is almost always one of two things:\n' +
@@ -59,13 +78,41 @@ const ERROR_HINTS = {
   EENVELOPE: 'The server refused the sender or recipient address. Check SMTP_FROM.',
 };
 
+// nodemailer's own connection-phase timeouts (checked in
+// node_modules/nodemailer/dist/cjs/smtp-connection/index.js for v10.3.1)
+// carry `.timeoutType`, not `.code` — so a lookup keyed on `.code` alone
+// missed every one of these and fell through to a bare "Reason: undefined",
+// a stack trace standing in for an answer on the one case (CONNECT_TIMEOUT)
+// that is the most common real-world failure this script will ever see.
+//
+// SOCKET_TIMEOUT is deliberately absent: nodemailer gives that one BOTH a
+// code (ETIMEDOUT, already in ERROR_HINTS above) and a timeoutType, so the
+// `.code` lookup already finds it and this table would only ever duplicate
+// that entry.
+const TIMEOUT_TYPE_HINTS = {
+  CONNECT_TIMEOUT: ERROR_HINTS.CONNECT_TIMEOUT,
+  GREETING_TIMEOUT:
+    'The connection opened, but the server never sent its SMTP greeting.\n' +
+    '      The host answered at the TCP level, so this is less likely to be a platform-wide\n' +
+    '      block and more likely a server that is up but not behaving as an SMTP server on\n' +
+    '      this port — double-check SMTP_HOST and SMTP_PORT.',
+  UPGRADE_TIMEOUT:
+    'Connected, but the TLS handshake (STARTTLS) never completed.\n' +
+    '      SMTP_PORT and the TLS mode usually disagree — 465 expects implicit TLS from the\n' +
+    '      start, 587 expects a plain connection that then upgrades via STARTTLS.',
+};
+
 function line(label, value) {
   console.log(`  ${String(label).padEnd(22)} ${value}`);
 }
 
 function describeError(error) {
-  const hint = ERROR_HINTS[error?.code];
-  console.log(`\n  Reason: ${error?.code || 'unknown'} — ${error?.message || error}`);
+  // `.code` first — it's what most failures (EAUTH, EDNS, ...) actually
+  // carry — and only then `.timeoutType`, which is how the connection-phase
+  // timeouts identify themselves instead.
+  const reasonKey = error?.code || error?.timeoutType;
+  const hint = ERROR_HINTS[error?.code] || TIMEOUT_TYPE_HINTS[error?.timeoutType];
+  console.log(`\n  Reason: ${reasonKey || 'unknown'} — ${error?.message || error}`);
   if (hint) console.log(`\n      ${hint}`);
 }
 
