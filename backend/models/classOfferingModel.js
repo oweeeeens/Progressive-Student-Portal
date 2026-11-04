@@ -41,8 +41,8 @@ async function listByTeacher(teacherId) {
 async function listBySection(sectionId) {
   const result = await pool.query(
     // subject_id, category and term travel with the row because the grade
-    // views group by quarter: which of these subjects a learner is taking in
-    // a given quarter depends on all three (config/academicTerms.js). The id
+    // views group by term: which of these subjects a learner is taking in
+    // a given term depends on all three (config/academicTerms.js). The id
     // also replaces matching a subject by NAME, which the student grade view
     // used to do — only `code` is unique, so two subjects sharing a name
     // merged into one row.
@@ -130,7 +130,7 @@ async function listClassOfferingsForAdmin({ search, schoolYearId, sectionId, sub
   return { rows: dataResult.rows, total };
 }
 
-// `term` says how long this class runs: the whole year, or one semester.
+// `term` says how long this class runs: the whole year, or one of the three terms.
 // Defaults to the whole year, which is what every offering recorded before
 // this column existed means, and what a Grade 11 class is.
 async function createClassOffering({ subjectId, sectionId, teacherId, schoolYearId, term }) {

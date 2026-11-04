@@ -123,9 +123,9 @@ export function describeGap(seriesA, seriesB, { labelA, labelB, unit = '%' } = {
   return `${lower} is ${gap} ${unit === '%' ? 'points' : 'lower'} behind in ${lastA.label} (${lastA.value}${unit} vs ${lastB.value}${unit}).`
 }
 
-// "6 of 23 learners are flagged this quarter, one more than in Q1."
+// "6 of 23 learners are flagged this term, one more than in Term 1."
 //
-// The home page's band chart shows one quarter at a time, so the movement
+// The home page's band chart shows one term at a time, so the movement
 // that the chart itself cannot show is said in words instead — which is the
 // honest trade on a landing page: a three-column small-multiple of five
 // bands each would be narrower than the same chart on a phone (see
@@ -133,7 +133,7 @@ export function describeGap(seriesA, seriesB, { labelA, labelB, unit = '%' } = {
 //
 // `periods` is the server's band trend, oldest first, each with a `counts`
 // object keyed by bucket. Returns null when there is nothing to compare —
-// a school in its first quarter has no previous figure, and inventing a
+// a school in its first term has no previous figure, and inventing a
 // comparison against zero would read as a collapse.
 export function describeFlaggedChange(periods) {
   if (!periods || periods.length === 0) return null

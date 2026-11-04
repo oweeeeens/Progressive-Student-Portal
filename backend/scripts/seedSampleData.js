@@ -23,7 +23,7 @@ const {
   SUBJECTS,
   TEACHER_OVERRIDES,
   STUDENTS,
-  PERIOD_SEMESTERS,
+  PERIODS,
 } = require('./demoDataset');
 
 // Upsert by email so re-seeding never invalidates a login someone is already
@@ -70,21 +70,14 @@ async function seed() {
   const schoolYearId = schoolYear.rows[0].id;
 
   // The attendance endpoints resolve a grading period from the date, so these
-  // ranges are what put a record in the right quarter.
-  const periods = [
-    ['Q1', 1, '2026-06-01', '2026-09-15'],
-    ['Q2', 2, '2026-09-16', '2026-12-31'],
-    ['Q3', 3, '2027-01-01', '2027-03-31'],
-  ];
-  for (const [name, sequence, start, end] of periods) {
+  // ranges are what put a record in the right term. The list lives in
+  // demoDataset.js so this script and seedDemoAcademicData.js cannot
+  // disagree about what the school's terms are called.
+  for (const { name, sequenceNumber, startDate, endDate } of PERIODS) {
     await pool.query(
-      // `semester` comes from the dataset rather than being computed: three
-      // quarters do not split evenly into two semesters, so where the
-      // boundary falls is the school's decision. It is what makes a
-      // one-semester class show up in some quarters and not others.
-      `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date, semester)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [schoolYearId, name, sequence, start, end, PERIOD_SEMESTERS[name] ?? null]
+      `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [schoolYearId, name, sequenceNumber, startDate, endDate]
     );
   }
 
@@ -198,7 +191,10 @@ async function seed() {
   console.log(`  ${STAFF.length} staff accounts, one per role (password: ${DEMO_PASSWORD})`);
   console.log(`  ${SECTIONS.length} sections, ${SUBJECTS.length} subjects, ${offeringCount} class offerings`);
   console.log(`  ${STUDENTS.length} students, ${loginCount} with portal logins`);
-  console.log(`  Grading periods: Q1 Jun1-Sep15, Q2 Sep16-Dec31, Q3 Jan1-Mar31`);
+  // Printed from the dataset, not written out again — the line used to be
+  // a hard-coded "Q1 Jun1-Sep15, …" that kept saying Q1 after the periods
+  // had been renamed.
+  console.log(`  Grading periods: ${PERIODS.map((p) => `${p.name} ${p.startDate}..${p.endDate}`).join(', ')}`);
   console.log(`\nNext: npm run seed:demo-data  (grades, attendance, interventions, announcements)`);
 }
 

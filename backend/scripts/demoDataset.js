@@ -37,34 +37,48 @@ const STAFF = [
   { email: 'new.teacher@studentportal.local', fullName: 'Ferdinand G. Lazaro', role: 'subject_teacher', state: 'pending-first-login' },
 ];
 
+// The school year's three TERMS, in one place.
+//
+// Both seed scripts read this: seedSampleData.js creates the rows and
+// seedDemoAcademicData.js decides which terms to generate marks for. The
+// names used to be a literal list in each of them, which is two places for
+// "Q1" to become "Term 1" and only one of them to be remembered.
+//
+// `sequenceNumber` is load-bearing beyond ordering: a class offering that
+// runs for a single term names it 'term1'/'term2'/'term3', and that is
+// matched against this number (backend/config/academicTerms.js).
+const PERIODS = [
+  { name: 'Term 1', sequenceNumber: 1, startDate: '2026-06-01', endDate: '2026-09-15' },
+  { name: 'Term 2', sequenceNumber: 2, startDate: '2026-09-16', endDate: '2026-12-31' },
+  { name: 'Term 3', sequenceNumber: 3, startDate: '2027-01-01', endDate: '2027-03-31' },
+];
+
+// The terms the demo generates marks for. Term 3 is deliberately left empty:
+// it is in the future relative to the demo's own calendar, and a school
+// part-way through its year is the state the dashboard and the grade views
+// are actually meant to be read in.
+const GRADED_PERIODS = ['Term 1', 'Term 2'];
+
 const SECTIONS = [
   { name: 'STEM A', strand: 'STEM', gradeLevel: 11, adviser: 'adviser@studentportal.local' },
   { name: 'STEM B', strand: 'STEM', gradeLevel: 11, adviser: 'adviser2@studentportal.local' },
   { name: 'ABM A', strand: 'ABM', gradeLevel: 11, adviser: 'adviser3@studentportal.local' },
-  // The Grade 12 section exists so the per-semester timetable can be shown
-  // at all. Until it did, the seed held three Grade 11 sections, eight Grade
-  // 11 subjects and nothing that ran for only part of the year — so
-  // "subjects change every semester except the specialized one" was
-  // describable but not demonstrable.
+  // The Grade 12 section exists so the per-term timetable can be shown at
+  // all. Until it did, the seed held three Grade 11 sections, eight Grade 11
+  // subjects and nothing that ran for only part of the year — so "subjects
+  // change every term except the specialized one" was describable but not
+  // demonstrable.
   { name: 'STEM 12-A', strand: 'STEM', gradeLevel: 12, adviser: 'adviser2@studentportal.local' },
 ];
-
-// Which semester each quarter belongs to.
-//
-// Three quarters do not split evenly into two semesters, which is exactly
-// why grading_periods.semester is a stored column an admin fills in rather
-// than something derived. This is the demo school's answer: the first two
-// quarters are the first semester, the third is the second.
-const PERIOD_SEMESTERS = { Q1: 1, Q2: 1, Q3: 2 };
 
 // Grade 11 core subjects, plus one specialised subject per strand so the
 // Class Offerings page shows that not every section takes every subject.
 //
 // `category` is DepEd's grouping (core / applied / specialized) and
 // `gradeLevel` says which year takes it. `term` is how long the class runs:
-// Grade 11 classes run the whole year, Grade 12 core and applied classes
-// change each semester, and a specialized subject runs all year in both —
-// which is the rule this data exists to demonstrate.
+// Grade 11 classes run all three terms, Grade 12 core and applied classes
+// change every term, and a specialized subject runs all three in both grade
+// levels — which is the rule this data exists to demonstrate.
 const SUBJECTS = [
   { code: 'MATH11', name: 'General Mathematics', gradeLevel: 11, category: 'core', term: 'full_year', strands: ['STEM', 'ABM'], teacher: 'subject_teacher@studentportal.local' },
   { code: 'ENG11', name: 'Oral Communication', gradeLevel: 11, category: 'core', term: 'full_year', strands: ['STEM', 'ABM'], teacher: 'teacher2@studentportal.local' },
@@ -76,14 +90,20 @@ const SUBJECTS = [
   { code: 'ABM11', name: 'Business Mathematics', gradeLevel: 11, category: 'specialized', term: 'full_year', strands: ['ABM'], teacher: 'teacher2@studentportal.local' },
 
   // --- Grade 12 -------------------------------------------------------------
-  // Two core subjects in the first semester, two in the second, and one
-  // specialized subject running across both. On the learner's grade view
-  // that reads as: different subjects in the Q1/Q2 tabs than in the Q3 tab,
-  // with Research in Daily Life present in all three.
-  { code: 'PHILO12', name: 'Introduction to the Philosophy of the Human Person', gradeLevel: 12, category: 'core', term: 'sem1', strands: ['STEM'], teacher: 'teacher3@studentportal.local' },
-  { code: 'MIL12', name: 'Media and Information Literacy', gradeLevel: 12, category: 'core', term: 'sem1', strands: ['STEM'], teacher: 'teacher2@studentportal.local' },
-  { code: 'ENTREP12', name: 'Entrepreneurship', gradeLevel: 12, category: 'applied', term: 'sem2', strands: ['STEM'], teacher: 'teacher2@studentportal.local' },
-  { code: 'INQ12', name: 'Inquiries, Investigations and Immersion', gradeLevel: 12, category: 'applied', term: 'sem2', strands: ['STEM'], teacher: 'subject_teacher@studentportal.local' },
+  // A different subject in each of the three terms, plus one specialized
+  // subject running across all of them — which is the school's own
+  // description of Grade 12 ("nag iiba iba kada term ung subject maliban sa
+  // mga specialized"). On the learner's grade view that reads as: a
+  // different subject list in each term tab, with Research in Daily Life
+  // present in all three.
+  //
+  // Two subjects share Term 2 on purpose: a term is not limited to one
+  // subject, and a demo where each term held exactly one would make the
+  // rule look narrower than it is.
+  { code: 'PHILO12', name: 'Introduction to the Philosophy of the Human Person', gradeLevel: 12, category: 'core', term: 'term1', strands: ['STEM'], teacher: 'teacher3@studentportal.local' },
+  { code: 'MIL12', name: 'Media and Information Literacy', gradeLevel: 12, category: 'core', term: 'term2', strands: ['STEM'], teacher: 'teacher2@studentportal.local' },
+  { code: 'ENTREP12', name: 'Entrepreneurship', gradeLevel: 12, category: 'applied', term: 'term2', strands: ['STEM'], teacher: 'teacher2@studentportal.local' },
+  { code: 'INQ12', name: 'Inquiries, Investigations and Immersion', gradeLevel: 12, category: 'applied', term: 'term3', strands: ['STEM'], teacher: 'subject_teacher@studentportal.local' },
   { code: 'RDL12', name: 'Research in Daily Life 2', gradeLevel: 12, category: 'specialized', term: 'full_year', strands: ['STEM'], teacher: 'teacher3@studentportal.local' },
 ];
 
@@ -116,41 +136,48 @@ const TEACHER_OVERRIDES = {
 // --- How a student performs -------------------------------------------------
 // The risk formula reads two series per student: the average of their
 // FINALIZED grades per period, and their daily attendance rate per period.
-// Trend is (latest − earliest) ÷ number of periods, so across two quarters a
+// Trend is (latest − earliest) ÷ number of periods, so across two terms a
 // drop has to exceed 10 points to breach the −5/period decline threshold.
 // These profiles are chosen against those exact rules so the roster lands in
 // every band rather than clustering.
+// KEYED BY THE TERM'S SEQUENCE NUMBER, not by its name. The generator used
+// to look these up as `periodKey.toLowerCase()` against `q1`/`q2` keys,
+// which worked only while the periods happened to be called Q1 and Q2 —
+// renaming them to Term 1/2 turned every lookup into `undefined` and every
+// grade into NaN. A period's position in the year is the one thing about it
+// that is neither free text nor the school's to change.
 const GRADE_PROFILES = {
-  excellent: { q1: 93, q2: 95 }, // high and rising
-  improving: { q1: 78, q2: 88 }, // +5/period and still under 90: earns
+  excellent: { 1: 93, 2: 95 }, // high and rising
+  improving: { 1: 78, 2: 88 }, // +5/period and still under 90: earns
   // recognition on the trend alone, which is the band rule's second clause
-  strong: { q1: 88, q2: 91 }, // crosses into Outstanding
-  solid: { q1: 85, q2: 84 }, // comfortable, flat
-  average: { q1: 79, q2: 81 }, // unremarkable, fine
-  slipping: { q1: 86, q2: 74 }, // −6/period AND below passing: two grade flags
-  struggling: { q1: 78, q2: 70 }, // −4/period, so only the low-grade flag
-  failing: { q1: 72, q2: 60 }, // −6/period and well below passing
+  strong: { 1: 88, 2: 91 }, // crosses into Outstanding
+  solid: { 1: 85, 2: 84 }, // comfortable, flat
+  average: { 1: 79, 2: 81 }, // unremarkable, fine
+  slipping: { 1: 86, 2: 74 }, // −6/period AND below passing: two grade flags
+  struggling: { 1: 78, 2: 70 }, // −4/period, so only the low-grade flag
+  failing: { 1: 72, 2: 60 }, // −6/period and well below passing
 };
 
-// Attendance per quarter, as the number of school days attended out of the
-// ten recorded. Two separate checks read these, and both have to be kept in
-// mind: the RATE (flagged below 90%) and the TREND, (latest − earliest) ÷ 2
-// across the two quarters, flagged at ≤ −5 percentage points per period.
+// Attendance per term, as the number of school days attended out of the
+// ten recorded, keyed by sequence number like the grade profiles above.
+// Two separate checks read these, and both have to be kept in mind: the
+// RATE (flagged below 90%) and the TREND, (latest − earliest) ÷ 2 across the
+// two terms, flagged at ≤ −5 percentage points per period.
 //
 // That second check is easy to trip by accident. 10 days then 9 is a rate of
 // 90%, which clears the threshold — but it is a −5/period trend, which does
 // not. So `good` is deliberately FLAT at 9 days: a student who simply misses
-// one day a quarter must come out with no flags at all, or most of the roster
+// one day a term must come out with no flags at all, or most of the roster
 // reads as at-risk for nothing. `dipping` is the same 90% rate WITH the drop,
 // kept as its own profile so that case is shown on purpose rather than by
 // mistake.
 const ATTENDANCE_PROFILES = {
-  perfect: { q1: 10, q2: 10 },
-  good: { q1: 9, q2: 9 }, // 90% flat: clears the required rate, no trend
-  dipping: { q1: 10, q2: 9 }, // 90% but −5/period: trend flag only
-  spotty: { q1: 8, q2: 8 }, // 80%: below the required rate, flat
-  declining: { q1: 10, q2: 7 }, // 100% → 70%: low AND falling fast
-  poor: { q1: 7, q2: 4 }, // 70% → 40%: the worst case on the roster
+  perfect: { 1: 10, 2: 10 },
+  good: { 1: 9, 2: 9 }, // 90% flat: clears the required rate, no trend
+  dipping: { 1: 10, 2: 9 }, // 90% but −5/period: trend flag only
+  spotty: { 1: 8, 2: 8 }, // 80%: below the required rate, flat
+  declining: { 1: 10, 2: 7 }, // 100% → 70%: low AND falling fast
+  poor: { 1: 7, 2: 4 }, // 70% → 40%: the worst case on the roster
 };
 
 // `login: true` gives the student a portal account, so the student view can
@@ -203,7 +230,7 @@ const STUDENTS = [
 
   // --- STEM 12-A --------------------------------------------------------------
   // A small Grade 12 cohort, enough to show the per-semester timetable and to
-  // put a learner in each band. One has a login, so the quarter tabs on the
+  // put a learner in each band. One has a login, so the term tabs on the
   // student's own grade view can be demonstrated from the inside — which is
   // where the difference between Q1 and Q3 subjects is actually visible.
   { lrn: '100000000037', first: 'Rafael', middle: 'Mercado', last: 'Abad', sex: 'M', section: 'STEM 12-A', grades: 'excellent', attendance: 'perfect', email: 'rafael.abad@example.com', login: true },
@@ -216,15 +243,16 @@ const STUDENTS = [
 
 // --- The school calendar ----------------------------------------------------
 // Attendance endpoints resolve the grading period FROM THE DATE, so every
-// date below has to fall inside its quarter's range or the record lands in
-// the wrong period. Ten school days per quarter: enough for a rate to be
+// date below has to fall inside its term's range or the record lands in
+// the wrong period. Ten school days per term: enough for a rate to be
 // meaningful, few enough to seed quickly.
+// Also keyed by sequence number, for the same reason.
 const PERIOD_DATES = {
-  Q1: [
+  1: [
     '2026-06-02', '2026-06-03', '2026-06-04', '2026-06-05', '2026-06-08',
     '2026-06-09', '2026-06-10', '2026-06-11', '2026-06-12', '2026-06-15',
   ],
-  Q2: [
+  2: [
     '2026-09-21', '2026-09-22', '2026-09-23', '2026-09-24', '2026-09-25',
     '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02',
   ],
@@ -240,9 +268,9 @@ const SUBJECT_ATTENDANCE_CODES = ['MATH11', 'ENG11', 'SCI11'];
 // where every grade is already finalized leaves Verify Grades and Finalize
 // Grades empty — which is exactly what happened before this existed.
 //
-// These lanes apply to the CURRENT quarter, not a future one. Verify Grades
+// These lanes apply to the CURRENT term, not a future one. Verify Grades
 // auto-selects whichever grading period contains today (see
-// VerifyGradesPage.jsx), so work parked in a later quarter would be invisible
+// VerifyGradesPage.jsx), so work parked in a later term would be invisible
 // until someone changed a dropdown. The seed asks the API which period is
 // current and applies the lanes there.
 //
@@ -275,17 +303,17 @@ const INTERVENTIONS = [
 
 const ANNOUNCEMENTS = [
   {
-    title: 'Second Quarter Examination Schedule',
+    title: 'Term 2 Examination Schedule',
     body:
-      'Second quarter examinations will run from 8 to 12 December 2026. The schedule per subject is attached. ' +
+      'Term 2 examinations will run from 8 to 12 December 2026. The schedule per subject is attached. ' +
       'Students are reminded to settle any outstanding requirements with their advisers before the examination week begins.',
     attachment: 'Q2-Examination-Schedule.pdf',
   },
   {
     title: 'Parent-Teacher Conference',
     body:
-      'The quarterly parent-teacher conference is set for Saturday, 14 November 2026, 8:00 AM at the school gymnasium. ' +
-      'Advisers will release the second quarter report cards during the conference. Parents of students flagged for academic follow-up will be met individually.',
+      'The parent-teacher conference for this term is set for Saturday, 14 November 2026, 8:00 AM at the school gymnasium. ' +
+      'Advisers will release the Term 2 report cards during the conference. Parents of students flagged for academic follow-up will be met individually.',
   },
   {
     title: 'Portal Accounts for Grade 11',
@@ -297,7 +325,8 @@ const ANNOUNCEMENTS = [
 
 module.exports = {
   TEACHER_OVERRIDES,
-  PERIOD_SEMESTERS,
+  PERIODS,
+  GRADED_PERIODS,
   DEMO_PASSWORD,
   STAFF,
   SECTIONS,

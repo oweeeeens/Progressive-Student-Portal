@@ -13,6 +13,7 @@
     "reset:password": "node scripts/resetPassword.js",
     "check:email": "node scripts/checkEmail.js",
     "apply:teaching": "node scripts/applyTeacherOverrides.js",
+    "rename:terms": "node scripts/renameQuartersToTerms.js",
     "seed:sample": "node scripts/seedSampleData.js",
     "seed:demo-data": "node scripts/seedDemoAcademicData.js",
     "test:risk-calculator": "node scripts/testRiskCalculator.js",

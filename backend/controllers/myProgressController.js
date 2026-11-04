@@ -205,7 +205,7 @@ async function getMySubjects(req, res) {
       subjectId: o.subject_id,
       subjectName: o.subject_name,
       // How long this class runs and what kind of subject it is — the two
-      // facts that decide which quarters it appears in. See
+      // facts that decide which terms it appears in. See
       // config/academicTerms.js.
       term: o.term,
       category: o.subject_category,

@@ -14,16 +14,16 @@ import { SkeletonTable } from '../components/Skeleton'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 const emptySchoolYearForm = { label: '', startDate: '', endDate: '' }
-// `semester` starts unset. Three quarters do not divide evenly into two
-// semesters, so there is nothing to pre-fill it from — only the school knows
-// where their boundary falls. An unset quarter is read as belonging to both,
-// so leaving it blank never hides a grade.
-const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: '', semester: '' }
+// `sequenceNumber` is the term's position in the year, and it carries real
+// weight beyond ordering the table: a class offering that runs for one term
+// names it as 'term1'/'term2'/'term3', and that is matched against this
+// number (see utils/academicTerms.js). Term 2 is the period numbered 2.
+const emptyPeriodForm = { name: '', sequenceNumber: '', startDate: '', endDate: '' }
 
 // Admin-only Academic Setup page. School years and grading periods are
 // managed together deliberately — a grading period only makes sense in the
 // context of one school year, so picking a year above and managing its
-// quarters below (rather than two separate pages) matches how an admin
+// terms below (rather than two separate pages) matches how an admin
 // actually thinks about this data. Neither entity supports deactivation:
 // see the is-active migration's comment for why — a school year simply
 // becomes not-current, and every table referencing either one is already
@@ -203,7 +203,6 @@ export function SchoolYearsPage() {
       sequenceNumber: String(p.sequence_number),
       startDate: p.start_date,
       endDate: p.end_date,
-      semester: p.semester == null ? '' : String(p.semester),
     })
     setShowPeriodForm(true)
   }
@@ -217,7 +216,6 @@ export function SchoolYearsPage() {
       sequenceNumber: Number(periodForm.sequenceNumber),
       startDate: periodForm.startDate,
       endDate: periodForm.endDate,
-      semester: periodForm.semester,
     }
     await runWrite(
       'period-form',
@@ -437,22 +435,12 @@ export function SchoolYearsPage() {
                 onChange={(e) => setPeriodForm((f) => ({ ...f, endDate: e.target.value }))}
                 required
               />
-              {/* Set by hand, because it cannot be derived: three quarters do
-                  not split evenly into two semesters, so where the boundary
-                  falls is the school's decision, not arithmetic. */}
-              <label htmlFor="period-semester">Semester</label>
-              <select
-                id="period-semester"
-                value={periodForm.semester}
-                onChange={(e) => setPeriodForm((f) => ({ ...f, semester: e.target.value }))}
-              >
-                <option value="">Not set</option>
-                <option value="1">First semester</option>
-                <option value="2">Second semester</option>
-              </select>
+              {/* The sequence number is not just sort order, so the form
+                  says so: a class set to run for "Term 2 only" appears in
+                  the period numbered 2 and nowhere else. */}
               <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                This decides which subjects appear in this quarter: a class that runs for one semester only shows up in
-                that semester&rsquo;s quarters. Leave it unset and every class shows in this quarter.
+                The sequence number decides which classes appear here. A class set to run for a single term shows up in
+                the term with that number &mdash; Term 2 only means the period numbered 2.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
@@ -485,7 +473,6 @@ export function SchoolYearsPage() {
                   <th>Name</th>
                   <th>Start</th>
                   <th>End</th>
-                  <th>Semester</th>
                   <th></th>
                 </tr>
               </thead>
@@ -496,9 +483,6 @@ export function SchoolYearsPage() {
                     <td>{p.name}</td>
                     <td>{p.start_date}</td>
                     <td>{p.end_date}</td>
-                    {/* "Not set" rather than a dash: a blank is a decision
-                        the admin has not made yet, and the word says so. */}
-                    <td>{p.semester ? `Semester ${p.semester}` : <span className="is-empty-value">Not set</span>}</td>
                     <td>
                       {canWrite && (
                         <button type="button" className="btn-subtle" onClick={() => startEditPeriod(p)}>

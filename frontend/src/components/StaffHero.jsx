@@ -11,8 +11,8 @@ import { useDrawIn } from '../hooks/useDrawIn'
 //
 // It carries the TERM as well now, because every other figure on this page
 // is relative to it: "4 grades to finalize" and "6 learners flagged" both
-// mean something different in the first week of a quarter than in the last.
-// Having to work out which quarter it is, and how much of it is left, was a
+// mean something different in the first week of a term than in the last.
+// Having to work out which term it is, and how much of it is left, was a
 // question the page quietly left to the reader.
 
 function greeting(date = new Date()) {
@@ -73,7 +73,7 @@ function termProgressPercent(today, startDate, endDate) {
 }
 
 // The term block on the right of the hero. Returns null rather than an
-// empty frame when there is no current period — between quarters the
+// empty frame when there is no current period — between terms the
 // honest answer is a sentence, which the caller renders instead.
 //
 // `today` is passed in rather than read here: the parent already needs it
@@ -186,13 +186,13 @@ export function StaffHero({ user, currentPeriod }) {
         </p>
       </div>
 
-      {/* Between quarters there is no progress to draw, and a missing block
+      {/* Between terms there is no progress to draw, and a missing block
           would read as a layout fault. The sentence is the information. */}
       {term || (
         <div className="portal-hero__term portal-hero__term--none">
           <p className="portal-hero__term-label">Between grading periods</p>
           <p className="portal-hero__term-meta">
-            Today falls outside every configured quarter, so figures tied to a grading period are not shown.
+            Today falls outside every configured term, so figures tied to a grading period are not shown.
           </p>
         </div>
       )}

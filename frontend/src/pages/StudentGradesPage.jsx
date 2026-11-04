@@ -146,7 +146,7 @@ export function StudentGradesPage() {
         subjectName: s.subjectName,
         teacherName: s.teacherName,
         // How long this class runs, and what kind of subject it is: together
-        // these decide which quarters it belongs in.
+        // these decide which terms it belongs in.
         term: s.term,
         category: s.category,
         cells: {},
@@ -235,25 +235,29 @@ export function StudentGradesPage() {
     }
   }, [subjectGrades, passingGrade])
 
-  // One tab per quarter, plus the whole-year grid.
+  // One tab per term, plus the whole-year grid.
   //
-  // Which subjects belong in a quarter is decided per row, not per table: a
-  // class running for one semester appears only in that semester's quarters,
-  // while a specialized subject runs all year in both grade levels. The rule
-  // itself lives in utils/academicTerms.js and mirrors the server's.
+  // Which subjects belong in a term is decided per row, not per table: a
+  // class running for one term appears only in that one, while a specialized
+  // subject runs all three in both grade levels. The rule itself lives in
+  // utils/academicTerms.js and mirrors the server's.
   //
-  // A quarter with no subjects in it still gets a tab. Hiding it would turn
-  // "nothing is scheduled for you in Q3" — which a learner needs to be able
-  // to see and ask about — into a quarter that appears not to exist.
-  const quarterTabs = useMemo(() => {
-    const perQuarter = gradingPeriods.map((period) => ({
+  // A term with no subjects in it still gets a tab. Hiding it would turn
+  // "nothing is scheduled for you in Term 3" — which a learner needs to be
+  // able to see and ask about — into a term that appears not to exist.
+  const termTabs = useMemo(() => {
+    const perTerm = gradingPeriods.map((period) => ({
       key: `period-${period.id}`,
       label: period.name,
       content: (
-        <QuarterTable
+        <TermTable
           period={period}
           rows={gradeMatrix.filter((row) =>
-            offeringCoversPeriod({ term: row.term, category: row.category, semester: period.semester })
+            offeringCoversPeriod({
+              term: row.term,
+              subjectCategory: row.category,
+              periodSequenceNumber: period.sequence_number,
+            })
           )}
           passingGrade={passingGrade}
           error={error}
@@ -262,7 +266,7 @@ export function StudentGradesPage() {
     }))
 
     return [
-      ...perQuarter,
+      ...perTerm,
       {
         key: 'all',
         label: 'Whole year',
@@ -280,13 +284,13 @@ export function StudentGradesPage() {
     ]
   }, [gradingPeriods, gradeMatrix, passingGrade, error, expandedSubject])
 
-  // Open on the quarter the school is actually in, falling back to the whole
-  // year when today is outside every quarter — the long break, when "the
-  // current quarter" has no answer and the year as a whole is what there is
+  // Open on the term the school is actually in, falling back to the whole
+  // year when today is outside every term — the long break, when "the
+  // current term" has no answer and the year as a whole is what there is
   // to look at. `periodName` comes from the server's own current-period
   // resolution (school timezone, not the server's — see utils/schoolDate.js),
-  // so this does not re-derive "what quarter is it" on the client.
-  const defaultQuarterTab = useMemo(() => {
+  // so this does not re-derive "what term is it" on the client.
+  const defaultTermTab = useMemo(() => {
     const current = gradingPeriods.find((p) => p.name === subjectGrades?.periodName)
     return current ? `period-${current.id}` : 'all'
   }, [gradingPeriods, subjectGrades])
@@ -404,17 +408,18 @@ export function StudentGradesPage() {
 
       <div className="record-section">
         <h2>Your Subjects &amp; Grades</h2>
-        {/* One view per quarter, plus the whole-year grid.
-            
+        {/* One view per term, plus the whole-year grid.
+
             A Grade 12 learner does not take the same subjects all year: core
-            and applied subjects change each semester, so a single wide table
+            and applied subjects change every term, so a single wide table
             showed them every subject they take at any point in the year with
             dashes where a subject was not running — a dash that means "not
-            taught this quarter" looked exactly like one that means "no mark
-            recorded yet". Which quarter a class runs in comes from its term
-            and the quarter's semester; a specialized subject ignores both and
-            runs all year. See utils/academicTerms.js. */}
-        <Tabs defaultTab={defaultQuarterTab} tabs={quarterTabs} />
+            taught this term" looked exactly like one that means "no mark
+            recorded yet". Which term a class runs in comes from its own term
+            setting, matched to the period's sequence number; a specialized
+            subject ignores that and runs all three. See
+            utils/academicTerms.js. */}
+        <Tabs defaultTab={defaultTermTab} tabs={termTabs} />
       </div>
 
       <div className="record-section">
@@ -436,10 +441,10 @@ export function StudentGradesPage() {
   )
 }
 
-// The whole-year grid: every subject down the side, every quarter across the
+// The whole-year grid: every subject down the side, every term across the
 // top. This is the report-card shape the school already uses on paper, and it
 // stays available as its own tab because a parent reading a card wants the
-// year at once — the per-quarter tabs answer "what am I taking now", which is
+// year at once — the per-term tabs answer "what am I taking now", which is
 // a different question.
 function WholeYearGrid({
   gradeMatrix,
@@ -519,10 +524,10 @@ function WholeYearGrid({
   )
 }
 
-// One quarter: only the subjects actually running in it, with that quarter's
-// mark. No columns of dashes for subjects that are not taught this term — a
-// dash here means "no mark recorded yet", and nothing else.
-function QuarterTable({ period, rows, passingGrade, error }) {
+// One term: only the subjects actually running in it, with that term's mark.
+// No columns of dashes for subjects that are not taught this term — a dash
+// here means "no mark recorded yet", and nothing else.
+function TermTable({ period, rows, passingGrade, error }) {
   return (
     <DataTable illustration="grades"
       columns={[
@@ -541,7 +546,7 @@ function QuarterTable({ period, rows, passingGrade, error }) {
           header: 'Type',
           // Quiet for a core subject, which is most of them — so the column
           // only draws attention to the specialized subject that is the
-          // reason this one appears in every quarter.
+          // reason this one appears in every term.
           uniformValue: (r) => r.category,
           quietValue: 'core',
           render: (r) => SUBJECT_CATEGORY_LABELS[r.category] || '—',
@@ -577,8 +582,8 @@ function QuarterTable({ period, rows, passingGrade, error }) {
         <>
           <p>No subjects running in {period.name}.</p>
           <p>
-            A class that runs for one semester only appears in that semester&rsquo;s quarters. Ask the registrar if you
-            expected a subject here.
+            A class that runs for a single term appears in that term only. Ask the registrar if you expected a
+            subject here.
           </p>
         </>
       }

@@ -96,13 +96,12 @@ async function countSectionsMissingTodaysRegister(adviserId, today) {
 
 // Classes this teacher has not entered any grade for in this period.
 //
-// The "runs in this quarter" test is NOT done in SQL. It is
+// The "runs in this term" test is NOT done in SQL. It is
 // config/academicTerms.js's offeringCoversPeriod, the same function the
-// grade views and the report card use, because the policy is genuinely
-// three-sided (the offering's term, the subject's category, the quarter's
-// semester) and a second copy of it in a WHERE clause is a second thing to
-// keep in step. Without it this count would nag a Grade 12 teacher about a
-// class whose semester finished.
+// grade views use, because the policy has two sides (the offering's term
+// and the subject's category) and a second copy of it in a WHERE clause is
+// a second thing to keep in step. Without it this count would nag a Grade 12
+// teacher about a class whose term has already passed.
 async function countClassesMissingGrades(teacherId, period) {
   const result = await pool.query(
     `SELECT co.id, co.term, subj.category AS subject_category,
@@ -123,7 +122,7 @@ async function countClassesMissingGrades(teacherId, period) {
       offeringCoversPeriod({
         term: row.term,
         subjectCategory: row.subject_category,
-        periodSemester: period.semester,
+        periodSequenceNumber: period.sequence_number,
       })
   ).length;
 }
@@ -157,8 +156,8 @@ async function countRejectedGrades(teacherId, gradingPeriodId) {
 //
 // interventions.risk_assessment_id ties a logged intervention to the
 // assessment that prompted it, so "no support logged" means no intervention
-// against THIS period's assessment - last quarter's closed case does not
-// silence this quarter's flag.
+// against THIS period's assessment - last term's closed case does not
+// silence this term's flag.
 async function countFlaggedWithoutSupport(user, gradingPeriodId) {
   const clauses = ['s.is_active = TRUE', 'ra.grading_period_id = $1', 'ra.risk_score > 0'];
   const params = [gradingPeriodId];
@@ -262,7 +261,7 @@ async function getTaskQueue(user) {
   const keys = itemsFor({ role: user.role, advisesCount: advised.length, teachesCount: taught.length });
 
   // Every count that needs a grading period is skipped entirely outside
-  // one, rather than reported as zero: between quarters there is no period
+  // one, rather than reported as zero: between terms there is no period
   // to count against, and "0 grades to finalize" would read as caught up
   // when the truth is that the question does not apply.
   const counts = {};

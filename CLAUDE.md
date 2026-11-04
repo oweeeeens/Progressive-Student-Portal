@@ -192,7 +192,7 @@ grading period the school is, with a meter and "41 weekdays left".
 Deliberately *weekdays*, not *school days*: this schema holds no holiday
 calendar, so calling them school days would be a claim the data cannot
 support. Every other figure on the page is relative to the term, and working
-out which week of the quarter it is was a question the page quietly left to
+out which week of the term it is was a question the page quietly left to
 the reader.
 
 **2. "What needs you today" leads the page** — `GET /api/dashboard/queue`,
@@ -217,7 +217,7 @@ Three rules make it trustworthy:
   the list it counted.
 - **It invents no deadline the school does not have.** "Today's register is
   not marked" is only asked on a weekday inside a grading period, and every
-  period-dependent count is *omitted* between quarters rather than reported
+  period-dependent count is *omitted* between terms rather than reported
   as zero — "0 grades to finalize" would read as caught up when the truth is
   that the question does not apply.
 
@@ -229,8 +229,8 @@ who has cleared theirs is told so, and told which checks came back empty.
 distribution for this person's own scope (`GET /api/dashboard/bands`) beside
 the flagged learners, each with the factor that fired. The chart is a bar
 per band against one shared zero, **never stacked** — `BarChart`'s own
-header states that rule and why. One quarter, not a trend: Analytics owns
-over-time, and the movement since last quarter is said in a sentence
+header states that rule and why. One term, not a trend: Analytics owns
+over-time, and the movement since last term is said in a sentence
 underneath instead. **No new colour was introduced anywhere in this work**:
 the chart reuses the frozen, CVD-validated band tokens exactly (asserted
 against their literal values in the browser check), and the task strip
@@ -247,49 +247,101 @@ with the home page. Two copies of "which colour is At Risk — Medium" would
 have drifted, and the same learner would have been a different colour on two
 pages of one product.
 
-## Subjects Per Term, Grades Per Quarter
+## Subjects Per Term, Grades Per Term
 
-The school's timetable, confirmed with the client: a **Grade 11 subject runs
-all three quarters** of the year; a **Grade 12 subject changes every
-semester**; a **specialized subject runs the whole year in both grade
-levels**. "Term" means a semester.
+**Corrected by the school on 2026-11-04.** Their words:
 
-Three stored columns carry that, and the policy that reads them lives in one
-place: `backend/config/academicTerms.js`, mirrored for display only in
-`frontend/src/utils/academicTerms.js`.
+> "sa grade 11 ngayon new curriculum buong term 1 to 3 same subj lang. sa
+> grade 12 nag iiba iba kada term ung subject maliban sa mga specialized —
+> na dyan sa Babbage ung Computer System Servicing buong term 1-3 un."
+
+So: **the school year is three TERMS, and there are no semesters.** A Grade
+11 subject runs all three terms. A Grade 12 subject changes **every term**.
+A specialized subject runs all three in both grade levels (their example:
+Computer Systems Servicing).
+
+**What the earlier version got wrong, because it is worth being able to
+explain.** The client had said a Grade 12 subject changes each "term", and
+"term" was read as "semester". That one word produced a whole layer:
+`grading_periods.semester` stored which of two semesters each period
+belonged to, `class_offerings.term` offered `sem1`/`sem2`, and a paragraph
+here explained that the column could not be derived because *three quarters
+do not divide evenly into two semesters*. All of that was bridging a
+mistake. With an offering naming its term directly there is nothing to map,
+the column is gone, and the model is smaller than it was. A clarified
+requirement that *simplifies* the schema is a good thing to be able to show
+a panel.
+
+Two stored columns carry the policy now, and the rule that reads them lives
+in one place: `backend/config/academicTerms.js`, mirrored for display in
+`frontend/src/utils/academicTerms.js` **with identical parameter names** —
+the two used to disagree (`subjectCategory`/`periodSemester` against
+`category`/`semester`), so handing either one the other's object returned
+`true` for everything, in the function that decides whether a learner's
+grade is shown.
 
 - **`subjects.category`** — `core | applied | specialized`, DepEd's own
-  grouping, set on the Subjects form. Defaults to `core`.
-- **`grading_periods.semester`** — 1 or 2, **set by the admin per quarter**
-  in Academic Setup. It cannot be derived: *three quarters do not divide
-  evenly into two semesters*, so only the school knows where their boundary
-  falls. NULL until assigned.
-- **`class_offerings.term`** — `full_year | sem1 | sem2`, NOT NULL DEFAULT
-  `full_year`, and the UNIQUE now includes it, because the same subject
-  legitimately IS offered to one section twice in a year — once per semester.
-  An enum rather than a nullable `semester` on purpose: Postgres treats NULLs
-  as distinct in a UNIQUE, so a nullable column meaning "whole year" would
-  silently permit two whole-year rows for the same subject and section.
+  grouping, set on the Subjects form. Defaults to `core`. A specialized
+  subject runs all year whatever its offering says.
+- **`class_offerings.term`** — `full_year | term1 | term2 | term3`, NOT NULL
+  DEFAULT `full_year`, and the UNIQUE includes it, because the same subject
+  legitimately IS offered to one section more than once in a year — once per
+  term. An enum rather than a nullable reference to a grading period on
+  purpose: Postgres treats NULLs as distinct in a UNIQUE, so a nullable
+  column meaning "whole year" would silently permit two whole-year rows for
+  the same subject and section.
 
-**Two fail-open rules keep this safe on data that predates it.** A
-`full_year` class covers every quarter — which is what every offering
-recorded before this feature means — and a quarter with **no semester
-assigned yet is treated as covered**, so a school part-way through its
-Academic Setup sees all its grades rather than none.
+A term is matched to a period by **`sequence_number`** — `term2` means the
+period numbered 2. Not by name, which is free text the school sets, and not
+by id, which differs per school year.
 
-**Grade viewing is one table per quarter** (`StudentGradesPage`), listing
-only the subjects actually running in it, with a "Whole year" tab keeping the
-report-card grid. It opens on the current quarter. A single wide table showed
-a Grade 12 learner every subject they take at any point in the year with
-dashes where one was not running — and a dash meaning "not taught this
-quarter" looked exactly like one meaning "no mark recorded yet".
+**One fail-open rule, down from two.** A `full_year` class covers every
+term, which is what every offering recorded before any of this existed
+means. The second rule — "a quarter with no semester assigned yet is treated
+as covered" — is gone, because there is nothing left to leave unset.
 
-**Three bugs fixed alongside it**, all pre-existing:
+**The vocabulary is sized to three terms**, and that is a real limit rather
+than an oversight: a school year with four periods would have one that no
+single-term offering can name. `CLASS_TERMS` and `TERM_SEQUENCE` are the two
+places to change, and `subjectTerms.test.js` asserts the limit so it is
+discovered by a test rather than by a school.
+
+**Migrating off semesters widened rather than narrowed.** A `sem1` offering
+covered two periods and a single term cannot express that; splitting the row
+would orphan every grade pointing at its `class_offering_id`. So every
+term-bound offering became `full_year` and the admin re-narrows the Grade 12
+classes on the Class Offerings page. Nothing recorded can disappear from a
+learner's grade view because of a migration. The down migration restores the
+shape but not the semester *values* — three rows per school year, re-entered
+through the Academic Setup form.
+
+**Grade viewing is one table per term** (`StudentGradesPage`), listing only
+the subjects actually running in it, with a "Whole year" tab keeping the
+report-card grid. It opens on the current term. A single wide table showed a
+Grade 12 learner every subject they take at any point in the year with dashes
+where one was not running — and a dash meaning "not taught this term" looked
+exactly like one meaning "no mark recorded yet".
+
+**The printed report card had the same flaw, and paper has no tabs.** It now
+prints `n/a` for a term a subject was not taught in and a dash for one taught
+with no final mark, with a one-line legend — and only where the data
+supports the claim. The distinction comes from the section's own class
+offerings; for a past school year, or a learner with no section, nothing is
+claimed and every blank stays a dash. On a document handed to a parent, a
+dash that might mean either is better than an "n/a" that might be a lie.
+
+**Renaming is not a migration.** `grading_periods.name` is the school's own
+label, so `npm run rename:terms` (`scripts/renameQuartersToTerms.js`) changes
+Q1/Q2/Q3 to Term 1/2/3 on a deployment and leaves any other name alone. A
+migration that rewrote it would overwrite whatever the school had chosen,
+every deploy, with no way to say no.
+
+**Three bugs fixed alongside the original per-term work**, all pre-existing:
 
 - `gradeModel.getHistoryForStudent` had **no school-year filter** while every
   other per-period reader did. `sequence_number` is unique only within a
-  year, so a learner's Grade 11 "Q1" and Grade 12 "Q1" landed in the same
-  cell and the later row silently won.
+  year, so a learner's Grade 11 "Term 1" and Grade 12 "Term 1" landed in the
+  same cell and the later row silently won.
 - Subjects were matched **by name** in `myProgressController`,
   `StudentGradesPage` and the report card's pivot, justified by a comment
   claiming subject names are unique. Only `code` is — a Grade 11 and a Grade
@@ -300,7 +352,7 @@ quarter" looked exactly like one meaning "no mark recorded yet".
   statuses rendered unstyled.
 
 ## Dates and the School's Timezone
-Every "which grading period are we in" decision uses the school's local date, not the server's UTC date — `backend/utils/schoolDate.js`, configurable via `SCHOOL_TIMEZONE`, defaulting to `Asia/Manila`. The school is at UTC+8, so a UTC date names *yesterday* for the whole morning, and on the first or last day of a quarter that resolves to the wrong grading period.
+Every "which grading period are we in" decision uses the school's local date, not the server's UTC date — `backend/utils/schoolDate.js`, configurable via `SCHOOL_TIMEZONE`, defaulting to `Asia/Manila`. The school is at UTC+8, so a UTC date names *yesterday* for the whole morning, and on the first or last day of a term that resolves to the wrong grading period.
 
 Related: a date is matched to a grading period **within one school year**, never across all of them (`gradingPeriodModel.findByDateInSchoolYear`). `grading_periods.sequence_number` is unique only within a year, so every per-period series — the risk trend, the report card, My Progress — is scoped by school year too. Without that, a learner's second year in the school mixes with their first.
 

@@ -105,7 +105,7 @@ async function applyTeacherOverrides() {
       if (existing.rowCount === 0) {
         // `term` must be given explicitly: it is NOT NULL and part of the
         // uniqueness constraint. full_year is right for these — a Grade 11
-        // subject runs all three quarters.
+        // subject runs all three terms.
         await client.query(
           `INSERT INTO class_offerings (subject_id, section_id, teacher_id, school_year_id, term)
            VALUES ($1, $2, $3, $4, $5)`,

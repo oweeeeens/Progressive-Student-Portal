@@ -30,10 +30,17 @@ const {
   INTERVENTIONS,
   ANNOUNCEMENTS,
   SECTIONS,
-  PERIOD_SEMESTERS,
+  PERIODS,
+  GRADED_PERIODS,
   TEACHER_OVERRIDES,
 } = require('./demoDataset');
 const { offeringCoversPeriod } = require('../config/academicTerms');
+
+// A term is matched to a grading period by its position in the year, not by
+// its name, so the generator has to know which number each name carries.
+function sequenceOfPeriod(name) {
+  return PERIODS.find((p) => p.name === name)?.sequenceNumber ?? null;
+}
 
 const BASE_URL = (process.env.SEED_BASE_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/$/, '');
 
@@ -114,8 +121,8 @@ async function api(method, path, token, body) {
 // report card does not read as the same number eight times. Deterministic
 // (derived from the subject code) so re-running produces identical data.
 // Clamped to 60-100, the range the grade endpoint accepts.
-function gradeFor(profileName, periodKey, subjectCode) {
-  const base = GRADE_PROFILES[profileName][periodKey.toLowerCase()];
+function gradeFor(profileName, periodSequence, subjectCode) {
+  const base = GRADE_PROFILES[profileName][periodSequence];
   const offset = ((subjectCode.charCodeAt(0) + subjectCode.charCodeAt(1)) % 5) - 2;
   return Math.max(60, Math.min(100, base + offset));
 }
@@ -124,8 +131,8 @@ function gradeFor(profileName, periodKey, subjectCode) {
 // One attended day is marked `late` rather than `present`: late still counts
 // as attending, so the attendance RATE is unchanged, but it gives the
 // attendance views more than two statuses to render.
-function attendanceFor(profileName, periodKey, dateCount) {
-  const attended = ATTENDANCE_PROFILES[profileName][periodKey.toLowerCase()];
+function attendanceFor(profileName, periodSequence, dateCount) {
+  const attended = ATTENDANCE_PROFILES[profileName][periodSequence];
   return Array.from({ length: dateCount }, (_, index) => {
     if (index >= attended) return 'absent';
     return index === 1 && attended < dateCount ? 'late' : 'present';
@@ -135,7 +142,7 @@ function attendanceFor(profileName, periodKey, dateCount) {
 // Only active, enrolled students are graded and marked. The dataset's
 // transferred and dropped students still appear on the roster — which is
 // exactly the case the Students filters exist to show — but giving them
-// marks for a quarter they were not enrolled in would be wrong.
+// marks for a term they were not enrolled in would be wrong.
 function rosterFor(sectionName) {
   return STUDENTS.filter(
     (s) => s.section === sectionName && (s.enrollmentStatus || 'enrolled') === 'enrolled'
@@ -205,7 +212,7 @@ async function submitGrades({
 }) {
   const entries = rosterFor(sectionName).map((student) => ({
     studentId: studentIdByLrn.get(student.lrn),
-    gradeValue: gradeFor(student.grades, periodKey, subjectCode),
+    gradeValue: gradeFor(student.grades, sequenceOfPeriod(periodKey), subjectCode),
   }));
   const submitted = await api('POST', '/api/grades', tokens[teacherEmail], {
     classOfferingId: offeringId,
@@ -248,21 +255,21 @@ async function main() {
   const offeringsFor = (sectionName) =>
     SUBJECTS.filter((subject) => offeringByKey.has(`${sectionName}|${subject.code}`));
 
-  // Which quarter the unfinished work belongs in: the one the grade pages
+  // Which term the unfinished work belongs in: the one the grade pages
   // open on, which is the one containing today. Asked rather than assumed,
-  // because parking it in the wrong quarter is what made Verify and Finalize
+  // because parking it in the wrong term is what made Verify and Finalize
   // look empty.
   const currentPeriod = await api('GET', '/api/grading-periods/current', tokens[REGISTRAR]);
-  const lanePeriod = ['Q1', 'Q2'].includes(currentPeriod.gradingPeriod?.name)
+  const lanePeriod = GRADED_PERIODS.includes(currentPeriod.gradingPeriod?.name)
     ? currentPeriod.gradingPeriod.name
-    : 'Q2';
-  console.log(`  in-progress work goes in ${lanePeriod} (the quarter containing today)`);
+    : GRADED_PERIODS[GRADED_PERIODS.length - 1];
+  console.log(`  in-progress work goes in ${lanePeriod} (the term containing today)`);
 
   // --- Q1 and Q2: the full approval chain, all the way to finalized ---------
   // These are the periods the risk engine reads, so they have to end up as
   // the official record — except for the handful of classes each lane holds
   // back on purpose so the approval pages have something in their queues.
-  for (const periodKey of ['Q1', 'Q2']) {
+  for (const periodKey of GRADED_PERIODS) {
     const periodId = periodIdByName.get(periodKey);
     for (const sectionName of sectionNames) {
       const lane = (periodKey === lanePeriod && CURRENT_PERIOD_LANES[sectionName]) || {};
@@ -271,15 +278,14 @@ async function main() {
 
       for (const subject of offeringsFor(sectionName)) {
         if (heldBack.includes(subject.code) || ungraded.includes(subject.code)) continue;
-        // A class that runs for one semester does not get marks in the other
-        // one. Q1 and Q2 are the first semester in this demo school (see
-        // PERIOD_SEMESTERS), so a Grade 12 second-semester subject is skipped
-        // here and shows up with no marks in the Q3 tab — the honest state
-        // for a quarter the school has not reached yet.
+        // A class that runs for a single term does not get marks in any
+        // other one. A Grade 12 subject set to Term 3 is therefore skipped
+        // here entirely and shows up with no marks in its own tab — the
+        // honest state for a term the school has not reached yet.
         if (!offeringCoversPeriod({
           term: subject.term,
           subjectCategory: subject.category,
-          periodSemester: PERIOD_SEMESTERS[periodKey],
+          periodSequenceNumber: sequenceOfPeriod(periodKey),
         })) {
           continue;
         }
@@ -346,12 +352,12 @@ async function main() {
   }
 
   // --- Daily attendance (the official SF2 record, and a risk input) ---------
-  for (const periodKey of ['Q1', 'Q2']) {
-    const dates = PERIOD_DATES[periodKey];
+  for (const periodKey of GRADED_PERIODS) {
+    const dates = PERIOD_DATES[sequenceOfPeriod(periodKey)];
     for (const sectionName of sectionNames) {
       const roster = rosterFor(sectionName).map((student) => ({
         studentId: studentIdByLrn.get(student.lrn),
-        statuses: attendanceFor(student.attendance, periodKey, dates.length),
+        statuses: attendanceFor(student.attendance, sequenceOfPeriod(periodKey), dates.length),
       }));
       for (let dayIndex = 0; dayIndex < dates.length; dayIndex += 1) {
         await api('POST', '/api/attendance/daily', adviserToken(sectionName), {
@@ -367,8 +373,8 @@ async function main() {
   // --- Subject attendance (supplementary; never feeds the risk score) ------
   // Only a few subjects keep it, and over fewer days, so it visibly differs
   // from the homeroom record — which is the whole reason both tables exist.
-  for (const periodKey of ['Q1', 'Q2']) {
-    const dates = PERIOD_DATES[periodKey].slice(0, 6);
+  for (const periodKey of GRADED_PERIODS) {
+    const dates = PERIOD_DATES[sequenceOfPeriod(periodKey)].slice(0, 6);
     for (const sectionName of sectionNames) {
       for (const code of SUBJECT_ATTENDANCE_CODES) {
         const offeringId = offeringByKey.get(`${sectionName}|${code}`);
@@ -376,7 +382,7 @@ async function main() {
         const subject = SUBJECTS.find((s) => s.code === code);
         const roster = rosterFor(sectionName).map((student) => ({
           studentId: studentIdByLrn.get(student.lrn),
-          statuses: attendanceFor(student.attendance, periodKey, dates.length),
+          statuses: attendanceFor(student.attendance, sequenceOfPeriod(periodKey), dates.length),
         }));
         for (let dayIndex = 0; dayIndex < dates.length; dayIndex += 1) {
           await api('POST', '/api/attendance/subject', tokens[teacherFor(sectionName, code, subject.teacher)], {
@@ -393,7 +399,7 @@ async function main() {
   // --- Interventions --------------------------------------------------------
   // The API requires a risk assessment for TODAY's grading period before an
   // intervention can be logged, and that assessment exists only because the
-  // quarter above was finalized first. Order matters here.
+  // term above was finalized first. Order matters here.
   const guidance = tokens[GUIDANCE];
   for (const intervention of INTERVENTIONS) {
     const studentId = studentIdByLrn.get(intervention.lrn);

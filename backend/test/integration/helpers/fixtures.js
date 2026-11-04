@@ -74,10 +74,6 @@ async function createSchoolYearWithPeriods(label, periodSpecs) {
       sequenceNumber: spec.sequenceNumber,
       startDate: spec.startDate,
       endDate: spec.endDate,
-      // Optional: a quarter with no semester is read as belonging to both,
-      // which is what every existing suite wants. Only the term/semester
-      // suite sets it.
-      semester: spec.semester,
     });
     periods.push(period);
   }
@@ -97,7 +93,7 @@ async function createTestSection({ schoolYearId, adviserId, gradeLevel = 11, lab
 async function createTestSubject(label = 'subject', { gradeLevel = 11, category } = {}) {
   // code is left null (nullable + UNIQUE) so repeated test runs never fight
   // over a code value. `category` defaults to 'core' in the model — only the
-  // term/semester suite needs to say otherwise.
+  // subject-terms suite needs to say otherwise.
   return subjectModel.createSubject({ name: nextTag(label), code: null, gradeLevel, category });
 }
 

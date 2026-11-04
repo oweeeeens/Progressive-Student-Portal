@@ -46,7 +46,7 @@ const STALE_INTERVENTION_DAYS = 14;
 const QUEUE_ITEMS = {
   finalize_grades: {
     title: 'Finalize verified grades',
-    detail: 'Verified by the principal this quarter, not yet in the official record.',
+    detail: 'Verified by the principal this term, not yet in the official record.',
     unit: 'grade',
     href: '/grades/finalize',
     linkLabel: 'Finalize Grades',
@@ -63,8 +63,8 @@ const QUEUE_ITEMS = {
     urgency: 'now',
   },
   submit_grades: {
-    title: 'Enter grades for this quarter',
-    detail: 'Classes you teach that run in this quarter with no grade entered yet.',
+    title: 'Enter grades for this term',
+    detail: 'Classes you teach that run in this term with no grade entered yet.',
     unit: 'class',
     href: '/grades/entry',
     linkLabel: 'Enter Grades',
@@ -91,7 +91,7 @@ const QUEUE_ITEMS = {
   },
   flagged_without_support: {
     title: 'Log support for flagged learners',
-    detail: 'Flagged this quarter with no intervention logged against that assessment. Includes Low risk.',
+    detail: 'Flagged this term with no intervention logged against that assessment. Includes Low risk.',
     unit: 'learner',
     href: '/academic-progress',
     linkLabel: 'Academic Progress Tracking',

@@ -189,7 +189,7 @@ async function finalizeGrades(req, res) {
 async function getHistoryForStudent(req, res) {
   // Resolved first, because BOTH queries below need it. The grade history
   // used to be fetched without it while the averages beside it were scoped —
-  // so a learner in their second year had two sets of quarters in one table
+  // so a learner in their second year had two sets of terms in one table
   // and one set in the chart under it.
   const schoolYearId = await studentModel.resolveSchoolYearId(req.scopedStudent.id);
 
@@ -199,10 +199,11 @@ async function getHistoryForStudent(req, res) {
   // for the detail page's sparkline rather than re-deriving it from `grades`.
   const periodAverages = await gradeModel.getFinalizedAveragesByPeriod(req.scopedStudent.id, schoolYearId);
 
-  // The quarters this year actually has, so the reader can group by them
+  // The terms this year actually has, so the reader can group by them
   // without inferring the list from whichever grades happen to exist — a
-  // quarter with no marks yet is information, and inferring the list hides
-  // it. Carries `semester`, which decides which subjects run in it.
+  // term with no marks yet is information, and inferring the list hides it.
+  // Carries `sequence_number`, which is what decides which subjects run in
+  // it (config/academicTerms.js).
   const gradingPeriods = await gradingPeriodModel.listBySchoolYear(schoolYearId);
 
   res.json({ grades, periodAverages, gradingPeriods, schoolYearId });

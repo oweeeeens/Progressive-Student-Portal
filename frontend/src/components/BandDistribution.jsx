@@ -19,7 +19,7 @@ import { describeLargestShare, describeFlaggedChange } from '../utils/chartInter
 // WHY ONE PERIOD AND NOT A TREND
 //
 // Analytics already owns the over-time view, with filters and five tabs. A
-// dashboard answers "where are we now"; the movement since last quarter is
+// dashboard answers "where are we now"; the movement since last term is
 // stated as a sentence underneath instead (describeFlaggedChange), which on
 // a landing page is both shorter and clearer than three small-multiple
 // charts squeezed into a column.

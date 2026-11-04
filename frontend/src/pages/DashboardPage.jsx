@@ -71,7 +71,7 @@ function dashboardStatDetails(stats, period) {
       rules: [
         'Low risk is deliberately left out. This card is meant to be the number worth acting on, not a restatement of the roster size.',
         'The task list above counts differently on purpose: "Log support for flagged learners" includes Low risk, because a Low-risk learner nobody has spoken to is exactly what the closed loop exists to catch.',
-        'Counted from the stored risk assessment for the CURRENT grading period only. A learner flagged last quarter who has since recovered is not here.',
+        'Counted from the stored risk assessment for the CURRENT grading period only. A learner flagged last term who has since recovered is not here.',
         'Risk is recalculated when grades are finalized or attendance is recorded — not continuously — so this can lag the classroom by design (see the approval workflow).',
         'Outside any grading period this reads 0, because there is no period to score against.',
       ],

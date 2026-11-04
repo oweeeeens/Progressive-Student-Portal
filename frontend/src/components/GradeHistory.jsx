@@ -78,9 +78,9 @@ export function GradeHistory({ studentId }) {
               key: 'term',
               header: 'Runs for',
               // Quiet for a whole-year class, which is every Grade 11 class
-              // — so the column only speaks up for a subject that stops at
-              // the semester, which is the thing a reader would otherwise
-              // have to go to Academic Setup to find out.
+              // — so the column only speaks up for a subject that runs in
+              // one term, which is the thing a reader would otherwise have
+              // to go to Academic Setup to find out.
               uniformValue: (g) => g.term,
               quietValue: 'full_year',
               render: (g) => CLASS_TERM_SHORT[g.term] || fieldValue(g.term),

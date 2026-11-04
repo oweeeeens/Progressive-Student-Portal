@@ -33,10 +33,13 @@ the strict setting, never the permissive one.
 - **`learnerStatus.js`** — which roles may see each of the three DepEd
   reporting fields. Per field, not one blanket rule: a teacher may know a
   learner has a disability, not that the household receives 4Ps.
-- **`academicTerms.js`** — how long a subject runs and which quarters that
-  covers. Two deliberate fail-open rules keep it safe on data that predates
-  it: a `full_year` class covers every quarter, and a quarter with no
-  semester assigned yet is treated as covered.
+- **`academicTerms.js`** — how long a subject runs and which of the school's
+  three terms that covers, with the client's own words at the top. One
+  fail-open rule: a `full_year` class covers every term, which is what every
+  offering recorded before any of this existed means. (A second fail-open
+  about unassigned semesters used to live here; the semester layer was a
+  misreading of the word "term" and was removed on 2026-11-04 — see
+  CLAUDE.md.)
 - **`dashboardQueue.js`** — "what needs you today": every home-page task's
   title, the clause saying exactly what its count includes, where it links,
   which module hue it wears, and which role or assignment earns it. The

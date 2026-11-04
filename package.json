@@ -15,6 +15,7 @@
     "reset:password": "npm --prefix backend run reset:password --",
     "check:email": "npm --prefix backend run check:email --",
     "apply:teaching": "npm --prefix backend run apply:teaching",
+    "rename:terms": "npm --prefix backend run rename:terms",
     "seed:sample": "npm --prefix backend run seed:sample",
     "seed:demo-data": "npm --prefix backend run seed:demo-data",
     "test": "npm --prefix backend test",

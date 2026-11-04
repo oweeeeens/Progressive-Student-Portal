@@ -17,7 +17,16 @@ const {
   formatDate,
 } = require('./pdfPrimitives');
 
+// Three states, not two. A dash means "no mark recorded yet"; "n/a" means
+// the subject was not taught in that term at all. They used to print
+// identically, which on a card handed to a parent is the difference between
+// "the teacher has not submitted this" and "your child does not take this
+// subject this term" — see pivotFinalizedGrades for where the distinction
+// comes from and when it is deliberately not claimed.
+const NOT_OFFERED = 'not_offered';
+
 function formatGrade(value) {
+  if (value === NOT_OFFERED) return 'n/a';
   return value == null ? '—' : Number(value).toFixed(2);
 }
 
@@ -55,7 +64,7 @@ function drawStudentInfo(doc, student, schoolYearLabel, y) {
 
 // periods: [{ name, sequenceNumber }], ordered. subjects: [{ name, values: [grade|null, ...], average }]
 // aligned 1:1 with `periods`. generalAverage: number | null.
-function drawGradesSection(doc, periods, subjects, generalAverage, y) {
+function drawGradesSection(doc, periods, subjects, generalAverage, hasNotOffered, y) {
   doc
     .fontSize(11)
     .fillColor(NAVY)
@@ -82,22 +91,42 @@ function drawGradesSection(doc, periods, subjects, generalAverage, y) {
   bodyRows.push([
     'General Average',
     ...periods.map((p, i) => {
-      const periodValues = subjects.map((s) => s.values[i]).filter((v) => v != null);
+      // typeof, not != null: a NOT_OFFERED cell is a string, and it is not
+      // a mark of any kind, so it must not reach the average.
+      const periodValues = subjects.map((s) => s.values[i]).filter((v) => typeof v === 'number');
       const periodAvg = periodValues.length ? periodValues.reduce((a, b) => a + b, 0) / periodValues.length : null;
       return formatGrade(periodAvg);
     }),
     formatGrade(generalAverage),
   ]);
 
+  const tableBottom = drawTable(doc, {
+    x: PAGE_MARGIN,
+    y,
+    columnWidths,
+    headerRow,
+    bodyRows,
+    emphasizeLastRow: true,
+  });
+
+  // The key to the two kinds of blank, printed only when the table holds
+  // one. A legend explaining a mark that does not appear is noise on a
+  // one-page document.
+  if (hasNotOffered) {
+    doc
+      .fontSize(8)
+      .fillColor(GRAY)
+      .font('Helvetica-Oblique')
+      .text(
+        'n/a = subject not taught in that term.     — = taught, no final mark recorded.',
+        PAGE_MARGIN,
+        tableBottom + 4
+      );
+    return tableBottom + 24;
+  }
+
   return (
-    drawTable(doc, {
-      x: PAGE_MARGIN,
-      y,
-      columnWidths,
-      headerRow,
-      bodyRows,
-      emphasizeLastRow: true,
-    }) + 20
+    tableBottom + 20
   );
 }
 
@@ -158,7 +187,7 @@ function buildReportCardPdf(data) {
 
   let y = drawBrandHeader(doc, data.school, 'STUDENT REPORT CARD');
   y = drawStudentInfo(doc, data.student, data.schoolYearLabel, y);
-  y = drawGradesSection(doc, data.periods, data.subjects, data.generalAverage, y);
+  y = drawGradesSection(doc, data.periods, data.subjects, data.generalAverage, data.hasNotOffered, y);
   y = drawAttendanceSection(doc, data.attendance, y);
   drawFooter(doc, data.adviserName, data.generatedAt, y);
 

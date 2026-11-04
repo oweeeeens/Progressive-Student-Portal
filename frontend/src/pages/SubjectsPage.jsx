@@ -209,7 +209,7 @@ export function SubjectsPage() {
             <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
               {form.category === 'specialized'
                 ? 'Specialized subjects run the whole school year in both grade levels, whatever term their classes are given.'
-                : 'Core and applied subjects run for as long as their class offering says — the whole year, or one semester.'}
+                : 'Core and applied subjects run for as long as their class offering says — the whole year, or one term.'}
             </p>
 
             <label>Grade Level (optional)</label>

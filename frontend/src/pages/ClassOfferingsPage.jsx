@@ -269,11 +269,11 @@ export function ClassOfferingsPage() {
               ))}
             </select>
 
-            {/* How long this class runs. A Grade 11 class runs all year; a
-                Grade 12 core or applied class changes each semester, so the
-                same subject can be offered to the same section twice in one
-                year — which is why the uniqueness constraint now includes
-                this field. */}
+            {/* How long this class runs. A Grade 11 class runs all three
+                terms; a Grade 12 core or applied class changes every term,
+                so the same subject can be offered to the same section more
+                than once in a year — which is why the uniqueness constraint
+                includes this field. */}
             <label htmlFor="offering-term">Runs for</label>
             <select
               id="offering-term"
@@ -288,8 +288,8 @@ export function ClassOfferingsPage() {
             </select>
             {form.term !== 'full_year' && (
               <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
-                This class shows up only in the quarters assigned to that semester. Assign each quarter its semester
-                under Academic Setup → School Years.
+                This class appears in that one term only, and in no other. A term is matched by its sequence number
+                under Academic Setup → School Years, so Term 2 means the period numbered 2.
               </p>
             )}
           </div>
@@ -325,8 +325,8 @@ export function ClassOfferingsPage() {
           {
             key: 'term',
             header: 'Runs for',
-            // The quiet value is the whole year, so only a class that stops
-            // at a semester draws the eye — which is the exception worth
+            // The quiet value is the whole year, so only a class that runs
+            // for a single term draws the eye — which is the exception worth
             // seeing in a list of mostly full-year classes.
             uniformValue: (r) => r.term,
             quietValue: 'full_year',

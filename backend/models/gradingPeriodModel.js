@@ -51,20 +51,20 @@ async function findByDateInSchoolYear(date, schoolYearId) {
 // (e.g. "2026-2027") for the dashboard's "current period" indicator — no
 // existing caller needed both together, so neither function did this join.
 //
-// It now carries the period's own dates and semester as well, so the one
-// "where is the term up to" question has one answer from one query:
-//   * start_date/end_date let the home page say how much of the quarter is
-//     left, which is the context every other figure on that page is
-//     relative to. (config/db.js parses DATE as a plain 'YYYY-MM-DD'
-//     string, so these do not pick up the server's timezone on the way
-//     out — see that file for the bug that forced it.)
-//   * semester is what decides which class offerings actually RUN in this
-//     quarter (config/academicTerms.js). The dashboard's "classes with no
-//     grade entered yet" count would otherwise include a Grade 12 class
-//     whose semester finished.
+// It now carries the period's own dates as well, so the one "where is the
+// term up to" question has one answer from one query: start_date/end_date
+// let the home page say how much of the term is left, which is the context
+// every other figure on that page is relative to. (config/db.js parses DATE
+// as a plain 'YYYY-MM-DD' string, so these do not pick up the server's
+// timezone on the way out — see that file for the bug that forced it.)
+//
+// `sequence_number` is what decides which class offerings actually RUN in
+// this term (config/academicTerms.js). The dashboard's "classes with no
+// grade entered yet" count would otherwise include a Grade 12 class whose
+// term has passed.
 async function findCurrentWithSchoolYear(date) {
   const result = await pool.query(
-    `SELECT gp.id, gp.name, gp.sequence_number, gp.semester, gp.start_date, gp.end_date,
+    `SELECT gp.id, gp.name, gp.sequence_number, gp.start_date, gp.end_date,
             sy.id AS school_year_id, sy.label AS school_year_label
      FROM grading_periods gp
      JOIN school_years sy ON sy.id = gp.school_year_id
@@ -93,11 +93,11 @@ async function listForCurrentSchoolYear() {
     // days behind "3 days absent" rather than just the number. They come
     // back as plain YYYY-MM-DD strings (see the DATE parser in config/db.js),
     // so a date range is a string comparison with no timezone in play.
-    // `semester` travels with the period because the grade views group by
-    // quarter and have to know which subjects run in it — see
+    // `sequence_number` travels with the period because the grade views group by
+    // term and have to know which subjects run in it — see
     // config/academicTerms.js. NULL until an admin assigns it, which every
     // reader treats as "covered" rather than "hidden".
-    `SELECT gp.id, gp.name, gp.sequence_number, gp.start_date, gp.end_date, gp.semester
+    `SELECT gp.id, gp.name, gp.sequence_number, gp.start_date, gp.end_date
      FROM grading_periods gp
      JOIN school_years sy ON sy.id = gp.school_year_id
      WHERE sy.is_current = TRUE
@@ -110,33 +110,34 @@ async function listForCurrentSchoolYear() {
 // school year's periods at a time.
 async function listBySchoolYear(schoolYearId) {
   const result = await pool.query(
-    `SELECT id, school_year_id, name, sequence_number, start_date, end_date, semester
+    `SELECT id, school_year_id, name, sequence_number, start_date, end_date
      FROM grading_periods WHERE school_year_id = $1 ORDER BY sequence_number`,
     [schoolYearId]
   );
   return result.rows;
 }
 
-// `semester` is set by the admin per quarter and cannot be derived: three
-// quarters do not divide evenly into two semesters, so only the school knows
-// where their boundary falls. Left NULL when not supplied rather than
-// guessed, and a NULL is read as "every term covers this quarter".
-async function createGradingPeriod({ schoolYearId, name, sequenceNumber, startDate, endDate, semester }) {
+// `sequence_number` is the period's position in the year, and it is what
+// a class offering's term is matched against (config/academicTerms.js) —
+// 'term2' means the period numbered 2. The admin sets it; nothing here
+// derives it, because a school is free to number and date its terms as it
+// likes and only the order is ours to rely on.
+async function createGradingPeriod({ schoolYearId, name, sequenceNumber, startDate, endDate }) {
   const result = await pool.query(
-    `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date, semester)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING id, school_year_id, name, sequence_number, start_date, end_date, semester`,
-    [schoolYearId, name, sequenceNumber, startDate, endDate, semester ?? null]
+    `INSERT INTO grading_periods (school_year_id, name, sequence_number, start_date, end_date)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, school_year_id, name, sequence_number, start_date, end_date`,
+    [schoolYearId, name, sequenceNumber, startDate, endDate]
   );
   return result.rows[0];
 }
 
-async function updateGradingPeriod(id, { name, sequenceNumber, startDate, endDate, semester }) {
+async function updateGradingPeriod(id, { name, sequenceNumber, startDate, endDate }) {
   const result = await pool.query(
-    `UPDATE grading_periods SET name = $2, sequence_number = $3, start_date = $4, end_date = $5, semester = $6
+    `UPDATE grading_periods SET name = $2, sequence_number = $3, start_date = $4, end_date = $5
      WHERE id = $1
-     RETURNING id, school_year_id, name, sequence_number, start_date, end_date, semester`,
-    [id, name, sequenceNumber, startDate, endDate, semester ?? null]
+     RETURNING id, school_year_id, name, sequence_number, start_date, end_date`,
+    [id, name, sequenceNumber, startDate, endDate]
   );
   return result.rows[0] || null;
 }

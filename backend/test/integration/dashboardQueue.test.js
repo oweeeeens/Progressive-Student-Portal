@@ -24,6 +24,8 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 
+const { pool } = require('../../config/db');
+const { TERM_SEQUENCE } = require('../../config/academicTerms');
 const { startTestServer } = require('./helpers/testServer');
 const { createClient } = require('./helpers/client');
 const fixtures = require('./helpers/fixtures');
@@ -122,6 +124,10 @@ before(async () => {
     advisedOffering,
     learnerA,
     learnerB,
+    // Offerings created inside a test rather than in setup, so teardown can
+    // still remove them — class_offerings is ON DELETE RESTRICT and a left
+    // behind row would block the section and the subject too.
+    extraOfferingIds: [],
   };
 });
 
@@ -133,7 +139,7 @@ after(async () => {
     schoolYearId: ctx.schoolYearId,
     ownSchoolYear: ctx.ownSchoolYear,
     studentIds: [ctx.learnerA.id, ctx.learnerB.id],
-    offeringIds: [ctx.taughtOffering.id, ctx.advisedOffering.id],
+    offeringIds: [ctx.taughtOffering.id, ctx.advisedOffering.id, ...ctx.extraOfferingIds],
     sectionIds: [ctx.advisedSection.id, ctx.otherSection.id],
     subjectIds: [ctx.subjectId],
     userIds: [
@@ -212,6 +218,49 @@ test('the counts are what the linked page will show, and are scoped', async () =
   // Nobody else's figure moved. `otherAdviser` advises a different section.
   const otherQueue = await queueFor(ctx.otherAdviser.token);
   assert.equal(otherQueue.byKey.finalize_grades, 0, 'a different adviser should see none of these');
+});
+
+test('a class whose term has passed is not counted as missing its grades', async () => {
+  // The gap the term model exposed, which no test covered: "Enter grades for
+  // this term" runs its rows through config/academicTerms.js rather than
+  // filtering in SQL, so a class that does not run in the current term must
+  // not be nagged about. Without that, a Grade 12 teacher is told to enter
+  // grades for a subject that finished two terms ago, every day, forever.
+  //
+  // Asserted as a DELTA against this teacher's own baseline: the figure also
+  // counts whatever else they hold in the shared dev database, and a test
+  // that only passes on an empty one is not a test of the filter.
+  const baseline = (await queueFor(ctx.adviserWhoOnlyTeaches.token)).byKey.submit_grades;
+  assert.equal(typeof baseline, 'number');
+
+  const period = await pool.query('SELECT sequence_number FROM grading_periods WHERE id = $1', [ctx.periodId]);
+  const currentSequence = period.rows[0].sequence_number;
+
+  // A term this period is NOT. There are three in the vocabulary, so one of
+  // them is always free whichever term the suite happens to run in.
+  const otherTerm = ['term1', 'term2', 'term3'].find((t) => TERM_SEQUENCE[t] !== currentSequence);
+
+  const elsewhere = await fixtures.createTestOffering({
+    subjectId: ctx.subjectId,
+    sectionId: ctx.otherSection.id,
+    teacherId: ctx.adviserWhoOnlyTeaches.id,
+    schoolYearId: ctx.schoolYearId,
+    term: otherTerm,
+  });
+  ctx.extraOfferingIds.push(elsewhere.id);
+
+  const after = (await queueFor(ctx.adviserWhoOnlyTeaches.token)).byKey.submit_grades;
+  assert.equal(after, baseline, `a ${otherTerm} class was counted while the school is in term ${currentSequence}`);
+
+  // And the control: the same class, in the term the school is actually in,
+  // DOES get counted — otherwise the test above would pass just as happily
+  // against a filter that excluded everything.
+  await pool.query('UPDATE class_offerings SET term = $2 WHERE id = $1', [
+    elsewhere.id,
+    Object.keys(TERM_SEQUENCE).find((t) => TERM_SEQUENCE[t] === currentSequence),
+  ]);
+  const counted = (await queueFor(ctx.adviserWhoOnlyTeaches.token)).byKey.submit_grades;
+  assert.equal(counted, baseline + 1, 'a class running in the current term should be counted');
 });
 
 test('the principal is offered the verification backlog and nothing else', async () => {

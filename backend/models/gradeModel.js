@@ -178,7 +178,7 @@ async function listPrincipalVerifiedForSection(sectionId, gradingPeriodId) {
 }
 
 // Finalizes every principal-verified grade for a section+period in one
-// action (the adviser reviewing a quarter's grades for their whole advisory
+// action (the adviser reviewing a term's grades for their whole advisory
 // class at once). Returns the distinct student ids affected, so the caller
 // can trigger a risk recalculation for exactly those students.
 async function finalizeSectionGrades(sectionId, gradingPeriodId, finalizedBy) {
@@ -209,17 +209,19 @@ async function finalizeSectionGrades(sectionId, gradingPeriodId, finalizedBy) {
 // whichever row arrives last silently wins. Invisible in a school's first
 // year of use, wrong in every year after it.
 //
-// subject_id, category, term and semester travel with each row because the
-// grade view groups by quarter and has to know which subjects run in it
+// subject_id, category and term travel with each row because the grade view
+// groups by TERM and has to know which subjects run in each one
 // (config/academicTerms.js) — and because matching a subject by NAME, which
 // the student view used to do, merges two subjects that share one.
+// `gp.sequence_number` is the other half of that: a term is matched to a
+// period by its position in the year, not by its name.
 async function getHistoryForStudent(studentId, schoolYearId) {
   const result = await pool.query(
     `SELECT g.id, g.grade_value, g.status, g.recorded_at, g.finalized_at,
             co.term,
             subj.id AS subject_id, subj.name AS subject_name, subj.category AS subject_category,
             gp.id AS grading_period_id, gp.name AS grading_period_name,
-            gp.sequence_number, gp.semester
+            gp.sequence_number
      FROM grades g
      JOIN class_offerings co ON co.id = g.class_offering_id
      JOIN subjects subj ON subj.id = co.subject_id
@@ -249,7 +251,7 @@ async function getFinalizedHistoryForStudent(studentId, schoolYearId) {
     `SELECT g.grade_value, co.term,
             subj.id AS subject_id, subj.name AS subject_name, subj.category AS subject_category,
             gp.id AS grading_period_id, gp.name AS grading_period_name,
-            gp.sequence_number, gp.semester
+            gp.sequence_number
      FROM grades g
      JOIN class_offerings co ON co.id = g.class_offering_id
      JOIN subjects subj ON subj.id = co.subject_id
