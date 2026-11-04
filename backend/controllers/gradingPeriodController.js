@@ -8,10 +8,22 @@ async function listCurrent(req, res) {
 
 // The "which term is active right now" indicator on the dashboard — not
 // role-gated, any authenticated user may see what term is currently active.
+// Which grading period today falls in, for every page that wants to open on
+// "now" rather than on an empty picker.
+//
+// `id` is included deliberately. It was left out, and the one page that
+// needed it (Verify Grades) worked around that by fetching the whole list
+// and matching on NAME — which is the same fragile move the per-quarter work
+// had to undo elsewhere: `grading_periods.name` repeats across school years
+// ("Q1" exists in every one of them), so name matching is only correct while
+// a school has a single year of data. Returning the id removes both the
+// second request and the ambiguity.
 async function getCurrentPeriod(req, res) {
   const period = await gradingPeriodModel.findCurrentWithSchoolYear(todayInSchoolTimezone());
   res.json({
-    gradingPeriod: period ? { name: period.name, schoolYearLabel: period.school_year_label } : null,
+    gradingPeriod: period
+      ? { id: period.id, name: period.name, schoolYearLabel: period.school_year_label }
+      : null,
   });
 }
 

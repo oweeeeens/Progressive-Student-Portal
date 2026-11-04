@@ -301,11 +301,40 @@
   padding: var(--space-4) var(--space-3);
 }
 
+/* The identity block, which is also the link to your own profile. Styled to
+   read as interactive without becoming as loud as a nav item — it is the
+   quietest thing in the sidebar and should stay that way. */
 .sidebar__user {
-  padding: 0 var(--space-3);
-  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   white-space: nowrap;
+  color: inherit;
+  text-decoration: none;
+}
+.sidebar__user:hover,
+.sidebar__user--active {
+  background: var(--on-navy-hover, rgba(255, 255, 255, 0.08));
+}
+.sidebar__user:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+.sidebar__user-icon {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+/* The text half, hidden on its own in the collapsed rail so the icon above
+   survives — the whole block used to be display:none there, which would now
+   take the only sidebar route to the profile with it. */
+.sidebar__user-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 .sidebar__user-name {
   font-size: var(--font-size-sm);
@@ -356,7 +385,7 @@
 .sidebar--collapsed .sidebar__section-label,
 .sidebar--collapsed .sidebar__section-chevron,
 .sidebar--collapsed .sidebar__link-label,
-.sidebar--collapsed .sidebar__user,
+.sidebar--collapsed .sidebar__user-text,
 /* In the icon-only rail there's no room for a nested list, and a child link
    has no icon of its own to show — the parent icon still reaches every
    view, so the children collapse away with their chevron. */
@@ -365,7 +394,8 @@
   display: none;
 }
 .sidebar--collapsed .sidebar__link,
-.sidebar--collapsed .sidebar__logout {
+.sidebar--collapsed .sidebar__logout,
+.sidebar--collapsed .sidebar__user {
   justify-content: center;
   padding: var(--space-3);
 }

@@ -61,6 +61,18 @@ new role could not hold them** — moving someone out of teaching entirely
 would otherwise leave a registrar with write access to a section's register.
 Moving between `adviser` and `subject_teacher` is free.
 
+**The demo data now shows this on every adviser.** Until 2026-11-04 only one
+of the three seeded advisers taught anything, so two of them had no Enter
+Grades and no Subject Attendance — the navigation telling the truth about
+data that did not reflect the school. Each adviser now teaches one subject
+into a section they do **not** advise (`TEACHER_OVERRIDES` in
+`demoDataset.js`). A bug surfaced while doing it: `seedDemoAcademicData.js`
+built its offering lookup from the subjects' DEFAULT teachers only, so any
+offering reassigned by an override belonged to somebody it never signed in
+as — the class was filtered out and received no grades and no subject
+attendance at all. ABM A's Personal Development had silently been in that
+state since the first override was added.
+
 **Navigation is driven by assignment, not by role label.** Write access to
 the attendance and grade pages is decided by `sections.adviser_id` and
 `class_offerings.teacher_id`, so the role alone cannot say whether a page has
@@ -379,6 +391,27 @@ Based on a reference college portal design the team liked — apply these patter
    filtered lists, where the arithmetic is trivial and the definition is the
    whole question.
 2. **Breadcrumb navigation** at the top of every page (Home / Section / Subpage)
+
+   **Every role reaches its own profile from the sidebar.** The footer's
+   identity block (name + role, above Log out) is itself the link to
+   `/profile` — the thing showing who you are is the thing that opens your
+   page. No role gate: everyone owns their profile, and the page already
+   adapts (a student has no assignments panel). It carries its own icon as
+   well as the text, because the collapsed icon rail hides labels: without
+   one it would disappear from the sidebar entirely at that width and the
+   top-bar account menu would become the only route to it.
+
+   **Pickers open on the answer, not on "-- select --".** A section picker
+   opens on the user's own section (`utils/defaultSelection.js`) and a
+   grading-period picker on the period the school is currently in
+   (`hooks/useGradingPeriods.js`). Finalize Grades was the clearest case: an
+   adviser with 22 principal-verified grades waiting arrived at a page that
+   said "pick a section and grading period" with the work one click away.
+   Verify Grades had solved it alone by fetching the full list and matching
+   on period NAME — fragile, because `grading_periods.name` repeats across
+   school years while only the id is unique. `GET /grading-periods/current`
+   now returns the id, so all three grade pages resolve it in one request
+   and none of them guesses.
 3. **Status badges** — all status values (enrollment status, risk level, intervention status, document review status) render as colored pill badges, not plain text. Risk levels keep their own green/amber/red; other statuses use visually distinct colors so they're never confused with risk indicators
 4. **Consistent card/panel containers** for content blocks — avoid bare unstyled tables
 

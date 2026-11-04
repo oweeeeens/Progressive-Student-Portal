@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ShieldCheck, ShieldX, ClipboardCheck } from 'lucide-react'
 import { api } from '../api/client'
+import { useGradingPeriods } from '../hooks/useGradingPeriods'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import './GradesShared.css'
 import { formatGrade } from '../utils/formatNumber'
@@ -21,9 +22,11 @@ const PAGE_SIZE = 20
 // the one submission it's rejecting, so batching it would just produce a
 // generic note that doesn't help the teacher fix anything specific.
 export function VerifyGradesPage() {
-  const [periods, setPeriods] = useState([])
   const [sections, setSections] = useState([])
-  const [gradingPeriodId, setGradingPeriodId] = useState('')
+  // Was done here by hand, by fetching the whole list and matching on NAME —
+  // which only works while a school has one year of data, since "Q1" exists
+  // in every school year. The endpoint now returns the id.
+  const { periods, gradingPeriodId, setGradingPeriodId } = useGradingPeriods()
   const [sectionId, setSectionId] = useState('')
   const [page, setPage] = useState(1)
   const [rows, setRows] = useState([])
@@ -37,19 +40,6 @@ export function VerifyGradesPage() {
   const [acting, setActing] = useState(false)
 
   useEffect(() => {
-    api.get('/grading-periods/current').then((data) => {
-      if (data.gradingPeriod) {
-        // /grading-periods/current only returns name/schoolYearLabel, not an
-        // id — load the full list and match by name to default the picker.
-        api.get('/grading-periods').then((periodsData) => {
-          setPeriods(periodsData.gradingPeriods)
-          const current = periodsData.gradingPeriods.find((p) => p.name === data.gradingPeriod.name)
-          if (current) setGradingPeriodId(String(current.id))
-        })
-      } else {
-        api.get('/grading-periods').then((periodsData) => setPeriods(periodsData.gradingPeriods))
-      }
-    })
     api.get('/sections').then((data) => setSections(data.sections))
   }, [])
 

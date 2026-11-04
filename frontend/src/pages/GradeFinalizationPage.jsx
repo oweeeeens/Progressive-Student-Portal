@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { api } from '../api/client'
 import { defaultSelection } from '../utils/defaultSelection'
+import { useGradingPeriods } from '../hooks/useGradingPeriods'
 import { useAuth } from '../context/AuthContext'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import './GradesShared.css'
@@ -27,9 +28,11 @@ import { DataTable, fieldValue } from '../components/table/DataTable'
 export function GradeFinalizationPage() {
   const { user } = useAuth()
   const [sections, setSections] = useState([])
-  const [periods, setPeriods] = useState([])
   const [sectionId, setSectionId] = useState('')
-  const [gradingPeriodId, setGradingPeriodId] = useState('')
+  // Opens on the period the school is in, so an adviser with verified grades
+  // waiting lands on them instead of on an empty "pick a section and grading
+  // period" state with the work one click away.
+  const { periods, gradingPeriodId, setGradingPeriodId } = useGradingPeriods()
   const [verifiedGrades, setVerifiedGrades] = useState([])
   const [reviewedIds, setReviewedIds] = useState(new Set())
   const [error, setError] = useState(null)
@@ -49,7 +52,6 @@ export function GradeFinalizationPage() {
       setSections(data.sections)
       setSectionId((current) => current || defaultSelection(data.sections, scopedToMe))
     })
-    api.get('/grading-periods').then((data) => setPeriods(data.gradingPeriods))
   }, [user.role])
 
   function loadVerifiedGrades() {

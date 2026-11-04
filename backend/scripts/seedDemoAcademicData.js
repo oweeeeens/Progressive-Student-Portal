@@ -31,6 +31,7 @@ const {
   ANNOUNCEMENTS,
   SECTIONS,
   PERIOD_SEMESTERS,
+  TEACHER_OVERRIDES,
 } = require('./demoDataset');
 const { offeringCoversPeriod } = require('../config/academicTerms');
 
@@ -47,9 +48,36 @@ const GUIDANCE = 'guidance@studentportal.local';
 // which is exactly what happened the first time a Grade 12 section was added.
 const ADVISER_BY_SECTION = Object.fromEntries(SECTIONS.map((sec) => [sec.name, sec.adviser]));
 
-// The subject teachers, taken from the dataset rather than listed again here.
+// Everyone who OWNS a class offering — the subjects' default teachers, plus
+// anyone a TEACHER_OVERRIDES entry reassigned a class to.
+//
+// The overrides were missing here, and that was a real bug rather than an
+// omission. This list is what loadReferenceData signs in as to build
+// `offeringByKey` from each teacher's own /class-offerings/mine. An offering
+// reassigned to somebody outside the list therefore never appeared in that
+// map, `offeringsFor()` filtered it out, and the class silently received no
+// grades and no subject attendance for the entire seed. ABM A's Personal
+// Development had been in exactly that state since the first override was
+// added.
+//
+// Safe to widen: the caller de-duplicates before logging in, and every
+// override target is already an adviser in ADVISER_BY_SECTION — so the
+// number of distinct logins does not change, which matters because the login
+// endpoint allows ten attempts per IP per 15 minutes.
 function teacherEmails() {
-  return [...new Set(SUBJECTS.map((s) => s.teacher))];
+  return [...new Set([...SUBJECTS.map((s) => s.teacher), ...Object.values(TEACHER_OVERRIDES)])];
+}
+
+// Who actually teaches this subject to this section — the override if there
+// is one, otherwise the subject's default teacher.
+//
+// This has to agree exactly with the same lookup in seedSampleData.js, which
+// is what decided class_offerings.teacher_id when the offering was created.
+// If the two disagree, this script submits as an account that does not own
+// the class and the API refuses the write, which is the correct behaviour
+// and a confusing way to discover a seed bug.
+function teacherFor(sectionName, subjectCode, fallbackEmail) {
+  return TEACHER_OVERRIDES[`${sectionName}|${subjectCode}`] || fallbackEmail;
 }
 
 async function login(email, password) {
@@ -263,7 +291,7 @@ async function main() {
           subjectCode: subject.code,
           periodKey,
           studentIdByLrn,
-          teacherEmail: subject.teacher,
+          teacherEmail: teacherFor(sectionName, subject.code, subject.teacher),
         });
         // gradingPeriodId is required: the bulk verify is bounded to the
         // period the principal's queue was filtered to, so one call can
@@ -293,7 +321,7 @@ async function main() {
           subjectCode: code,
           periodKey,
           studentIdByLrn,
-          teacherEmail: subject.teacher,
+          teacherEmail: teacherFor(sectionName, code, subject.teacher),
         });
 
         if ((lane.rejected || []).includes(code)) {
@@ -351,7 +379,7 @@ async function main() {
           statuses: attendanceFor(student.attendance, periodKey, dates.length),
         }));
         for (let dayIndex = 0; dayIndex < dates.length; dayIndex += 1) {
-          await api('POST', '/api/attendance/subject', tokens[subject.teacher], {
+          await api('POST', '/api/attendance/subject', tokens[teacherFor(sectionName, code, subject.teacher)], {
             classOfferingId: offeringId,
             attendanceDate: dates[dayIndex],
             entries: roster.map((r) => ({ studentId: r.studentId, status: r.statuses[dayIndex] })),

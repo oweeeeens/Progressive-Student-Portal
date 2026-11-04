@@ -21,6 +21,7 @@ import {
   BookMarked,
   ChevronDown,
   LogOut,
+  CircleUser,
   X,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -396,10 +397,29 @@ export function Sidebar({ collapsed = false, isDrawer = false, open = false, onC
       </nav>
 
       <div className="sidebar__footer">
-        <div className="sidebar__user" title={`${user?.fullName} (${user?.role})`}>
-          <div className="sidebar__user-name">{user?.fullName}</div>
-          <div className="sidebar__user-role">{roleLabel(user?.role)}</div>
-        </div>
+        {/* The identity block IS the profile link — the thing showing who you
+            are is the thing that opens your own page. No role gate: everyone
+            owns their profile, and /profile already adapts itself (a student
+            has no assignments panel).
+
+            It carries its own icon rather than only the name and role,
+            because the collapsed rail hides the text: without an icon this
+            would vanish from the sidebar entirely at that width, and the
+            account menu in the top bar would become the only route to it. */}
+        <NavLink
+          to="/profile"
+          onClick={(e) => {
+            if (!confirmLeave()) e.preventDefault()
+          }}
+          className={({ isActive }) => `sidebar__user${isActive ? ' sidebar__user--active' : ''}`}
+          title={`${user?.fullName} (${roleLabel(user?.role)}) — your profile`}
+        >
+          <CircleUser size={18} strokeWidth={1.75} className="sidebar__user-icon" />
+          <span className="sidebar__user-text">
+            <span className="sidebar__user-name">{user?.fullName}</span>
+            <span className="sidebar__user-role">{roleLabel(user?.role)}</span>
+          </span>
+        </NavLink>
         <button
           type="button"
           onClick={() => {

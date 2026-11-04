@@ -99,6 +99,18 @@ const SUBJECTS = [
 // grades and then not be allowed to open their records.
 const TEACHER_OVERRIDES = {
   'ABM A|PERDEV11': 'adviser@studentportal.local',
+  // Every adviser teaches something, in a section they do NOT advise.
+  //
+  // Until this, only the first adviser did, so the dual-hat case — the one
+  // CLAUDE.md calls the ordinary way this school staffs its timetable — was
+  // demonstrable on exactly one account out of three. The other two had no
+  // Enter Grades and no Subject Attendance in their sidebar, which was the
+  // navigation telling the truth about data that was not.
+  //
+  // Deliberately a section they do not advise: an adviser teaching their own
+  // advisory class would exercise nothing the single-hat case does not.
+  'STEM A|UCSP11': 'adviser2@studentportal.local',
+  'STEM B|PEH11': 'adviser3@studentportal.local',
 };
 
 // --- How a student performs -------------------------------------------------

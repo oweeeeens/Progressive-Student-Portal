@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
 import { defaultSelection } from '../utils/defaultSelection'
+import { useGradingPeriods } from '../hooks/useGradingPeriods'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatusPill } from '../components/StatusPill'
 import { useUnsavedChangesTracker } from '../hooks/useUnsavedChangesTracker'
@@ -30,9 +31,11 @@ const STATUS_VARIANTS = {
 // so the teacher knows what to fix before resubmitting.
 export function GradeEntryPage() {
   const [offerings, setOfferings] = useState([])
-  const [periods, setPeriods] = useState([])
+
   const [classOfferingId, setClassOfferingId] = useState('')
-  const [gradingPeriodId, setGradingPeriodId] = useState('')
+  // Same default as Verify and Finalize — a teacher entering marks is almost
+  // always entering them for the period the school is currently in.
+  const { periods, gradingPeriodId, setGradingPeriodId } = useGradingPeriods()
   const [roster, setRoster] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -51,7 +54,6 @@ export function GradeEntryPage() {
       setOfferings(data.classOfferings)
       setClassOfferingId((current) => current || defaultSelection(data.classOfferings, true))
     })
-    api.get('/grading-periods').then((data) => setPeriods(data.gradingPeriods))
   }, [])
 
   useEffect(() => {
