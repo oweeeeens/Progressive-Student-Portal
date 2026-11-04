@@ -10,11 +10,30 @@ const gradingPeriodModel = require('./gradingPeriodModel');
 const sectionModel = require('./sectionModel');
 const riskAssessmentModel = require('./riskAssessmentModel');
 const riskCalculator = require('../services/riskCalculator');
+const analyticsCalculator = require('../services/analyticsCalculator');
 
 const ATTENTION_WIDGET_ROLES = ['admin', 'principal', 'adviser', 'guidance_counselor'];
 // Of those, the ones whose widget covers the whole school. Everyone else is
 // narrowed to the sections they actually advise.
 const SCHOOL_WIDE_ATTENTION_ROLES = ['admin', 'principal', 'guidance_counselor'];
+
+// May this person be shown risk figures at all?
+//
+// Anyone who advises a section qualifies, whatever their role label says.
+// This used to be a bare role list inline in getStats, so a teacher who
+// advised a section saw no at-risk count for their own advisees — the same
+// assignment-versus-label bug CLAUDE.md records across the rest of the app.
+// It is a named function now because the band chart below asks exactly the
+// same question, and two copies of this test would eventually disagree
+// about who sees what.
+//
+// `||` short-circuits, so the roles that already qualify never pay for the
+// lookup — only someone outside the list is asked what they advise.
+async function hasRiskScope(user) {
+  if (['admin', 'adviser', 'guidance_counselor'].includes(user.role)) return true;
+  if (user.role === 'student') return false;
+  return (await sectionModel.listSectionsByAdviser(user.id)).length > 0;
+}
 
 async function countVisibleStudents(user) {
   const clauses = ['s.is_active = TRUE'];
@@ -82,15 +101,7 @@ async function getStats(user) {
     stats.students = await countVisibleStudents(user);
   }
 
-  // Risk figures follow the same rule, with one addition: anyone who advises
-  // a section gets them, whatever their role label says. It used to be a
-  // bare role list, so a teacher who advised a section saw no at-risk count
-  // for their own advisees.
-  // `||` short-circuits, so the roles that already qualify never pay for the
-  // lookup — only someone outside the list is asked what they advise.
-  const seesRisk =
-    ['admin', 'adviser', 'guidance_counselor'].includes(user.role) ||
-    (user.role !== 'student' && (await sectionModel.listSectionsByAdviser(user.id)).length > 0);
+  const seesRisk = await hasRiskScope(user);
   if (seesRisk) {
     stats.atRiskStudents = await countAtRiskStudents(user, currentPeriod?.id);
     stats.openInterventions = await countOpenInterventions(user);
@@ -115,6 +126,9 @@ async function getStats(user) {
 
 // Grades sitting in `submitted` for the current period — the principal's
 // queue, counted the same way VerifyGradesPage's own list counts it.
+// Exported as well as used here: dashboardQueueModel shows the same figure
+// as a task ("Verify submitted grades, 12 grades"), and the card and the
+// task must be the same number or one of them is lying.
 async function countSubmittedGrades(gradingPeriodId) {
   const result = await pool.query(
     `SELECT COUNT(*) FROM grades WHERE status = 'submitted' AND grading_period_id = $1`,
@@ -167,4 +181,60 @@ async function getTopAtRiskStudents(user, limit = 5) {
   });
 }
 
-module.exports = { getStats, getTopAtRiskStudents };
+// Who may read a band rollup for their own scope.
+//
+// hasRiskScope above answers "do the at-risk and open-intervention CARDS
+// apply to you", and the principal is deliberately outside it: the
+// per-learner follow-up is not theirs (CLAUDE.md). A read-only distribution
+// of the whole school IS theirs — it is the same figure Analytics and
+// Academic Progress Tracking already show them — so the chart asks a
+// slightly wider question than the cards do, and says why here rather than
+// quietly widening the shared predicate and changing the cards with it.
+async function canReadBandRollup(user) {
+  return user.role === 'principal' || (await hasRiskScope(user));
+}
+
+// The band distribution for this person's scope, one tally per grading
+// period of the current school year, oldest first.
+//
+// This is the dashboard's one chart, and it is built from the SAME two
+// pieces Analytics uses — the row shape of analyticsModel's school-year
+// query, and analyticsCalculator.riskTrend to tally it — rather than a
+// third implementation of "which band is this". classifyRow inside
+// riskTrend calls academicProgressCalculator.determineBand, so a learner
+// counted here as At Risk - Medium is in exactly the band their own row
+// shows on Academic Progress Tracking.
+//
+// The ONE thing that differs from Analytics is the WHERE clause: scoped
+// through appendScopeClause, so an adviser's chart covers the sections they
+// advise plus any they teach into, and nobody's home page becomes a side
+// channel to school-wide numbers they cannot see on the pages themselves.
+//
+// Students with no assessment for a period are absent rather than counted
+// as "not yet calculated": this chart starts from risk_assessments, so a
+// period nobody has been assessed in is an empty period, which the frontend
+// shows as such. (Analytics LEFT JOINs instead, because its distribution
+// chart is explicitly about how much of the roster is still unassessed.)
+async function getBandTrend(user) {
+  if (!(await canReadBandRollup(user))) return { periods: [] };
+
+  const clauses = ['s.is_active = TRUE', 'sy.is_current = TRUE'];
+  const params = [];
+  appendScopeClause(user, clauses, params);
+
+  const result = await pool.query(
+    `SELECT ra.student_id, gp.id AS grading_period_id, gp.name AS period_name, gp.sequence_number,
+            ra.average_grade, ra.grade_trend, ra.risk_score, ra.risk_level
+     ${BASE_FROM}
+     JOIN risk_assessments ra ON ra.student_id = s.id
+     JOIN grading_periods gp ON gp.id = ra.grading_period_id
+     JOIN school_years sy ON sy.id = gp.school_year_id
+     WHERE ${clauses.join(' AND ')}
+     ORDER BY gp.sequence_number`,
+    params
+  );
+
+  return { periods: analyticsCalculator.riskTrend(result.rows) };
+}
+
+module.exports = { getStats, getTopAtRiskStudents, getBandTrend, countSubmittedGrades };

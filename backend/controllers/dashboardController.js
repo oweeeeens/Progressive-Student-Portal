@@ -1,4 +1,5 @@
 const dashboardModel = require('../models/dashboardModel');
+const dashboardQueueModel = require('../models/dashboardQueueModel');
 const activityModel = require('../models/activityModel');
 
 async function getStats(req, res) {
@@ -16,4 +17,20 @@ async function getAttention(req, res) {
   res.json({ students });
 }
 
-module.exports = { getStats, getActivity, getAttention };
+// "What needs you today" — the home page's lead. Shaped by what this person
+// is assigned to, not by their role label; see models/dashboardQueueModel.js.
+// Every role may call it, and a role with no queue simply gets an empty list.
+async function getQueue(req, res) {
+  const queue = await dashboardQueueModel.getTaskQueue(req.user);
+  res.json(queue);
+}
+
+// Band distribution per grading period for this person's own scope — the
+// one chart on the home page. Scoped in the model, so a role with no risk
+// scope gets an empty list rather than a permission error.
+async function getBands(req, res) {
+  const bands = await dashboardModel.getBandTrend(req.user);
+  res.json(bands);
+}
+
+module.exports = { getStats, getActivity, getAttention, getQueue, getBands };

@@ -4409,6 +4409,104 @@ textarea[aria-invalid='true']:focus-visible {
   }
 }
 
+/* --- The staff hero's term block ----------------------------------------
+   The staff home page's hero carries one more thing than the student's: how
+   far through the grading period the school is. Every count on that page is
+   relative to the term, so "4 grades to finalize" in week one and in week
+   nine are different situations, and the reader was being left to work out
+   which one they were in.
+
+   A row rather than a stack, with the term as a narrow column on the right:
+   the greeting and the name have to stay the first thing read, and putting
+   the term underneath them pushed the actual content of the page a further
+   80px down a viewport people land on constantly. */
+.portal-hero--staff {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+.portal-hero--staff .portal-hero__body {
+  flex: 1 1 auto;
+}
+
+.portal-hero__term {
+  flex: 0 0 auto;
+  width: 220px;
+  align-self: center;
+  padding-left: var(--space-5);
+  /* The rule is the only separator; a filled panel inside the hero would
+     read as a card sitting on the navy rather than as part of it. */
+  border-left: 1px solid var(--on-navy-rule);
+}
+.portal-hero__term--none {
+  width: 260px;
+}
+
+.portal-hero__term-label {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--on-navy-text-strong);
+}
+.portal-hero__term-label span {
+  font-weight: 400;
+  color: var(--on-navy-text-muted);
+}
+
+.portal-hero__term-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--on-navy-fill-strong);
+  overflow: hidden;
+}
+/* Gold, and one of the few places it carries meaning rather than
+   decoration: this is the school year advancing, on the one surface that is
+   navy in both themes, so the brand accent reads correctly here without
+   going anywhere near the risk ramp. */
+/* Revealed by clip-path rather than sized by width — the same technique,
+   and for the same reason, as .bar-chart__fill: a width transition animates
+   a LAYOUT property, so every frame re-lays out the hero, while clip-path
+   runs on the compositor. The element is always full width; the clip is
+   what says 47%.
+   The reveal is driven by useDrawIn, which also means it actually fires:
+   the fill mounts fully clipped and releases on the next frame. Set
+   straight to its final value it would have had nothing to transition from,
+   which is the bug that hook exists to record. */
+.portal-hero__term-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent);
+  transition: clip-path var(--dur-slow) var(--ease-out);
+}
+
+.portal-hero__term-meta {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+  color: var(--on-navy-text-muted);
+}
+
+/* Below the phone boundary the term moves under the name and the rule
+   becomes a horizontal one — a 220px column beside a name is most of a
+   320px screen. */
+@media (max-width: 720px) {
+  .portal-hero--staff {
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+  .portal-hero__term,
+  .portal-hero__term--none {
+    width: 100%;
+    align-self: stretch;
+    padding-left: 0;
+    padding-top: var(--space-4);
+    border-left: none;
+    border-top: 1px solid var(--on-navy-rule);
+  }
+}
+
 /* The record panel's header. It is a section label now, not an identity bar
    — the hero names the student — so it drops the navy fill and sits as a
    quiet heading over the fields it introduces. */

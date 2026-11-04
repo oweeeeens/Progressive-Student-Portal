@@ -1,5 +1,34 @@
 /* Border/padding/shadow come from the shared .panel class (see index.css). */
 
+.attention-widget {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attention-widget__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.attention-widget__head h2 {
+  margin: 0;
+  /* One step down from the page's section headings: this panel sits beside
+     a chart card, and two 23px serif headings side by side would both be
+     claiming to lead. */
+  font-size: var(--font-size-xl);
+}
+.attention-widget__all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
 .attention-widget__list {
   list-style: none;
   margin: 0;
@@ -9,15 +38,43 @@
   gap: var(--space-2);
 }
 
+/* A row is a learner. It carries the risk ramp as a left edge, which is the
+   one place on this page that ramp belongs — and it is never alone: the
+   pill beside the name says Low / Medium / High in words. */
 .attention-widget__item {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   padding: var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--risk-none);
+  background: var(--color-surface);
   text-decoration: none;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
-.attention-widget__item:hover {
-  background: var(--color-primary-light);
+.attention-widget__item--low {
+  border-left-color: var(--risk-low);
+  background: var(--risk-low-row);
+}
+.attention-widget__item--medium {
+  border-left-color: var(--risk-medium);
+  background: var(--risk-medium-row);
+}
+.attention-widget__item--high {
+  border-left-color: var(--risk-high);
+  background: var(--risk-high-row);
+}
+.attention-widget__item--low:hover {
+  background: var(--risk-low-row-hover);
+  text-decoration: none;
+}
+.attention-widget__item--medium:hover {
+  background: var(--risk-medium-row-hover);
+  text-decoration: none;
+}
+.attention-widget__item--high:hover {
+  background: var(--risk-high-row-hover);
   text-decoration: none;
 }
 
@@ -28,14 +85,39 @@
   gap: var(--space-2);
 }
 
+/* Was --font-size-sm at weight 500 in a 300px sidebar. A learner's name is
+   the most important text in this product; it reads at body size now. */
 .attention-widget__name {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
+  font-size: var(--font-size-base);
+  font-weight: 600;
   color: var(--color-text);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .attention-widget__factor {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
   color: var(--color-text-muted);
+}
+
+/* Nobody flagged. A result, not an absence. */
+.attention-widget__clear {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+}
+.attention-widget__clear svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-success);
+}
+.attention-widget__clear p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
 }

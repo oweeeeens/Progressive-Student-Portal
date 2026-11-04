@@ -1,0 +1,291 @@
+/* =============================================================================
+   The task queue — the home page's lead
+   =============================================================================
+   Deliberately NOT a .panel. Everything on this page used to be the same
+   white box with a bold heading, so nothing on it could lead; the queue is
+   the one block that has to, and it earns that by being a different shape
+   from its neighbours rather than by being louder.
+
+   Each row wears its own AREA hue (the module palette in index.css: grades
+   amber, attendance teal, progress plum, records indigo, accounts neutral),
+   which does two things at once. It tells a teacher at a glance that two of
+   their four tasks are grade work, and it keeps this block well clear of the
+   risk ramp — those reds mean "this learner is in trouble" and must never be
+   spent on "you have paperwork". Colour is never the only signal: every row
+   carries its title, its icon and its count as text.
+   ========================================================================== */
+
+.task-queue {
+  margin-bottom: var(--space-5);
+}
+
+.task-queue__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+.task-queue__head h2 {
+  margin: 0;
+}
+/* Which grading period every count below is measured against. On the
+   heading rather than repeated per row, because it is the same answer for
+   all of them. */
+.task-queue__period {
+  flex-shrink: 0;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.task-queue__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* --- One task ------------------------------------------------------------ */
+
+.task-row {
+  /* The area hue, set once per row and read by the icon tile, the edge and
+     the hover wash below. Default is the neutral admin hue so a task key
+     with an area nobody has styled yet still renders as a task rather than
+     as an unstyled row. */
+  --task-hue: var(--module-admin);
+  --task-soft: var(--module-admin-soft);
+  --task-ink: var(--module-admin-ink);
+}
+.task-row--grades {
+  --task-hue: var(--module-grades);
+  --task-soft: var(--module-grades-soft);
+  --task-ink: var(--module-grades-ink);
+}
+.task-row--attendance {
+  --task-hue: var(--module-attendance);
+  --task-soft: var(--module-attendance-soft);
+  --task-ink: var(--module-attendance-ink);
+}
+.task-row--progress {
+  --task-hue: var(--module-progress);
+  --task-soft: var(--module-progress-soft);
+  --task-ink: var(--module-progress-ink);
+}
+.task-row--records {
+  --task-hue: var(--module-records);
+  --task-soft: var(--module-records-soft);
+  --task-ink: var(--module-records-ink);
+}
+
+/* The whole row is the link. A task that needs clicking in one small place
+   is a task people scroll past. */
+.task-row__link {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  /* The sentence and the figure need real air between them — at space-4
+     the last word of a wrapped detail finished a few pixels from the
+     number and the two read as one run of text. */
+  gap: var(--space-5);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  /* The area's hue as a left edge, which is what makes a stack of these
+     read as a colour-coded queue rather than as four more white boxes. */
+  border-left: 3px solid var(--task-hue);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.task-row__link:hover {
+  border-color: var(--task-hue);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.task-row__link:hover .task-row__chevron {
+  transform: translateX(2px);
+  color: var(--task-hue);
+}
+
+/* Work already waiting on this person, as opposed to work merely due. It
+   gets WEIGHT, not a different colour: a second hue here would start
+   competing with the area hues, and a red one would read as risk. */
+.task-row--now .task-row__link {
+  border-left-width: 5px;
+}
+.task-row--now .task-row__value {
+  color: var(--task-ink);
+}
+
+.task-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xl);
+  background: var(--task-soft);
+  color: var(--task-ink);
+}
+
+.task-row__body {
+  min-width: 0; /* lets the detail text wrap instead of widening the grid */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.task-row__title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.task-row__detail {
+  /* A measure, not the full column. On a 1440px screen the sentence would
+     otherwise run the whole width of the card and stop being scannable —
+     and the longest of them is well under this, so in practice it holds
+     every detail to one line on a desktop and two on a tablet. */
+  max-width: 72ch;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* The figure reads as one phrase ("4 grades"), aligned right so a column of
+   rows can be scanned down for the biggest pile. */
+.task-row__count {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  /* A fixed column so a stack of rows has its figures in a line. Without
+     it "22 grades" and "1 section" start at different x positions and the
+     column cannot be scanned down for the biggest pile. */
+  min-width: 7.5rem;
+  text-align: right;
+}
+.task-row__value {
+  font-size: var(--font-size-3xl);
+  font-weight: 600;
+  line-height: 1;
+  /* Lining numerals in the sans, per the system's "words are serif, numbers
+     are sans" rule — a count is read, not spoken. */
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.task-row__unit {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.task-row__chevron {
+  flex-shrink: 0;
+  color: var(--color-text-faint);
+  transition: transform var(--dur-base) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+/* --- Caught up ----------------------------------------------------------- */
+
+.task-queue__clear {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-success-bg);
+  border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
+  border-radius: var(--radius-card);
+}
+.task-queue__clear-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: var(--color-success);
+}
+.task-queue__clear-title {
+  margin: 0 0 2px;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.task-queue__clear-detail {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* The checks that came back empty, kept visible as one line. Without it
+   "no grades to finalize" is indistinguishable from "this page does not
+   look at grades". */
+.task-queue__cleared {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.task-queue__cleared svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--color-success);
+}
+
+/* --- Phone -------------------------------------------------------------- */
+/* 560px is the shared "a row becomes a card" boundary (see the responsive
+   notes in CLAUDE.md); it is a literal because custom properties are not
+   valid inside a media condition. The count moves up beside the icon so the
+   number is never pushed off to the right of a wrapped sentence. */
+@media (max-width: 560px) {
+  .task-row__link {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'icon count chevron'
+      'body body body';
+    gap: var(--space-3) var(--space-3);
+    padding: var(--space-3);
+  }
+  .task-row__icon {
+    grid-area: icon;
+  }
+  .task-row__count {
+    grid-area: count;
+    align-self: center;
+    justify-content: flex-start;
+    /* The alignment column is a desktop affordance — on a phone the figure
+       sits beside its icon and a 7.5rem reservation would push the chevron
+       off the row. */
+    min-width: 0;
+    margin-right: auto;
+  }
+  .task-row__chevron {
+    grid-area: chevron;
+    align-self: center;
+  }
+  .task-row__body {
+    grid-area: body;
+  }
+  .task-row__value {
+    font-size: var(--font-size-2xl);
+  }
+}

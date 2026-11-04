@@ -42,6 +42,16 @@ The split exists so that a question like "what does this app ever write to
   itself is in `services/`.
 - **`attendanceImportModel`** — the one place that opens a transaction by
   hand, because an import covers a month and must not land half-written.
+- **`dashboardModel` / `dashboardQueueModel`** — the home page, split by the
+  question each answers. `dashboardModel` counts how big your world is (how
+  many learners, how many flagged, the band rollup behind the one chart);
+  `dashboardQueueModel` counts what is waiting on *you*, each item with the
+  page that clears it. Both run through `appendScopeClause`, and both reuse
+  the figure another module already owns rather than re-querying it — the
+  principal's backlog is `dashboardModel.countSubmittedGrades`, the
+  temporary-password figure is `userModel.countAccounts`, and the band
+  classification is `analyticsCalculator.riskTrend`. A dashboard that
+  disagrees with the page it links to is worse than no dashboard.
 
 ## Series queries and the school year
 

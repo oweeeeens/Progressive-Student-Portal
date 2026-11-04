@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react'
 import { GraduationCap, HeartHandshake, CalendarCheck } from 'lucide-react'
-import { api } from '../api/client'
 import './ActivityFeed.css'
 
 const TYPE_ICON = {
@@ -23,59 +21,38 @@ function formatWhen(isoString) {
 }
 
 // A merged, read-only timeline across grades/interventions/attendance —
-// see backend/models/activityModel.js for the per-type role
-// gating (an empty list here just means this role has nothing eligible to
-// see, which is a legitimate, silent outcome, not an error).
-export function ActivityFeed() {
-  const [activity, setActivity] = useState(null)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    api
-      .get('/dashboard/activity')
-      .then((data) => setActivity(data.activity))
-      .catch((err) => setError(err.message))
-  }, [])
-
-  if (error) return null
-  if (activity !== null && activity.length === 0) return null
+// see backend/models/activityModel.js for the per-type role gating (an
+// empty list just means this role has nothing eligible to see, which is a
+// legitimate, silent outcome, not an error).
+//
+// PRESENTATIONAL ONLY, like StudentsNeedingAttention beside it. It used to
+// fetch its own list and return null when that list was empty, which meant
+// the page could not know whether this column would exist — so the grid
+// reserved 300px for something that, for the principal and for ICT faculty,
+// can never contain anything. The page fetches and decides the columns.
+export function ActivityFeed({ activity }) {
+  if (!activity || activity.length === 0) return null
 
   return (
-    <div className="panel">
-      <h2>Recent Activity</h2>
-      {!activity ? (
-        <ul className="activity-feed" aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <li className="activity-feed__item" key={i}>
-              <div className="skeleton activity-feed__icon" />
-              <div style={{ flex: 1 }}>
-                <div className="skeleton" style={{ width: '70%', height: '0.9375rem', marginBottom: 'var(--space-1)' }} />
-                <div className="skeleton" style={{ width: '40%', height: '0.8125rem' }} />
+    <aside className="panel activity-panel" aria-labelledby="activity-heading">
+      <h2 id="activity-heading">Recent Activity</h2>
+      <ul className="activity-feed">
+        {activity.map((event, index) => {
+          const Icon = TYPE_ICON[event.type]
+          return (
+            <li className="activity-feed__item" key={index}>
+              <span className="activity-feed__icon">{Icon && <Icon size={16} strokeWidth={1.75} />}</span>
+              <div>
+                <p className="activity-feed__description">{event.description}</p>
+                <span className="activity-feed__meta">
+                  <span>{event.actorName}</span>
+                  <span>{formatWhen(event.at)}</span>
+                </span>
               </div>
             </li>
-          ))}
-        </ul>
-      ) : (
-        <ul className="activity-feed">
-          {activity.map((event, index) => {
-            const Icon = TYPE_ICON[event.type]
-            return (
-              <li className="activity-feed__item" key={index}>
-                <span className="activity-feed__icon">
-                  <Icon size={16} strokeWidth={1.75} />
-                </span>
-                <div>
-                  <p className="activity-feed__description">{event.description}</p>
-                  <span className="activity-feed__meta">
-                    <span>{event.actorName}</span>
-                    <span>{formatWhen(event.at)}</span>
-                  </span>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </div>
+          )
+        })}
+      </ul>
+    </aside>
   )
 }

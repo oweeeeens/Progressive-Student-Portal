@@ -18,11 +18,21 @@ async function listCurrent(req, res) {
 // ("Q1" exists in every one of them), so name matching is only correct while
 // a school has a single year of data. Returning the id removes both the
 // second request and the ambiguity.
+// `startDate`/`endDate` travel with it so the home page can say where the
+// term is up to ("Q2 - 38 school days left") without a second request. They
+// are plain 'YYYY-MM-DD' strings, not timestamps, so the browser cannot
+// shift them a day backwards the way a parsed Date would.
 async function getCurrentPeriod(req, res) {
   const period = await gradingPeriodModel.findCurrentWithSchoolYear(todayInSchoolTimezone());
   res.json({
     gradingPeriod: period
-      ? { id: period.id, name: period.name, schoolYearLabel: period.school_year_label }
+      ? {
+          id: period.id,
+          name: period.name,
+          schoolYearLabel: period.school_year_label,
+          startDate: period.start_date,
+          endDate: period.end_date,
+        }
       : null,
   });
 }

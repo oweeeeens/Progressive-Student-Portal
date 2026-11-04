@@ -167,6 +167,86 @@ CLAUDE.md's Code Quality Standards ask for per-module orientation notes. Each ba
   the id comes from the token and `role` is not a field it reads.
 - **Learner Status fields** (`is_pwd`, `is_4ps`, `is_als_graduate`) — DepEd reporting fields on the student record. **Descriptive only: they never feed the risk formula.** Visibility is per field and per role (`backend/config/learnerStatus.js`): a subject teacher may see a disability flag because they teach the learner, but not 4Ps status, which is household financial information. Students never see any of the three about themselves. The same map gates writes, not just reads.
 
+## The Home Page Is About The Person Looking At It (2026-11-04)
+
+The staff landing page was organised **by content type**, and that is what
+made it read as generated rather than designed. A registrar's exam-schedule
+notice occupied the largest region of the page, in full, three times over.
+Students Needing Attention — the entire point of this system — was 300px of
+small text in a sidebar. Every block was the same white panel with a bold
+heading, so nothing on it could lead. On a product whose innovation is
+trend-based risk detection, it carried **no data visualisation at all**,
+while `components/charts/` already held six chart components and a
+measured-width layout helper.
+
+It is organised **by priority** now, and the composition is **decided by the
+data, not by a switch on the role**. Each block renders only if its own
+(already role-scoped) data came back with something in it. That is what
+shapes the page per role without a role table anywhere in it — and it is the
+only approach that survives the school's ordinary case, a teacher who
+advises one section and teaches into two others, because the scoping the
+data was fetched under is assignment-based while a role label is not.
+
+**1. The hero carries the term.** `StaffHero` adds how far through the
+grading period the school is, with a meter and "41 weekdays left".
+Deliberately *weekdays*, not *school days*: this schema holds no holiday
+calendar, so calling them school days would be a claim the data cannot
+support. Every other figure on the page is relative to the term, and working
+out which week of the quarter it is was a question the page quietly left to
+the reader.
+
+**2. "What needs you today" leads the page** — `GET /api/dashboard/queue`,
+`models/dashboardQueueModel.js`, vocabulary in `config/dashboardQueue.js`.
+A list, not a third row of cards: these are tasks rather than figures, and a
+row has somewhere to put the clause that says what its count includes. Each
+row wears its **module hue** (grades amber, attendance teal, progress plum,
+records indigo), which orients the reader *and* keeps the strip well clear
+of the risk ramp — those reds mean "this learner is in trouble" and must
+never be spent on "you have paperwork".
+
+Three rules make it trustworthy:
+
+- **Earned by assignment, not role label**, wherever the work is. The
+  adviser items come from `sections.adviser_id` and the teaching items from
+  `class_offerings.teacher_id`, so a teaching adviser gets both halves.
+- **A count must be the number the linked page will show.** Where a figure
+  already exists it is reused, never re-queried: the principal's backlog is
+  `dashboardModel.countSubmittedGrades`, the temporary-password figure is
+  `userModel.countAccounts` — exactly what User Management's own card
+  counts. The queue links to `/users?tab=pending`, so the page it opens is
+  the list it counted.
+- **It invents no deadline the school does not have.** "Today's register is
+  not marked" is only asked on a weekday inside a grading period, and every
+  period-dependent count is *omitted* between quarters rather than reported
+  as zero — "0 grades to finalize" would read as caught up when the truth is
+  that the question does not apply.
+
+An empty queue and *no* queue are different states and are rendered
+differently. ICT faculty are offered nothing, so nothing is drawn; somebody
+who has cleared theirs is told so, and told which checks came back empty.
+
+**3. The risk picture is promoted out of the sidebar**, as a band
+distribution for this person's own scope (`GET /api/dashboard/bands`) beside
+the flagged learners, each with the factor that fired. The chart is a bar
+per band against one shared zero, **never stacked** — `BarChart`'s own
+header states that rule and why. One quarter, not a trend: Analytics owns
+over-time, and the movement since last quarter is said in a sentence
+underneath instead. **No new colour was introduced anywhere in this work**:
+the chart reuses the frozen, CVD-validated band tokens exactly (asserted
+against their literal values in the browser check), and the task strip
+reuses the already-validated module palette.
+
+**4. ICT faculty get a noticeboard.** Not by a special case — their queue,
+stats and risk picture are all empty by scope, so Home *is* the
+announcements feed, which is their whole job. Announcements are demoted for
+everyone else: five per page, long bodies collapsed behind "Read more".
+
+**One shared file came out of it.** The band order, labels and colours lived
+inside `AnalyticsPage.jsx`; they are now `utils/performanceBands.js`, shared
+with the home page. Two copies of "which colour is At Risk — Medium" would
+have drifted, and the same learner would have been a different colour on two
+pages of one product.
+
 ## Subjects Per Term, Grades Per Quarter
 
 The school's timetable, confirmed with the client: a **Grade 11 subject runs

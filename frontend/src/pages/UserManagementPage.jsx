@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Plus,
   Search,
@@ -671,6 +671,19 @@ function accountStatDetails(counts) {
 }
 
 export function UserManagementPage() {
+  // `?tab=pending` opens on the pending list. The home page's task queue
+  // links straight to the work that clears it ("Create student portal
+  // accounts"), and landing on All Accounts with the pending tab one more
+  // click away is the same thing CLAUDE.md records about pickers that open
+  // on "-- select --": the work was one click from view and the page made
+  // the reader find it.
+  //
+  // Read once, as an initial tab rather than as controlled state: this is a
+  // deep link, not a filter, so a later tab change belongs to the reader
+  // and should not be fighting the URL.
+  const [searchParams] = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+
   return (
     <div>
       <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'User Management' }]} />
@@ -679,6 +692,7 @@ export function UserManagementPage() {
       </div>
 
       <Tabs
+        defaultTab={requestedTab === 'pending' ? 'pending' : 'accounts'}
         tabs={[
           { key: 'accounts', label: 'All Accounts', content: <AllAccountsTab /> },
           { key: 'pending', label: 'Pending Student Accounts', content: <PendingStudentAccountsTab /> },

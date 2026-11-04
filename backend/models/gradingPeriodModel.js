@@ -50,9 +50,22 @@ async function findByDateInSchoolYear(date, schoolYearId) {
 // Same lookup as findByDate, but also carries the school year's label
 // (e.g. "2026-2027") for the dashboard's "current period" indicator — no
 // existing caller needed both together, so neither function did this join.
+//
+// It now carries the period's own dates and semester as well, so the one
+// "where is the term up to" question has one answer from one query:
+//   * start_date/end_date let the home page say how much of the quarter is
+//     left, which is the context every other figure on that page is
+//     relative to. (config/db.js parses DATE as a plain 'YYYY-MM-DD'
+//     string, so these do not pick up the server's timezone on the way
+//     out — see that file for the bug that forced it.)
+//   * semester is what decides which class offerings actually RUN in this
+//     quarter (config/academicTerms.js). The dashboard's "classes with no
+//     grade entered yet" count would otherwise include a Grade 12 class
+//     whose semester finished.
 async function findCurrentWithSchoolYear(date) {
   const result = await pool.query(
-    `SELECT gp.id, gp.name, gp.sequence_number, sy.label AS school_year_label
+    `SELECT gp.id, gp.name, gp.sequence_number, gp.semester, gp.start_date, gp.end_date,
+            sy.id AS school_year_id, sy.label AS school_year_label
      FROM grading_periods gp
      JOIN school_years sy ON sy.id = gp.school_year_id
      WHERE $1::date BETWEEN gp.start_date AND gp.end_date

@@ -122,3 +122,31 @@ export function describeGap(seriesA, seriesB, { labelA, labelB, unit = '%' } = {
   const lower = lastA.value < lastB.value ? labelA : labelB
   return `${lower} is ${gap} ${unit === '%' ? 'points' : 'lower'} behind in ${lastA.label} (${lastA.value}${unit} vs ${lastB.value}${unit}).`
 }
+
+// "6 of 23 learners are flagged this quarter, one more than in Q1."
+//
+// The home page's band chart shows one quarter at a time, so the movement
+// that the chart itself cannot show is said in words instead — which is the
+// honest trade on a landing page: a three-column small-multiple of five
+// bands each would be narrower than the same chart on a phone (see
+// components/charts/chartLayout.js for the measurements that settled this).
+//
+// `periods` is the server's band trend, oldest first, each with a `counts`
+// object keyed by bucket. Returns null when there is nothing to compare —
+// a school in its first quarter has no previous figure, and inventing a
+// comparison against zero would read as a collapse.
+export function describeFlaggedChange(periods) {
+  if (!periods || periods.length === 0) return null
+  const flagged = (p) => p.counts.at_risk_high + p.counts.at_risk_medium + p.counts.at_risk_low
+  const current = periods[periods.length - 1]
+  const now = flagged(current)
+  const lead = `${now} of ${current.total} assessed ${now === 1 ? 'learner is' : 'learners are'} flagged in ${current.periodName}`
+
+  if (periods.length < 2) return `${lead}.`
+
+  const previous = periods[periods.length - 2]
+  const change = now - flagged(previous)
+  if (change === 0) return `${lead} — unchanged from ${previous.periodName}.`
+  const word = Math.abs(change) === 1 ? 'one' : String(Math.abs(change))
+  return `${lead} — ${word} ${change > 0 ? 'more' : 'fewer'} than in ${previous.periodName}.`
+}

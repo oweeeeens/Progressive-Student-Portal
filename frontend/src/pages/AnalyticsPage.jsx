@@ -32,62 +32,16 @@ import { ChartFieldToggles } from '../components/charts/ChartFieldToggles'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { INTERVENTION_TYPE_LABELS } from '../components/InterventionDetailPanel'
 import { describeTrend, describeTrendAgainstThreshold, describeLargestShare, describeGap } from '../utils/chartInterpretation'
+import { BUCKET_ORDER, BUCKET_LABELS, SEGMENT_SPEC, BAND_SEGMENT_SPEC } from '../utils/performanceBands'
 import { Alert } from '../components/Alert'
 
-// Fixed order, worst-to-best, used everywhere a bucket is rendered (bars,
-// stacked columns, the legend, the table) — the same order the per-student
-// Academic Progress Tracking page already sorts At Risk to the top by.
-// Colors are deliberately all ALREADY-ESTABLISHED tokens from this app's
-// own design system, not a freshly invented categorical palette: the three
-// At Risk shades are the existing traffic-light risk tokens CLAUDE.md
-// mandates, Average reuses the navy "info" tone already used elsewhere
-// (StatusPill's info variant), and Performing Well reuses the brand gold
-// accent — fitting, since that band is explicitly a recognition/reward
-// state, the one place CLAUDE.md's own "gold sparingly" exception is meant
-// for. Not Yet Calculated is a neutral border-gray, since it's a caveat, not
-// a real band.
-const BUCKET_ORDER = ['at_risk_high', 'at_risk_medium', 'at_risk_low', 'average', 'performing_well', 'not_yet_calculated']
-const BUCKET_LABELS = {
-  at_risk_high: 'At Risk — High',
-  at_risk_medium: 'At Risk — Medium',
-  at_risk_low: 'At Risk — Low',
-  average: 'Average / Steady',
-  performing_well: 'Performing Well',
-  not_yet_calculated: 'Not Yet Calculated',
-}
-const BUCKET_COLORS = {
-  at_risk_high: 'var(--band-at-risk-high)',
-  at_risk_medium: 'var(--band-at-risk-medium)',
-  at_risk_low: 'var(--band-at-risk-low)',
-  average: 'var(--band-average)',
-  performing_well: 'var(--band-performing-well)',
-  not_yet_calculated: 'var(--risk-none)',
-}
-// Readable ink for a count printed INSIDE a segment of that fill — also a
-// band token, so light and dark mode each get the right one automatically.
-const BUCKET_LABEL_COLORS = {
-  at_risk_high: 'var(--band-ink-on-at-risk-high)',
-  at_risk_medium: 'var(--band-ink-on-at-risk-medium)',
-  at_risk_low: 'var(--band-ink-on-at-risk-low)',
-  average: 'var(--band-ink-on-average)',
-  performing_well: 'var(--band-ink-on-performing-well)',
-  not_yet_calculated: 'var(--color-text)',
-}
-const toSegment = (key) => ({
-  key,
-  label: BUCKET_LABELS[key],
-  color: BUCKET_COLORS[key],
-  labelColor: BUCKET_LABEL_COLORS[key],
-})
-// Every bucket, including the not-yet-assessed caveat — still needed by the
-// breakdown table and the export, which report on the full roster.
-const SEGMENT_SPEC = BUCKET_ORDER.map(toSegment)
-// The five REAL bands. "Not Yet Calculated" is a data-coverage caveat, not a
-// performance band, and when a school is mid-grading-period it can be the
-// largest slice on the chart — dominating a visualization that's supposed to
-// be about how students are doing. It's reported as a line of text beneath
-// the chart instead (see notYetAssessedNote).
-const BAND_SEGMENT_SPEC = BUCKET_ORDER.filter((key) => key !== 'not_yet_calculated').map(toSegment)
+// The band order, labels and colours now live in one place shared with the
+// home page's own band chart (utils/performanceBands.js) — two copies of
+// "which colour is At Risk - Medium" would eventually disagree, and the
+// same learner would be a different colour on two pages of one product.
+// The comment that used to sit here described a traffic-light scheme and a
+// gold Performing Well band; both were replaced in the 2026-10-28 palette
+// pass, and the reasoning moved to index.css beside the tokens themselves.
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
 // Same priority order config/academicProgress.js's FACTOR_PRIORITY uses
 // everywhere else a single ranked factor list is shown — kept as a literal

@@ -1,17 +1,21 @@
-/* Was a deliberate 2rem "hero" size, bigger than the shared h1 scale — cut
-   back to the standard page-title token (still a real heading, just not
-   dominating the viewport above everything else on a page people land on
-   constantly, not once). */
-.dashboard-greeting {
-  font-size: var(--font-size-xl);
-  margin-bottom: var(--space-1);
-}
+/* =============================================================================
+   The staff home page
+   =============================================================================
+   This page was organised by CONTENT TYPE: announcements in the big column,
+   everything about learners in a 300px sidebar, every block the same white
+   panel with a bold heading. The result was that nothing on it could lead —
+   a registrar's exam-schedule notice occupied the largest region of the page
+   while the one block about at-risk learners, which is the entire point of
+   the system, was small text in the margin.
 
-.dashboard-greeting__subtitle {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin: 0;
-}
+   It is organised by PRIORITY now, and the rhythm is deliberate: a wide
+   hero, then a list, then a card row, then a chart beside a list, then the
+   feeds. Five different textures rather than five identical boxes, so the
+   order the page wants to be read in is visible before a word of it is.
+
+   Breakpoints below are literals (560 / 720 / 960), as they must be — a CSS
+   custom property is not valid inside a media condition.
+   ========================================================================== */
 
 /* This page's own header/action buttons read as a compact desktop toolbar,
    not full touch-target buttons — scoped to .dashboard-page rather than
@@ -25,33 +29,79 @@
   font-size: var(--font-size-sm);
 }
 
-.dashboard-main {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: var(--space-4);
-  align-items: start;
+/* The queue's loading state. The queue is the one block whose SHAPE is
+   genuinely unknown before the server answers — which items a person is
+   eligible for depends on what they are assigned to — so it gets two
+   generic rows rather than a faithful outline. */
+.dashboard-queue-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+.dashboard-queue-skeleton > :first-child {
+  margin-bottom: var(--space-2);
 }
 
-@media (max-width: 860px) {
-  .dashboard-main {
-    grid-template-columns: 1fr;
+/* --- The risk picture ---------------------------------------------------- */
+/* A chart beside the named learners it is about. The chart gets the larger
+   share because a bar chart needs width to stay readable, while the list is
+   a column of names; below 960px they stack, chart first. */
+.dashboard-standing {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 960px) {
+  .dashboard-standing {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.dashboard-side {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+.standing-panel {
+  min-width: 0;
+}
+/* ChartCard draws its own surface, so this only carries the deep link in
+   its actions slot and the comparison sentence underneath. */
+.standing-panel__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+.standing-panel__change {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--color-border-strong);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
 }
 
-/* The left grid column's own stack — Announcements above Recent Activity —
-   so Recent Activity sits beside .dashboard-side (next to Students Needing
-   Attention) instead of spanning the full page width below everything. */
-.dashboard-primary {
-  display: flex;
-  flex-direction: column;
+/* --- The feeds ----------------------------------------------------------- */
+/* Announcements and recent activity, the two things that are genuinely a
+   feed. Both demoted to the bottom of the page: they are what you read when
+   you have dealt with everything above them.
+   The activity column is dropped entirely for the roles eligible for no
+   activity at all, rather than left as an empty 300px gutter. */
+.dashboard-feeds {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: var(--space-4);
-  min-width: 0;
+  align-items: start;
+}
+.dashboard-feeds--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 860px) {
+  .dashboard-feeds {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* A panel whose heading shares its line with the action that acts on it.
@@ -66,5 +116,75 @@
   margin-bottom: var(--space-4);
 }
 .panel__head h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
+}
+/* The icon is a quiet marker beside the heading, not a second heading. It
+   takes the module-neutral muted ink rather than a hue, because the
+   noticeboard is not one of the school's areas of work. */
+.panel__head h2 svg {
+  flex-shrink: 0;
+  color: var(--color-text-faint);
+}
+
+/* --- Announcements ------------------------------------------------------- */
+
+.announcement-list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A long notice collapses to three lines with "Read more" underneath. The
+   noticeboard had been rendering every body in full, so three posts of any
+   length pushed everything else on the page off the screen. */
+.feed-item__body--clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The loading placeholders stack with real gaps — .feed-item itself has no
+   idea what is inside it. */
+.feed-item--loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.announcement-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+/* Was four inline `style` objects on the form's own elements. Inputs that
+   fill their label and a textarea that uses the body font are the same
+   thing every other form in the app does; they belong in a rule, not
+   repeated per element. */
+.announcement-form input[type='text'],
+.announcement-form input:not([type]),
+.announcement-form textarea {
+  width: 100%;
+}
+.announcement-form textarea {
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  padding: var(--space-2) var(--space-3);
+}
+.announcement-form__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* --- Recent activity ----------------------------------------------------- */
+/* In the narrow column the panel's own padding is most of its width at
+   320px, so it tightens there along with everything else on the page. */
+@media (max-width: 560px) {
+  .activity-panel {
+    padding: var(--space-4);
+  }
 }
