@@ -328,6 +328,29 @@ console fallback, and on a server it would write reset links into logs while
 telling users the email was sent. (It is refused in production anyway, with a
 warning in the deploy log.)
 
+**If the demo data on a deployment falls behind the seed.** Seeds are run by
+hand, never as part of a deploy, so a change to `demoDataset.js` reaches a
+deployment only when somebody reseeds it — and `seed:sample` opens with
+`TRUNCATE school_years RESTART IDENTITY CASCADE`, which destroys everything
+that database holds. When the only thing out of date is **who teaches what**,
+apply just that:
+
+```bash
+npx @railway/cli ssh
+# inside the container, which has neither node nor npm on its shell PATH:
+$(readlink -f /proc/1/exe) backend/scripts/applyTeacherOverrides.js
+```
+
+It reads `TEACHER_OVERRIDES` from the dataset, inserts missing class
+offerings and corrects a wrong `teacher_id`, and never deletes or truncates.
+Safe to re-run — a second run reports everything as already correct and
+writes nothing. `/proc/1/exe` is the running app's own node binary, so it
+keeps working when the platform's node version changes.
+
+Note what this does **not** do: it syncs teaching assignments only. Sections,
+subjects, students and grading periods added to the seed later still need a
+full reseed, or their own targeted change.
+
 **If an admin is locked out.** An admin account cannot be reset by a
 registrar or by another admin — that rule is what stops a registrar escalating
 to admin, and it also means there is no way back in through the UI. From the
