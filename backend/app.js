@@ -108,15 +108,68 @@ app.use('/api', (req, res) => {
 // possibly-stale or missing dist/ would shadow that.
 if (process.env.SERVE_FRONTEND === 'true') {
   const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+  const assetsDir = `${path.sep}assets${path.sep}`;
 
-  app.use(express.static(frontendDist));
+  // CACHING, AND WHY THE TWO HALVES GET OPPOSITE ANSWERS.
+  //
+  // Vite writes every file it hashes into dist/assets/ — the JS, the CSS and
+  // the self-hosted IBM Plex faces — while index.html and logo.png sit at
+  // the root unhashed. That split is what makes these two policies safe,
+  // and it is the only reason they can differ:
+  //
+  //   * A hashed asset can be cached forever, BECAUSE its name contains a
+  //     hash of its contents. Different contents mean a different URL, so a
+  //     cached copy can never be the wrong copy. Without this every asset
+  //     was revalidated on every page load, which is a round trip per file
+  //     to be told nothing changed.
+  //
+  //   * index.html can never be cached, because it is the one file whose
+  //     URL stays the same while its contents change — it is what points at
+  //     the current hashes. `no-cache` does not mean "do not store"; it
+  //     means "store it, but ask every time", which is exactly right.
+  //
+  // logo.png deliberately keeps the default. It is NOT hashed, so it can
+  // change under a stable URL, and marking it immutable would pin a stale
+  // school seal in every browser that had ever loaded it.
+  app.use(
+    express.static(frontendDist, {
+      setHeaders: (res, filePath) => {
+        if (filePath.includes(assetsDir)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    })
+  );
+
+  // A missing file under /assets/ is a 404, not the app.
+  //
+  // Same reasoning as the /api guard above, and the same bug it prevents.
+  // express.static falls through when a file is missing, so without this a
+  // browser holding a cached index.html that points at a previous build's
+  // /assets/index-OLDHASH.js asks for that file after a deploy and is handed
+  // index.html — status 200, Content-Type: text/html — and then tries to
+  // parse HTML as JavaScript. Verified before this guard existed: a request
+  // for a nonexistent asset really did answer 200 text/html.
+  //
+  // Nothing under /assets/ is ever a client-side route, so there is no
+  // legitimate request this can catch by mistake.
+  app.use('/assets', (req, res) => {
+    res.status(404).json({ error: 'Not found.' });
+  });
 
   // Client-side routes (/my-grades, /students/42) are not files on disk, so
   // anything that reached here without matching a static file is handed
   // index.html for React Router to resolve. Written as middleware rather
   // than app.get('*') because Express 5's path parser rejects a bare '*'.
+  //
+  // The header is set here as well as in setHeaders above: this path does
+  // not go through express.static at all, and it is the one every deep link
+  // takes. Missing it would mean /students was cached while / was not.
   app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(frontendDist, 'index.html'));
   });
 }
