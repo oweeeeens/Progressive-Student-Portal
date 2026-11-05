@@ -110,14 +110,48 @@ async function listAll(user, { search, status, interventionType, page = 1, pageS
   const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
   const dataParams = [...params, limit, offset];
 
+  // WHERE THE LEARNER STANDS NOW, alongside where they stood when the
+  // intervention was logged.
+  //
+  // The page is the closed loop (CLAUDE.md Part B) and it could not show
+  // it: "Risk at logging" was there, the current level was not, so nothing
+  // on screen said whether anything had worked. That is the one comparison
+  // the module exists to make, and it is the same comparison
+  // riskEngine.closeOutInterventions performs when it auto-resolves or
+  // escalates a case.
+  //
+  // The period IDs travel with both levels so the reader can tell "the
+  // learner has not been reassessed since" from "reassessed, no change".
+  // Compared on id rather than on name because `grading_periods.name`
+  // repeats across school years — every year has a "Term 1" — and only the
+  // id is unique.
+  //
+  // ORDERED BY SCHOOL YEAR AND THEN SEQUENCE, not by sequence alone.
+  // `grading_periods.sequence_number` is unique only WITHIN a school year,
+  // so a learner in their second year has two periods numbered 1 and
+  // ordering by sequence alone can return a previous year's last term as
+  // "latest". Scoped per student with a LATERAL + LIMIT 1 so this stays one
+  // row per intervention rather than a GROUP BY over the whole join.
   const dataResult = await pool.query(
     `SELECT i.id, i.intervention_type, i.notes, i.status, i.date_logged, i.resolved_at, i.created_at,
             s.id AS student_id, s.first_name AS student_first_name, s.last_name AS student_last_name,
-            u.full_name AS logged_by_name, ra.risk_level AS risk_level_at_intervention, gp.name AS grading_period_name
+            u.full_name AS logged_by_name, ra.risk_level AS risk_level_at_intervention, gp.name AS grading_period_name,
+            ra.grading_period_id AS risk_period_id,
+            latest.risk_level AS current_risk_level, latest.period_name AS current_risk_period,
+            latest.period_id AS current_risk_period_id
      ${joinSql}
      JOIN users u ON u.id = i.logged_by
      JOIN risk_assessments ra ON ra.id = i.risk_assessment_id
      JOIN grading_periods gp ON gp.id = ra.grading_period_id
+     LEFT JOIN LATERAL (
+       SELECT ra2.risk_level, gp2.id AS period_id, gp2.name AS period_name
+       FROM risk_assessments ra2
+       JOIN grading_periods gp2 ON gp2.id = ra2.grading_period_id
+       JOIN school_years sy2 ON sy2.id = gp2.school_year_id
+       WHERE ra2.student_id = s.id
+       ORDER BY sy2.start_date DESC, gp2.sequence_number DESC
+       LIMIT 1
+     ) latest ON TRUE
      ${whereSql}
      ORDER BY i.created_at DESC
      LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,

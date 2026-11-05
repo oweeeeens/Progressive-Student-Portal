@@ -20,6 +20,38 @@ import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 const PAGE_SIZE = 15
 
+// Worst to best. Only used to say which DIRECTION a learner moved between
+// the level recorded when an intervention was logged and their latest one —
+// the same comparison riskEngine.closeOutInterventions makes server-side
+// when it decides Resolved against Escalated. Three fixed values, so this is
+// an ordering rather than a second copy of the risk rules.
+const RISK_ORDER = ['low', 'medium', 'high']
+
+// How long an intervention may sit before the dashboard starts asking about
+// it. Mirrors STALE_INTERVENTION_DAYS in backend/config/dashboardQueue.js —
+// the home page counts them, so this page has to agree about which ones it
+// is counting.
+const STALE_AFTER_DAYS = 14
+
+// Still waiting on somebody, as opposed to finished. Resolved and escalated
+// are outcomes; an age means nothing for them.
+const OPEN_STATUSES = ['open', 'monitoring']
+
+// Whole days between the day an intervention was logged and today.
+//
+// `date_logged` is a plain 'YYYY-MM-DD' string (backend/config/db.js returns
+// DATE columns unparsed on purpose), so T00:00:00 is appended to read it as
+// LOCAL midnight. Without it the browser reads the bare string as UTC and,
+// at the school's UTC+8, every age comes out a day long.
+function daysSince(isoDate) {
+  if (!isoDate) return null
+  const then = new Date(`${isoDate}T00:00:00`)
+  if (Number.isNaN(then.getTime())) return null
+  const now = new Date()
+  const midnightToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return Math.max(0, Math.round((midnightToday - then) / 86400000))
+}
+
 // Cross-student view of every intervention this user can see — same
 // adviser/own-section scoping the backend already applies everywhere else.
 // Clicking a row expands the exact same detail/edit panel used inline on
@@ -273,12 +305,108 @@ export function InterventionsPage() {
           },
           { key: 'type', header: 'Type', render: (i) => INTERVENTION_TYPE_LABELS[i.intervention_type] },
           {
+            // What was actually DONE. The substance of an intervention is
+            // its note, and it was reachable only by expanding a row one at
+            // a time — so the one question a counselor opens this page with
+            // ("what have we tried for this learner") took six clicks to
+            // answer. Truncated here and complete in the expanded panel.
+            key: 'notes',
+            header: 'Notes',
+            truncate: true,
+            plainText: (i) => i.notes || '',
+            render: (i) => fieldValue(i.notes),
+          },
+          {
             key: 'risk',
             header: 'Risk at logging',
             uniformValue: (i) => i.risk_level_at_intervention,
             render: (i) => (
               <StatusPill label={i.risk_level_at_intervention} variant={RISK_VARIANTS[i.risk_level_at_intervention]} />
             ),
+          },
+          {
+            // THE CLOSED LOOP, on the page that is named after it.
+            //
+            // Until now this table showed where a learner stood when the
+            // intervention was logged and never where they stand now, so
+            // nothing on screen answered "did it help" — which is the whole
+            // claim of CLAUDE.md Part B. The direction is stated in words
+            // beside the band, never by colour alone: the two pills use the
+            // same ramp, so "moved which way" cannot be left to the reader
+            // comparing two shades of red.
+            key: 'current_risk',
+            header: 'Risk now',
+            plainText: (i) => i.current_risk_level || '',
+            render: (i) => {
+              if (!i.current_risk_level) return fieldValue(null)
+              // NOT REASSESSED YET is a different statement from NO CHANGE,
+              // and saying the second when the first is true would be the
+              // page's worst possible lie: it would claim an intervention
+              // had been measured and found to make no difference, when in
+              // fact nothing has been measured since it was logged.
+              //
+              // Compared on the period ID, not its name — every school year
+              // has a "Term 1", so names match across years while ids do
+              // not.
+              const notReassessed =
+                i.current_risk_period_id != null && i.current_risk_period_id === i.risk_period_id
+              const from = RISK_ORDER.indexOf(i.risk_level_at_intervention)
+              const to = RISK_ORDER.indexOf(i.current_risk_level)
+              // Only a LIVE case gets a movement note. For a resolved or
+              // escalated one the verdict is already recorded in the Status
+              // column — written by riskEngine.closeOutInterventions, not
+              // by this page — and re-deriving it here could contradict it.
+              // It did, visibly: a seeded "Resolved" case sat beside the
+              // words "not reassessed yet", which is a flat contradiction
+              // for anyone reading the row.
+              const movement = !OPEN_STATUSES.includes(i.status)
+                ? null
+                : notReassessed
+                  ? 'not reassessed yet'
+                  : from === -1 || to === -1
+                    ? null
+                    : to < from
+                      ? 'improved'
+                      : to > from
+                        ? 'worse'
+                        : 'no change'
+              return (
+                <span className="cell-with-mark">
+                  <StatusPill label={i.current_risk_level} variant={RISK_VARIANTS[i.current_risk_level]} />
+                  {movement && <span className="cell-secondary">{movement}</span>}
+                </span>
+              )
+            },
+          },
+          {
+            // How long this learner has been waiting. The home page counts
+            // the ones past STALE_AFTER_DAYS as a task; this is where you
+            // see WHICH ones, which the page could not previously tell you.
+            // Blank for a finished intervention — a resolved case is not
+            // "open for" anything.
+            key: 'age',
+            header: 'Open for',
+            plainText: (i) => {
+              const days = OPEN_STATUSES.includes(i.status) ? daysSince(i.date_logged) : null
+              return days == null ? '' : String(days)
+            },
+            render: (i) => {
+              if (!OPEN_STATUSES.includes(i.status)) return fieldValue(null)
+              const days = daysSince(i.date_logged)
+              if (days == null) return fieldValue(null)
+              const text = `${days} ${days === 1 ? 'day' : 'days'}`
+              // Past the threshold it stops being a duration and becomes a
+              // thing to chase, so it is said in words rather than left to
+              // the reader to do the subtraction against 14.
+              return days >= STALE_AFTER_DAYS ? (
+                <span className="cell-with-mark">
+                  {text}
+                  <StatusPill label="Needs follow-up" variant="warning" />
+                </span>
+              ) : (
+                text
+              )
+            },
           },
           {
             key: 'logged',
