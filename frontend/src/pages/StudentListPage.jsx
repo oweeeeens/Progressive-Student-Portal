@@ -23,6 +23,10 @@ const STATUS_VARIANTS = {
   graduated: 'info',
 }
 const RISK_LABELS = { low: 'Low risk', medium: 'Medium risk', high: 'High risk' }
+// The same mapping the dashboard's attention list uses, pointing at the
+// frozen band ramp through StatusPill's own variants — no colour is chosen
+// on this page.
+const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
 
 // What each figure above the roster counts.
 //
@@ -171,7 +175,27 @@ export function StudentListPage() {
   }
 
   const filtersActive = Boolean(search || status || sectionId || Object.values(learnerStatusFilters).some(Boolean))
-  const anyFlagged = useMemo(() => students.some((s) => s.risk_level), [students])
+
+  // The reporting flags THIS role may see, as short labels, for one learner.
+  //
+  // Driven by availableStatusFilters rather than by a hardcoded list: the
+  // server already answered "which of these may you see" for the filter
+  // checkboxes, and asking it twice is how the two end up disagreeing. A
+  // field the role cannot see is not in that list AND is stripped from the
+  // row itself, so this is belt and braces on a value that never arrives.
+  //
+  // The trailing "only" is stripped because the server's shortLabel is
+  // written for the FILTER CHECKBOX — "4Ps only" there means "show only 4Ps
+  // learners". Printed in a cell it reads as a claim about the learner, and
+  // a different one. Stripped rather than mapped to a second hardcoded list
+  // so a fourth field added server-side still gets a label, just an
+  // unpolished one.
+  const visibleFlagsFor = useMemo(() => {
+    return (student) =>
+      availableStatusFilters
+        .filter((field) => student[field.key])
+        .map((field) => field.shortLabel.replace(/\s+only$/i, ''))
+  }, [availableStatusFilters])
 
   // Only tiles carrying distinct, non-obvious information. "Active
   // students" and "Enrolled" were the same number on a roster where
@@ -209,6 +233,18 @@ export function StudentListPage() {
 
   // Identifying column first, supporting detail next, status after that —
   // never lead with an ID number, so LRN sits behind the name.
+  //
+  // WHY THERE ARE SEVEN OF THESE AND NOT FOUR.
+  //
+  // The roster held five narrow columns in a table that stopped halfway
+  // across the page, and the empty half was the complaint. The table's
+  // width is NOT the thing to change — `.table-card` is `width:
+  // fit-content` deliberately, because tables that spanned 100% regardless
+  // of content put 540px between "Row in file" and the LRN beside it (see
+  // index.css). The answer is to give the table something worth being wide
+  // for, and the roster response already carried it: every column below
+  // comes from data this page had already fetched, with no second request
+  // and no new endpoint.
   const columns = [
     {
       key: 'name',
@@ -217,18 +253,92 @@ export function StudentListPage() {
       // The row IS the learner. Everything beside it is reference.
       primary: true,
       plainText: (s) => `${s.last_name}, ${s.first_name}`,
-      render: (s) => (
-        <span className="cell-with-mark">
-          {s.risk_level && <span className={`risk-dot risk-dot--${s.risk_level}`} title={RISK_LABELS[s.risk_level]} />}
-          {s.last_name}, {s.first_name}
-        </span>
-      ),
+      render: (s) => `${s.last_name}, ${s.first_name}`,
     },
     { key: 'lrn', header: 'LRN', render: (s) => fieldValue(s.lrn) },
     {
       key: 'section',
       header: 'Grade / Section',
       render: (s) => fieldValue(s.section_name ? `Grade ${s.grade_level} – ${s.section_name}` : null),
+    },
+    {
+      key: 'risk',
+      header: 'Risk',
+      // THE BAND IN WORDS. This replaces a coloured dot beside the name
+      // whose only explanation was a `title` tooltip and a legend floating
+      // above the table — which is colour carrying meaning on its own, the
+      // one thing CLAUDE.md says a band must never do. The dot and the
+      // legend are both gone; a legend exists to explain a mark, and the
+      // mark no longer exists.
+      //
+      // Same StatusPill and same variants the dashboard's attention list
+      // and Academic Progress already use, so a learner's band looks
+      // identical everywhere it appears rather than being re-styled per
+      // page.
+      render: (s) =>
+        s.risk_level ? <StatusPill label={RISK_LABELS[s.risk_level]} variant={RISK_VARIANTS[s.risk_level]} /> : fieldValue(null),
+    },
+    // Whether the learner can actually sign in. Admin and registrar only —
+    // they are the two roles that can create an account (CREATABLE_ROLES in
+    // backend/config/auth.js), and it is the same work the home page counts
+    // as "Create student portal accounts", so the roster now shows per
+    // learner what the dashboard shows as a total.
+    //
+    // `quietValue` is 'active' even though it is the RARER value here, and
+    // that is the point: quiet means UNREMARKABLE, not uncommon. Having an
+    // account is unremarkable; the learners without one are the work.
+    ...(canWrite(user?.role)
+      ? [
+          {
+            key: 'portal',
+            header: 'Portal',
+            uniformValue: (s) => (s.user_id ? 'active' : 'none'),
+            quietValue: 'active',
+            // Neutral, not warning. At warning strength this was a column of
+            // amber pills on most rows, competing with Risk — and Risk is
+            // the signal a roster exists for. The quiet treatment on
+            // "Active" already carries the contrast; this does not need to
+            // shout as well. The dashboard is where it becomes a task.
+            render: (s) =>
+              s.user_id ? (
+                <StatusPill label="Active" variant="positive" />
+              ) : (
+                <StatusPill label="No account" variant="neutral" />
+              ),
+          },
+        ]
+      : []),
+    // ONE column for the three DepEd reporting flags, not three.
+    //
+    // The flags are sparse — most learners carry none — so three columns
+    // would be three columns of mostly-empty cells, which is the same
+    // disease in a different shape. Which flags may appear comes from
+    // `availableStatusFilters`, the list this page ALREADY fetches for its
+    // filter checkboxes, so backend/config/learnerStatus.js stays the only
+    // place the per-role rule lives: an adviser is outside is_4ps's
+    // visibleToRoles, so they get no 4Ps checkbox and no 4Ps pill, from one
+    // decision rather than two.
+    //
+    // uniformValue with no flags anywhere collapses the column out of the
+    // table entirely (DataTable drops a column that is blank on every row
+    // and says nothing about it, which is right — there is nothing to
+    // restate).
+    {
+      key: 'flags',
+      header: 'Reporting',
+      uniformValue: (s) => visibleFlagsFor(s).join(','),
+      summaryText: (s) => visibleFlagsFor(s).join(', '),
+      render: (s) => {
+        const flags = visibleFlagsFor(s)
+        if (flags.length === 0) return fieldValue(null)
+        return (
+          <span className="cell-with-mark">
+            {flags.map((label) => (
+              <StatusPill key={label} label={label} variant="info" />
+            ))}
+          </span>
+        )
+      },
     },
     {
       key: 'status',
@@ -378,25 +488,10 @@ export function StudentListPage() {
         ]}
         sort={{ by: sortBy, dir: sortDir }}
         onSortChange={toggleSort}
-        // The dot beside a name now says what it means, right above the
-        // table. It takes three different colours, so the legend names
-        // all three rather than implying one — an unexplained coloured
-        // mark next to a person is never acceptable. Each dot also keeps
-        // its title tooltip, and colour is never the only signal (the
-        // student's own page states the band in words).
-        legend={
-          anyFlagged && (
-            <>
-              <span className="data-table__legend-item">Flagged at risk this grading period:</span>
-              {['low', 'medium', 'high'].map((level) => (
-                <span key={level} className="data-table__legend-item">
-                  <span className={`risk-dot risk-dot--${level}`} />
-                  {RISK_LABELS[level]}
-                </span>
-              ))}
-            </>
-          )
-        }
+        // No legend any more, and that is the improvement rather than a
+        // loss. It existed to explain a coloured dot beside the name; the
+        // Risk column states the band in words on the row itself, so there
+        // is no longer a mark to explain.
         isFiltered={filtersActive}
         error={error}
         page={page}
