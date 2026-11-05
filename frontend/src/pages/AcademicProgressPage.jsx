@@ -11,9 +11,16 @@ import { useStatExplainer } from '../hooks/useStatExplainer'
 import { formatGrade, formatRate, formatTrend } from '../utils/formatNumber'
 import { TrendIcon } from '../components/TrendIcon'
 import { DataTable, fieldValue } from '../components/table/DataTable'
+import { BandTrend } from '../components/BandTrend'
 import { INTERVENTION_TYPE_LABELS } from '../components/InterventionDetailPanel'
 import { Alert } from '../components/Alert'
 import { SkeletonTable } from '../components/Skeleton'
+
+// Worst to best, for deciding which WAY a learner moved between two terms.
+// Only an ordering — the bands themselves, their labels and their colours
+// are defined once in utils/performanceBands.js and in the server's
+// config/academicProgress.js.
+const BAND_RANK = { at_risk: 0, average: 1, performing_well: 2 }
 
 const BAND_PAGE_SIZE = 15
 const LEVEL_VARIANTS = { high: 'risk-high', medium: 'risk-medium', low: 'risk-low' }
@@ -116,6 +123,19 @@ export function AcademicProgressPage() {
   // Each band paginates independently — they're three separate tables, not
   // one list, so "page 2" means something different in each. Reset together
   // whenever the underlying roster changes (new section/period), below.
+  // The trend view: band counts per term for whatever scope is selected,
+  // and the band each learner was in LAST term so the movement can be
+  // named. Both are separate from `students` because they answer a
+  // different question and arrive on their own schedule.
+  const [bandPeriods, setBandPeriods] = useState(null)
+  // Stored WITH the key it was fetched for, rather than as bare rows.
+  // Switching section refetches, and until the new answer lands the old
+  // one is still in state — so without the key the page would briefly diff
+  // this section's learners against the last section's and name movements
+  // that never happened. The key is checked before the data is used.
+  const [previous, setPrevious] = useState(null)
+  const [resolvedPeriodId, setResolvedPeriodId] = useState(null)
+
   const [atRiskPage, setAtRiskPage] = useState(1)
   const [averagePage, setAveragePage] = useState(1)
   const [performingWellPage, setPerformingWellPage] = useState(1)
@@ -150,6 +170,11 @@ export function AcademicProgressPage() {
       .get(`/academic-progress?${params.toString()}`)
       .then((data) => {
         setStudents(data.students)
+        // Which period the server actually used. The picker's "Current"
+        // sends no id at all, so this is the only way the page learns
+        // which term it is looking at — and it needs that to work out
+        // which term came before it.
+        setResolvedPeriodId(data.gradingPeriodId)
         setAtRiskPage(1)
         setAveragePage(1)
         setPerformingWellPage(1)
@@ -159,6 +184,55 @@ export function AcademicProgressPage() {
   }
 
   useEffect(load, [sectionId, gradingPeriodId, user.role])
+
+  // The chart, scoped to exactly the section the tables below are showing.
+  // `sectionId` only narrows what this reader could already see (see
+  // dashboardModel.getBandTrend), so a chart and a table on this page can
+  // never describe different learners.
+  useEffect(() => {
+    if (user.role === 'adviser' && !sectionId) return
+    const params = new URLSearchParams()
+    if (sectionId) params.set('sectionId', sectionId)
+    api
+      .get(`/dashboard/bands?${params.toString()}`)
+      .then((data) => setBandPeriods(data.periods || []))
+      .catch(() => setBandPeriods([]))
+  }, [sectionId, user.role])
+
+  // The term before the one being viewed, within the same school year.
+  // `sequence_number` is unique only WITHIN a year, so the school year has
+  // to be matched too — otherwise a learner's second year picks up the
+  // first year's term as "previous".
+  const previousPeriod = useMemo(() => {
+    if (!resolvedPeriodId || periods.length === 0) return null
+    const current = periods.find((p) => p.id === resolvedPeriodId)
+    if (!current) return null
+    return (
+      periods.find(
+        (p) =>
+          p.school_year_id === current.school_year_id &&
+          p.sequence_number === current.sequence_number - 1
+      ) || null
+    )
+  }, [resolvedPeriodId, periods])
+
+  // Last term's bands for the same learners, fetched through the SAME
+  // endpoint as the current term — so it carries the same scoping, the same
+  // band rules and the same shape, and the diff below is a comparison of
+  // like with like rather than of two different derivations.
+  const previousKey = previousPeriod ? `${previousPeriod.id}|${sectionId}` : null
+
+  useEffect(() => {
+    if (!previousPeriod) return
+    if (user.role === 'adviser' && !sectionId) return
+    const key = previousKey
+    const params = new URLSearchParams({ gradingPeriodId: String(previousPeriod.id) })
+    if (sectionId) params.set('sectionId', sectionId)
+    api
+      .get(`/academic-progress?${params.toString()}`)
+      .then((data) => setPrevious({ key, students: data.students }))
+      .catch(() => setPrevious({ key, students: null }))
+  }, [previousPeriod, previousKey, sectionId, user.role])
 
   // Grouped by band, At Risk first — each group internally keeps the
   // server's own ordering (high->medium->low within At Risk; last name
@@ -173,6 +247,46 @@ export function AcademicProgressPage() {
     }
     return groups
   }, [students])
+
+  // Who crossed a band since last term.
+  //
+  // Only a learner present in BOTH terms with a real band in each can have
+  // moved. Someone newly assessed has not improved from anywhere, and
+  // treating "not yet calculated -> At Risk" as a slip would invent a
+  // decline out of a learner simply having been graded for the first time.
+  const movement = useMemo(() => {
+    // The key check is what stops a section switch diffing against the
+    // section it just left while the new request is still in flight.
+    if (!previousPeriod || previous?.key !== previousKey || !previous.students) return null
+    const before = new Map(
+      previous.students.filter((s) => s.band !== 'not_yet_calculated').map((s) => [s.studentId, s])
+    )
+    const improved = []
+    const slipped = []
+    for (const now of students) {
+      if (now.band === 'not_yet_calculated') continue
+      const then = before.get(now.studentId)
+      if (!then) continue
+      const from = BAND_RANK[then.band]
+      const to = BAND_RANK[now.band]
+      if (from == null || to == null || from === to) continue
+      const entry = {
+        studentId: now.studentId,
+        firstName: now.firstName,
+        lastName: now.lastName,
+        fromLabel: then.bandLabel,
+        toLabel: now.bandLabel,
+      }
+      if (to > from) improved.push(entry)
+      else slipped.push(entry)
+    }
+    const byName = (a, b) => a.lastName.localeCompare(b.lastName)
+    return {
+      improved: improved.sort(byName),
+      slipped: slipped.sort(byName),
+      previousPeriodName: previousPeriod.name,
+    }
+  }, [students, previous, previousKey, previousPeriod])
 
   const pagedAtRisk = useMemo(
     () => atRisk.slice((atRiskPage - 1) * BAND_PAGE_SIZE, atRiskPage * BAND_PAGE_SIZE),
@@ -339,6 +453,17 @@ export function AcademicProgressPage() {
           {/* Shared column shape across the band tables — identifying
               column first, supporting detail next, status last, so a reader
               moving between bands never has to re-learn the layout. */}
+          {/* The trend, before the three bands. A reader arriving here
+              wants "is this getting better or worse" before "who is in
+              which band today", and the page could not answer the first
+              question at all. */}
+          <BandTrend
+            periods={bandPeriods}
+            movement={movement}
+            scopeLabel={sectionId ? 'section' : 'cohort'}
+            loading={bandPeriods === null}
+          />
+
           <h2 style={{ marginTop: 'var(--space-5)' }}>At Risk ({atRisk.length})</h2>
           <DataTable
             columns={[
@@ -349,9 +474,16 @@ export function AcademicProgressPage() {
                 render: (s) => fieldValue(s.sectionName ? `Grade ${s.gradeLevel} - ${s.sectionName}` : null),
               },
               {
+                // NOT truncated, deliberately. This is the module's actual
+                // output — the rule-based reason a learner was flagged —
+                // and it is the one column here whose text differs per
+                // learner. It was being cut to "Current grade (74.8) is
+                // below ...", which hides the number the sentence exists to
+                // deliver. The other two bands' notes are identical on
+                // every row and are collapsed instead (see below); this one
+                // earns its space.
                 key: 'concern',
                 header: 'Top Concern',
-                truncate: true,
                 render: (s) =>
                   s.topConcern ? (
                     <>
@@ -465,7 +597,19 @@ export function AcademicProgressPage() {
                 header: 'Attendance',
                 render: (s) => fieldValue(formatRate(s.attendanceRate)),
               },
-              { key: 'note', header: 'Note', truncate: true, render: (s) => fieldValue(s.note) },
+              {
+                // config/academicProgress.js's ENCOURAGEMENT_NOTE, which is
+                // the SAME 30-character sentence for every learner in this
+                // band — and it was being truncated on every row to say it.
+                // uniformValue lifts it out and states it once above the
+                // table, which is what DataTable already does for a column
+                // that never varies. If a band's note ever does vary per
+                // learner, the column comes back on its own.
+                key: 'note',
+                header: 'Note',
+                uniformValue: (s) => s.note || '',
+                render: (s) => fieldValue(s.note),
+              },
             ]}
             rows={pagedAverage}
             rowKey={(s) => s.studentId}
@@ -505,13 +649,22 @@ export function AcademicProgressPage() {
                   </>
                 ),
               },
-              { key: 'note', header: 'Recognition', truncate: true, render: (s) => fieldValue(s.note) },
               {
-                key: 'band',
-                header: 'Standing',
-                uniformValue: () => 'performing_well',
-                render: () => <StatusPill label="Performing Well" variant="positive" />,
+                // RECOGNITION_NOTE, identical on every row for the same
+                // reason as the band above — stated once rather than
+                // truncated thirteen times.
+                key: 'note',
+                header: 'Recognition',
+                uniformValue: (s) => s.note || '',
+                render: (s) => fieldValue(s.note),
               },
+              // A "Standing" column was here, rendering "Performing Well"
+              // on every row of a table already headed "Performing Well".
+              // Worse, its uniformValue returned the raw key, so DataTable
+              // collapsed it and restated that key verbatim: the page
+              // literally read "Standing performing_well". Deleted rather
+              // than given a summaryText — a column that repeats its own
+              // heading has nothing to say however it is labelled.
             ]}
             rows={pagedPerformingWell}
             rowKey={(s) => s.studentId}

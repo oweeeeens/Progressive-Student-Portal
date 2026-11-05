@@ -215,12 +215,26 @@ async function canReadBandRollup(user) {
 // period nobody has been assessed in is an empty period, which the frontend
 // shows as such. (Analytics LEFT JOINs instead, because its distribution
 // chart is explicitly about how much of the roster is still unassessed.)
-async function getBandTrend(user) {
+async function getBandTrend(user, { sectionId } = {}) {
   if (!(await canReadBandRollup(user))) return { periods: [] };
 
   const clauses = ['s.is_active = TRUE', 'sy.is_current = TRUE'];
   const params = [];
   appendScopeClause(user, clauses, params);
+
+  // An optional NARROWING, applied on top of the scope clause and never
+  // instead of it. That ordering is the whole safety argument: whatever
+  // section is asked for, the reader still only sees learners
+  // appendScopeClause already allows them, so this needs no permission
+  // check of its own and cannot be used to reach another adviser's
+  // section. It exists so Academic Progress Tracking can draw this chart
+  // for the section its own tables are showing — a chart describing a
+  // different set of learners from the list underneath it is worse than no
+  // chart.
+  if (sectionId) {
+    params.push(Number(sectionId));
+    clauses.push(`s.current_section_id = $${params.length}`);
+  }
 
   const result = await pool.query(
     `SELECT ra.student_id, gp.id AS grading_period_id, gp.name AS period_name, gp.sequence_number,

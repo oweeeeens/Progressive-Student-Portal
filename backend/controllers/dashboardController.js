@@ -26,10 +26,15 @@ async function getQueue(req, res) {
 }
 
 // Band distribution per grading period for this person's own scope — the
-// one chart on the home page. Scoped in the model, so a role with no risk
-// scope gets an empty list rather than a permission error.
+// chart on the home page, and the trend view on Academic Progress Tracking.
+// Scoped in the model, so a role with no risk scope gets an empty list
+// rather than a permission error.
+//
+// `sectionId` only ever NARROWS what the caller could already see (see
+// getBandTrend), so it needs no gate here: asking for a section outside
+// your scope returns nothing rather than someone else's learners.
 async function getBands(req, res) {
-  const bands = await dashboardModel.getBandTrend(req.user);
+  const bands = await dashboardModel.getBandTrend(req.user, { sectionId: req.query.sectionId });
   res.json(bands);
 }
 
