@@ -1,11 +1,17 @@
 /* =============================================================================
    Band trend — how a cohort moved across the terms
    =============================================================================
-   The charts take the room they need and the names sit beside them, because
-   the two answer different questions: the cards say what shape the cohort
-   is, the list says who crossed a line. Below 960px the list goes under the
-   charts rather than being squeezed next to them — a column of names at
-   200px wraps every entry onto three lines.
+   The charts and the names are STACKED, not side by side, and that is the
+   whole point of this file's layout.
+
+   They were side by side, in a `1fr 20rem` grid with `align-items: start`.
+   Two columns only sit well together while their heights are similar, and
+   this rail's height is set by how many learners moved — which is data, not
+   layout. Thirteen movers made a 737px column beside 236px charts: a
+   999x501px hole under the charts, and the bands pushed half a screen down.
+
+   Stacked, each half gets the full width, the names wrap into as many
+   columns as fit, and the block's height stops tracking the cohort size.
 
    Breakpoints are literals, as they must be: a custom property is not valid
    inside a media condition.
@@ -27,53 +33,49 @@
   margin: 0;
 }
 
-.band-trend__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-@media (max-width: 960px) {
-  .band-trend__body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 /* --- Who moved ----------------------------------------------------------- */
 
 .band-trend__movement {
+  margin-top: var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   padding: var(--space-5);
-  min-width: 0;
 }
 .band-trend__movement h3 {
   margin: 0 0 var(--space-4);
   font-size: var(--font-size-lg);
 }
 
-.band-trend__group + .band-trend__group {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
+/* Improved beside Slipped, each wrapping internally. Two columns of groups,
+   not two columns of names — so neither direction becomes a tall stack
+   while the other sits nearly empty. */
+.band-trend__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.band-trend__group {
+  min-width: 0;
 }
 
 .band-trend__group-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
   font-size: var(--font-size-sm);
   font-weight: 600;
-  color: var(--color-text);
 }
-/* Direction is carried by the icon AND the word; the colour only
-   reinforces what both already say. Green and red here are the semantic
-   status tokens, NOT the band ramp — a learner moving between bands is a
-   good or bad event, which is a different kind of thing from the band
-   itself, and the two palettes must not be confused. */
+/* Direction is carried by the icon AND the word; the colour only reinforces
+   what both already say. Green and red here are the semantic status tokens,
+   NOT the band ramp — a learner MOVING between bands is a good or bad
+   event, which is a different kind of thing from the band itself, and the
+   two palettes must not be confused. */
 .band-trend__group--improved .band-trend__group-head {
   color: var(--color-success);
 }
@@ -81,13 +83,16 @@
   color: var(--color-danger);
 }
 
+/* As many name columns as fit. This is what stops the block's height
+   tracking the number of movers: thirteen names become three or four short
+   columns instead of one column thirteen tall. */
 .band-trend__list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-3);
 }
 .band-trend__list li {
   display: flex;
@@ -103,6 +108,12 @@
   overflow-wrap: anywhere;
 }
 .band-trend__move {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.band-trend__more {
+  margin: var(--space-3) 0 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }

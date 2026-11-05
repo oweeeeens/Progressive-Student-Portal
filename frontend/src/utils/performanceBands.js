@@ -82,3 +82,15 @@ export const SEGMENT_SPEC = BUCKET_ORDER.map(toSegment)
 // to be about how students are doing. Pages report it as a line of text
 // beneath the chart instead.
 export const BAND_SEGMENT_SPEC = BUCKET_ORDER.filter((key) => key !== 'not_yet_calculated').map(toSegment)
+
+// The three BANDS, worst to best — a different (coarser) vocabulary from
+// the bucket keys above, which split At Risk into its three levels. A band
+// is what academicProgressCalculator.determineBand returns and what a
+// student row carries as `band`; a bucket is how a distribution chart
+// slices it.
+//
+// This is only an ORDERING, for deciding which WAY a learner moved between
+// two terms and which movements matter most. The bands themselves, their
+// labels and their colours are defined above and in the server's
+// config/academicProgress.js.
+export const BAND_RANK = { at_risk: 0, average: 1, performing_well: 2 }

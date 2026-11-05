@@ -12,15 +12,10 @@ import { formatGrade, formatRate, formatTrend } from '../utils/formatNumber'
 import { TrendIcon } from '../components/TrendIcon'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { BandTrend } from '../components/BandTrend'
+import { BAND_RANK } from '../utils/performanceBands'
 import { INTERVENTION_TYPE_LABELS } from '../components/InterventionDetailPanel'
 import { Alert } from '../components/Alert'
 import { SkeletonTable } from '../components/Skeleton'
-
-// Worst to best, for deciding which WAY a learner moved between two terms.
-// Only an ordering — the bands themselves, their labels and their colours
-// are defined once in utils/performanceBands.js and in the server's
-// config/academicProgress.js.
-const BAND_RANK = { at_risk: 0, average: 1, performing_well: 2 }
 
 const BAND_PAGE_SIZE = 15
 const LEVEL_VARIANTS = { high: 'risk-high', medium: 'risk-medium', low: 'risk-low' }
@@ -276,16 +271,20 @@ export function AcademicProgressPage() {
         lastName: now.lastName,
         fromLabel: then.bandLabel,
         toLabel: now.bandLabel,
+        // The band KEYS travel too, so BandTrend can order by consequence
+        // before it caps a long list — a slip into At Risk must never be
+        // the one cut while a slip into Average survives. Labels are for
+        // reading; only the keys can be ranked.
+        fromBand: then.band,
+        toBand: now.band,
       }
       if (to > from) improved.push(entry)
       else slipped.push(entry)
     }
-    const byName = (a, b) => a.lastName.localeCompare(b.lastName)
-    return {
-      improved: improved.sort(byName),
-      slipped: slipped.sort(byName),
-      previousPeriodName: previousPeriod.name,
-    }
+    // Deliberately unsorted here. BandTrend orders each group by
+    // consequence because that is what decides which names survive its
+    // cap, and sorting twice would just mean the second sort won.
+    return { improved, slipped, previousPeriodName: previousPeriod.name }
   }, [students, previous, previousKey, previousPeriod])
 
   const pagedAtRisk = useMemo(
@@ -591,11 +590,36 @@ export function AcademicProgressPage() {
                 header: 'Section',
                 render: (s) => fieldValue(s.sectionName ? `Grade ${s.gradeLevel} - ${s.sectionName}` : null),
               },
-              { key: 'grade', header: 'Grade', align: 'right', render: (s) => fieldValue(formatGrade(s.averageGrade)) },
+              {
+                // Grade and attendance now each carry their TREND, and this
+                // is the band where that matters most. "Average / Steady"
+                // is the label least likely to be looked at twice, and it
+                // is where a learner sitting on 81.8 while falling four
+                // points a period hides — not steady at all, about to be
+                // flagged, and the page previously showed the 81.8 and not
+                // the fall. On a module whose whole argument is that the
+                // trend matters more than the snapshot, this table was
+                // showing only snapshots.
+                key: 'grade',
+                header: 'Grade / Trend',
+                render: (s) => (
+                  <>
+                    {fieldValue(formatGrade(s.averageGrade))}
+                    {s.gradeTrend != null && ` (${formatTrend(s.gradeTrend)}/period)`}
+                    <TrendIcon trend={s.gradeTrend} />
+                  </>
+                ),
+              },
               {
                 key: 'attendance',
-                header: 'Attendance',
-                render: (s) => fieldValue(formatRate(s.attendanceRate)),
+                header: 'Attendance / Trend',
+                render: (s) => (
+                  <>
+                    {fieldValue(formatRate(s.attendanceRate))}
+                    {s.attendanceTrend != null && ` (${formatTrend(s.attendanceTrend)}/period)`}
+                    <TrendIcon trend={s.attendanceTrend} />
+                  </>
+                ),
               },
               {
                 // config/academicProgress.js's ENCOURAGEMENT_NOTE, which is
@@ -646,6 +670,20 @@ export function AcademicProgressPage() {
                     {fieldValue(formatGrade(s.averageGrade))}
                     {s.gradeTrend != null && ` (${formatTrend(s.gradeTrend)}/period)`}
                     <TrendIcon trend={s.gradeTrend} />
+                  </>
+                ),
+              },
+              {
+                // This table showed a grade and its trend and NO attendance
+                // whatsoever, so a high achiever whose attendance is
+                // sliding read as entirely untroubled.
+                key: 'attendance',
+                header: 'Attendance / Trend',
+                render: (s) => (
+                  <>
+                    {fieldValue(formatRate(s.attendanceRate))}
+                    {s.attendanceTrend != null && ` (${formatTrend(s.attendanceTrend)}/period)`}
+                    <TrendIcon trend={s.attendanceTrend} />
                   </>
                 ),
               },
