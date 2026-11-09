@@ -37,7 +37,6 @@ import { humanize } from '../utils/humanize'
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
 const RISK_LABELS = { low: 'Low', medium: 'Medium', high: 'High' }
 const BAND_ICONS = { at_risk: ShieldAlert, average: Activity, performing_well: Award }
-const CATEGORY_LABELS = { grades: 'Grades', attendance: 'Attendance' }
 // The two checks that are a VALUE on a fixed scale, so a bar can show where
 // they sit against their target. The other two are rates of change, which
 // have no position on such a scale — they keep their sentence rather than
@@ -175,13 +174,28 @@ export function StudentHomePage() {
       .catch((err) => setError(err.message))
   }, [announcementPage])
 
-  const messagesByCategory = useMemo(() => {
-    const groups = { grades: [], attendance: [] }
+  // One row per flagged thing, pairing each exit target with the advice for
+  // the SAME factor. Both come from the same triggered-factor list on the
+  // server (academicProgressCalculator), so they pair one-to-one — but the
+  // join is written defensively anyway: a target with no message still
+  // renders, and a message with no target is appended rather than dropped,
+  // because silently losing advice is worse than an odd-looking row.
+  const adviceRows = useMemo(() => {
+    const messageFor = new Map((progress?.messages || []).map((m) => [m.factorKey, m.message]))
+    const rows = (progress?.exitTargets || []).map((target) => ({
+      factorKey: target.factorKey,
+      target,
+      scale: TARGET_BAR_SCALES[target.factorKey],
+      message: messageFor.get(target.factorKey) || null,
+    }))
+    const covered = new Set(rows.map((r) => r.factorKey))
     for (const m of progress?.messages || []) {
-      if (groups[m.category]) groups[m.category].push(m)
+      if (!covered.has(m.factorKey)) rows.push({ factorKey: m.factorKey, target: null, scale: null, message: m.message })
     }
-    return groups
+    return rows.filter((r) => r.target || r.message)
   }, [progress])
+
+  const hasAdvice = adviceRows.length > 0
 
   // Nulls stay null so a period with no data draws no bar at all, rather
   // than a zero-height one that would read as "scored nothing" (see the
@@ -354,58 +368,39 @@ export function StudentHomePage() {
               it is flagged. */}
           <CheckStrip checks={progress.checks} />
 
-          {(messagesByCategory.grades.length > 0 || messagesByCategory.attendance.length > 0) && (
-            <>
-              <div className="advice-card__groups">
-                {Object.entries(messagesByCategory).map(([category, entries]) =>
-                  entries.length === 0 ? null : (
-                    <div key={category}>
-                      <h3>{CATEGORY_LABELS[category]}</h3>
-                      <ul>
-                        {entries.map((m) => (
-                          <li key={m.factorKey}>{m.message}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )
+          {/* WHO the advice above means.
+                Every student-facing advisory in config/academicProgress.js
+                says "talk to your adviser", and the page was telling a
+                learner up to four times to go and see somebody it never
+                named here. The name was on screen — but in "Your record on
+                file", a separate panel much further down, which a learner
+                has no reason to scroll to looking for a name nobody told
+                them was there.
+
+                Rendered only alongside advice, because that is what it
+                answers: a learner with nothing flagged gets no "talk to
+                your adviser" sentence and so needs no name beside it.
+                Their adviser is still on the record panel below, as
+                before — this adds a line, it does not move one.
+
+                `student` arrives from a second request (GET /students/:id
+                is the only call that joins adviser_name), so until it
+                lands this renders nothing rather than making the advice
+                wait on it. */}
+          {hasAdvice && student && (
+            <p className="advice-card__adviser">
+                {student.adviser_name ? (
+                  <>
+                    Your adviser is <strong>{student.adviser_name}</strong>.
+                  </>
+                ) : (
+                  // Deliberately not a dash. A dash would leave the advice
+                  // sending a learner to see someone while the space where
+                  // that person's name belongs sits empty — so this says
+                  // the actionable version of the same fact instead.
+                  <>Your section has no adviser assigned yet — ask the registrar who to speak to.</>
                 )}
-              </div>
-
-              {/* WHO the advice above means.
-                  Every student-facing advisory in config/academicProgress.js
-                  says "talk to your adviser", and the page was telling a
-                  learner up to four times to go and see somebody it never
-                  named here. The name was on screen — but in "Your record on
-                  file", a separate panel much further down, which a learner
-                  has no reason to scroll to looking for a name nobody told
-                  them was there.
-
-                  Rendered only alongside advice, because that is what it
-                  answers: a learner with nothing flagged gets no "talk to
-                  your adviser" sentence and so needs no name beside it.
-                  Their adviser is still on the record panel below, as
-                  before — this adds a line, it does not move one.
-
-                  `student` arrives from a second request (GET /students/:id
-                  is the only call that joins adviser_name), so until it
-                  lands this renders nothing rather than making the advice
-                  wait on it. */}
-              {student && (
-                <p className="advice-card__adviser">
-                  {student.adviser_name ? (
-                    <>
-                      Your adviser is <strong>{student.adviser_name}</strong>.
-                    </>
-                  ) : (
-                    // Deliberately not a dash. A dash would leave the advice
-                    // sending a learner to see someone while the space where
-                    // that person's name belongs sits empty — so this says
-                    // the actionable version of the same fact instead.
-                    <>Your section has no adviser assigned yet — ask the registrar who to speak to.</>
-                  )}
-                </p>
-              )}
-            </>
+              </p>
           )}
 
           {progress.note && <p className="advice-card__note">{progress.note}</p>}
@@ -420,35 +415,53 @@ export function StudentHomePage() {
                   ? 'Reaching this would clear your current flag:'
                   : `You are flagged on ${progress.exitTargets.length} things. Clearing all of them moves you out of At Risk — each one you reach still lowers your risk level:`}
               </p>
-              {/* A bar for the targets that are a position on a scale, so
-                  the distance left to cover is visible rather than
-                  arithmetic the reader has to do. */}
-              {progress.exitTargets
-                .filter((t) => TARGET_BAR_SCALES[t.factorKey])
-                .map((t) => (
-                  <TargetBar
-                    key={t.factorKey}
-                    label={t.measure}
-                    current={t.current}
-                    target={t.target}
-                    {...TARGET_BAR_SCALES[t.factorKey]}
-                  />
-                ))}
+              {/* ONE ROW PER FLAGGED THING, and this is the change that
+                  matters here. The card used to make three separate passes
+                  over the same four facts: a chip for each, then an advice
+                  sentence for each, then a target for each. A learner
+                  wanting to understand one problem had to find it in three
+                  places, and the card was long not because it said much but
+                  because it said the same four things three ways.
 
-              {/* The rest — the rate-of-change checks — stay as sentences.
-                  The trend charts below show their shape over time. */}
-              {progress.exitTargets.some((t) => !TARGET_BAR_SCALES[t.factorKey]) && (
-                <ul>
-                  {progress.exitTargets
-                    .filter((t) => !TARGET_BAR_SCALES[t.factorKey])
-                    .map((t) => (
-                      <li key={t.factorKey}>
-                        {t.text}
-                        {t.currentText && <span className="advice-card__current"> — currently {t.currentText}</span>}
-                      </li>
-                    ))}
-                </ul>
-              )}
+                  The advice now sits beside the target it is about, joined
+                  on factorKey. The checks above stay — they are the summary,
+                  and showing the cleared ones is how a student knows they
+                  are flagged on four things out of four rather than four out
+                  of twenty (see CheckStrip).
+
+                  It also uses the width. TargetBar caps itself at 44rem
+                  because a bar wider than that is hard to read against its
+                  marker — which left most of the card empty to the right of
+                  every bar. That space now carries the sentence. */}
+              {adviceRows.map((row) => (
+                <div className="advice-issue" key={row.factorKey}>
+                  <div className="advice-issue__target">
+                    {row.scale ? (
+                      <TargetBar
+                        label={row.target.measure}
+                        current={row.target.current}
+                        target={row.target.target}
+                        {...row.scale}
+                      />
+                    ) : (
+                      /* A rate of change has no honest position on a fixed
+                         scale, so it keeps its sentence rather than being
+                         forced into a bar with an invented axis — the same
+                         rule TargetBar's own header states. */
+                      <div className="advice-issue__trend">
+                        <span className="advice-issue__measure">{row.target.measure}</span>
+                        <p>
+                          {row.target.text}
+                          {row.target.currentText && (
+                            <span className="advice-card__current"> — currently {row.target.currentText}</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {row.message && <p className="advice-issue__action">{row.message}</p>}
+                </div>
+              ))}
             </div>
           )}
         </section>

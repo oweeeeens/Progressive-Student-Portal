@@ -1659,6 +1659,70 @@ th {
   margin-top: 0;
   color: var(--color-text-muted);
 }
+/* One flagged thing: its target on the left, what to do about it on the
+   right.
+
+   The card used to make three passes over the same four facts — a chip
+   each, an advice sentence each, a target each — so understanding one
+   problem meant finding it in three places. The sentence now sits beside
+   the bar it belongs to.
+
+   It also puts the empty half of the card to work. TargetBar caps itself at
+   44rem because a bar wider than that is hard to read against its marker,
+   which left most of a 1500px card blank to the right of every bar. The
+   left column is sized to that cap so the bar keeps its readable measure
+   and the text takes the room the bar should not.
+
+   720px is the shared phone boundary, written as a literal because a custom
+   property is not valid inside a media condition. Below it the sentence
+   goes under its target rather than into a column too narrow to read. */
+.advice-issue {
+  display: grid;
+  grid-template-columns: minmax(0, 28rem) minmax(0, 1fr);
+  gap: var(--space-3) var(--space-5);
+  align-items: start;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.advice-issue:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.advice-issue__target {
+  min-width: 0;
+}
+/* The row owns the spacing between issues, so the bar drops its own. */
+.advice-issue .target-bar {
+  max-width: none;
+  margin-bottom: 0;
+}
+/* A rate of change keeps its sentence instead of a bar, so it needs the
+   label the bar would otherwise have carried. */
+.advice-issue__measure {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.advice-issue__trend p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+.advice-issue__action {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+@media (max-width: 720px) {
+  .advice-issue {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .advice-card__current {
   color: var(--color-text-muted);
 }
