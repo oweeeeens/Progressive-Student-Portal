@@ -355,20 +355,57 @@ export function StudentHomePage() {
           <CheckStrip checks={progress.checks} />
 
           {(messagesByCategory.grades.length > 0 || messagesByCategory.attendance.length > 0) && (
-            <div className="advice-card__groups">
-              {Object.entries(messagesByCategory).map(([category, entries]) =>
-                entries.length === 0 ? null : (
-                  <div key={category}>
-                    <h3>{CATEGORY_LABELS[category]}</h3>
-                    <ul>
-                      {entries.map((m) => (
-                        <li key={m.factorKey}>{m.message}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )
+            <>
+              <div className="advice-card__groups">
+                {Object.entries(messagesByCategory).map(([category, entries]) =>
+                  entries.length === 0 ? null : (
+                    <div key={category}>
+                      <h3>{CATEGORY_LABELS[category]}</h3>
+                      <ul>
+                        {entries.map((m) => (
+                          <li key={m.factorKey}>{m.message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                )}
+              </div>
+
+              {/* WHO the advice above means.
+                  Every student-facing advisory in config/academicProgress.js
+                  says "talk to your adviser", and the page was telling a
+                  learner up to four times to go and see somebody it never
+                  named here. The name was on screen — but in "Your record on
+                  file", a separate panel much further down, which a learner
+                  has no reason to scroll to looking for a name nobody told
+                  them was there.
+
+                  Rendered only alongside advice, because that is what it
+                  answers: a learner with nothing flagged gets no "talk to
+                  your adviser" sentence and so needs no name beside it.
+                  Their adviser is still on the record panel below, as
+                  before — this adds a line, it does not move one.
+
+                  `student` arrives from a second request (GET /students/:id
+                  is the only call that joins adviser_name), so until it
+                  lands this renders nothing rather than making the advice
+                  wait on it. */}
+              {student && (
+                <p className="advice-card__adviser">
+                  {student.adviser_name ? (
+                    <>
+                      Your adviser is <strong>{student.adviser_name}</strong>.
+                    </>
+                  ) : (
+                    // Deliberately not a dash. A dash would leave the advice
+                    // sending a learner to see someone while the space where
+                    // that person's name belongs sits empty — so this says
+                    // the actionable version of the same fact instead.
+                    <>Your section has no adviser assigned yet — ask the registrar who to speak to.</>
+                  )}
+                </p>
               )}
-            </div>
+            </>
           )}
 
           {progress.note && <p className="advice-card__note">{progress.note}</p>}

@@ -1627,6 +1627,17 @@ th {
 .advice-card__targets li {
   margin-bottom: var(--space-1);
 }
+/* Who the advice means. Sits between the advisory list and the note, and
+   reads as a continuation of the advice rather than a separate field —
+   it is answering the sentence directly above it. */
+.advice-card__adviser {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-base);
+  line-height: 1.55;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
 .advice-card__note {
   margin: 0;
 }
