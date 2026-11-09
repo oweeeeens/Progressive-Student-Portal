@@ -33,7 +33,9 @@ const pg = new EmbeddedPostgres({
 //               rather than signals), so this is the normal case, not an
 //               exception.
 //   'stale'   — the process is gone and only its lock survived, typically
-//               after a crash or a forced kill.
+//               after a crash or a forced kill. ALSO the case when the pid
+//               in the file now belongs to something else entirely: see
+//               below, this is not hypothetical.
 //
 // Returns 'running', 'stale' (after removing the dead lock), or 'none'.
 function inspectLockFile() {
@@ -44,18 +46,52 @@ function inspectLockFile() {
   const pid = Number(fs.readFileSync(lockFile, 'utf8').split('\n')[0]);
   if (!Number.isInteger(pid) || pid <= 0) return 'none';
 
+  let pidExists = true;
   try {
     // Signal 0 tests for a process's existence without touching it.
     process.kill(pid, 0);
-    return 'running';
   } catch (error) {
-    // EPERM means it exists but belongs to someone else — still running.
-    if (error.code !== 'ESRCH') return 'running';
+    // EPERM means it exists but belongs to someone else — still there.
+    pidExists = error.code !== 'ESRCH';
+  }
+
+  if (pidExists) {
+    return 'running';
   }
 
   fs.unlinkSync(lockFile);
   console.warn(`Removed a stale postmaster.pid left by process ${pid}, which is no longer running.`);
   return 'stale';
+}
+
+// Is anything actually accepting connections on the configured port?
+//
+// THE LOCK FILE IS A HINT; THIS IS THE FACT, and the difference stopped
+// being academic. inspectLockFile only ever asked "does a process with this
+// pid exist", never "is it PostgreSQL" — and Windows reuses pids freely. A
+// dead postgres left its lock naming pid 1884; by the next start, 1884 was
+// `ibmpmsvc`, an unrelated Lenovo service. The check saw a live pid,
+// reported 'running', skipped starting the database, and every request then
+// failed with ECONNREFUSED on 5433 while the log cheerfully said
+// "already running for this data directory — reusing it".
+//
+// A pid is a number anyone can end up holding. A socket on OUR port either
+// answers or it does not, so that is what the decision is made on.
+function isPortAccepting(port) {
+  const net = require('net');
+  return new Promise((resolve) => {
+    const socket = net.connect({ port, host: '127.0.0.1' });
+    const settle = (result) => {
+      socket.destroy();
+      resolve(result);
+    };
+    // Short: this is a loopback connection to a port that is either bound or
+    // not. A long wait here would just delay every single start-up.
+    socket.setTimeout(1000);
+    socket.once('connect', () => settle(true));
+    socket.once('timeout', () => settle(false));
+    socket.once('error', () => settle(false));
+  });
 }
 
 // When this process is killed rather than asked to stop — which is what
@@ -141,9 +177,27 @@ async function startEmbeddedPostgres() {
   // a nodemon restart seamless instead of a crash loop — before it, every
   // backend file change left an orphaned PostgreSQL holding the lock and the
   // next start died on "lock file postmaster.pid already exists".
-  if (inspectLockFile() === 'running') {
+  // Adopted only if the lock says a process is alive AND that process is
+  // actually serving our port. The lock alone is not enough — a recycled
+  // pid can make a dead cluster look alive (see isPortAccepting), and the
+  // result is a server that reports "reusing it" and then refuses every
+  // connection.
+  const lockState = inspectLockFile();
+  const serving = lockState === 'running' && (await isPortAccepting(Number(process.env.PGPORT)));
+
+  if (serving) {
     console.log('Embedded PostgreSQL is already running for this data directory — reusing it.');
   } else {
+    if (lockState === 'running') {
+      // The pid in the lock belongs to something, but nothing is listening.
+      // The lock is therefore somebody else's pid, and holding onto it would
+      // block the start below forever.
+      fs.unlinkSync(path.join(dataDir, 'postmaster.pid'));
+      console.warn(
+        'postmaster.pid named a live process, but nothing is listening on ' +
+          `${process.env.PGPORT}. The pid has been reused by an unrelated process; removed the lock and starting fresh.`
+      );
+    }
     // The lock said no postmaster is alive, so anything still running from
     // this project's PostgreSQL is a leftover worker holding the cluster's
     // shared memory. Clear it, or the start below fails.
