@@ -35,16 +35,45 @@ const GRADE_EXPLAINER_ID = 'grade-stat-explainer'
 
 // One sentence about the movement above: the subject that moved most against
 // the student if anything fell, otherwise the best news available.
+//
+// TIES ARE NAMED AS TIES. This took the first row and called it "the most",
+// which is only true when nothing matches it — and on a small timetable
+// matching is the ordinary case, not the exception. A learner whose five
+// subjects every fell by exactly 12 was told "General Chemistry 1 fell the
+// most, by 12 points", singling out a subject for a decline four others
+// shared equally. The ranking was an artefact of the sort order.
 function describeMovement(changes) {
   if (changes.length === 0) return null
   const worst = changes[0]
   const best = changes[changes.length - 1]
+
+  // How many share the extreme — the whole question the old wording begged.
+  const sharing = (value) => changes.filter((c) => c.value === value).length
+
   if (worst.value < 0) {
-    return `${worst.label} fell the most, by ${Math.abs(worst.value)} points. ${
-      best.value > 0 ? `${best.label} rose ${best.value}.` : 'Nothing rose this period.'
-    }`
+    const drop = Math.abs(worst.value)
+    const tied = sharing(worst.value)
+    const fell =
+      tied === changes.length
+        ? `All ${changes.length} subjects fell by ${drop} points.`
+        : tied > 1
+          ? `${tied} subjects fell by ${drop} points, the biggest drop.`
+          : `${worst.label} fell the most, by ${drop} points.`
+    if (best.value <= 0) return `${fell} Nothing rose this period.`
+    const rose = sharing(best.value)
+    return rose > 1
+      ? `${fell} ${rose} subjects rose ${best.value}.`
+      : `${fell} ${best.label} rose ${best.value}.`
   }
-  if (best.value > 0) return `Everything held or improved — ${best.label} rose the most, by ${best.value} points.`
+
+  if (best.value > 0) {
+    const tied = sharing(best.value)
+    return tied === changes.length
+      ? `Everything improved, all by ${best.value} points.`
+      : tied > 1
+        ? `Everything held or improved — ${tied} subjects rose the most, by ${best.value} points.`
+        : `Everything held or improved — ${best.label} rose the most, by ${best.value} points.`
+  }
   return 'Every subject held exactly steady.'
 }
 
@@ -246,12 +275,13 @@ export function StudentGradesPage() {
   // "nothing is scheduled for you in Term 3" — which a learner needs to be
   // able to see and ask about — into a term that appears not to exist.
   const termTabs = useMemo(() => {
-    const perTerm = gradingPeriods.map((period) => ({
+    const perTerm = gradingPeriods.map((period, index) => ({
       key: `period-${period.id}`,
       label: period.name,
       content: (
         <TermTable
           period={period}
+          previousPeriod={gradingPeriods[index - 1] || null}
           rows={gradeMatrix.filter((row) =>
             offeringCoversPeriod({
               term: row.term,
@@ -527,7 +557,10 @@ function WholeYearGrid({
 // One term: only the subjects actually running in it, with that term's mark.
 // No columns of dashes for subjects that are not taught this term — a dash
 // here means "no mark recorded yet", and nothing else.
-function TermTable({ period, rows, passingGrade, error }) {
+// `previousPeriod` is the term immediately before this one, or null for the
+// first term of the year — it is what the change column compares against and
+// what names that column's header.
+function TermTable({ period, previousPeriod, rows, passingGrade, error }) {
   return (
     <DataTable illustration="grades"
       columns={[
@@ -569,6 +602,41 @@ function TermTable({ period, rows, passingGrade, error }) {
             )
           },
         },
+        // HOW THIS SUBJECT MOVED, on the row rather than only in the chart
+        // below. The table had three columns and used 39% of the page, while
+        // the one question a learner brings to a single subject — "is this
+        // getting better or worse" — meant scrolling to a chart and finding
+        // the right bar. The chart stays: it ranks every subject at a glance,
+        // which a column cannot.
+        //
+        // Only FINALIZED marks are compared on both sides. This page's own
+        // legend says only a finalized mark is official, so comparing an
+        // in-review one would produce a movement that is not yet real.
+        ...(previousPeriod
+          ? [
+              {
+                key: 'change',
+                header: `vs ${previousPeriod.name}`,
+                align: 'right',
+                render: (r) => {
+                  const now = r.cells[period.name]
+                  const before = r.cells[previousPeriod.name]
+                  if (now?.status !== 'finalized' || before?.status !== 'finalized') {
+                    return <span className="grade-cell__empty">—</span>
+                  }
+                  const delta = Math.round((now.value - before.value) * 10) / 10
+                  if (delta === 0) return <span className="cell-secondary">no change</span>
+                  const Icon = delta > 0 ? ArrowUp : ArrowDown
+                  return (
+                    <span className={`grade-change grade-change--${delta > 0 ? 'up' : 'down'}`}>
+                      <Icon size={14} strokeWidth={2} aria-hidden="true" />
+                      {delta > 0 ? `+${delta}` : delta}
+                    </span>
+                  )
+                },
+              },
+            ]
+          : []),
       ]}
       rows={rows}
       rowKey={(r) => r.subjectId}

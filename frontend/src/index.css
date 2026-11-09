@@ -3576,6 +3576,25 @@ textarea[aria-invalid='true']:focus-visible {
 }
 /* No mark recorded for this subject in this period. Faint, because an empty
    cell is an absence of data, not a zero. */
+/* How a subject moved since the previous term, on its own row. Takes the
+   same two colours as the Movement chart's legend directly below it, so the
+   column and the chart cannot disagree about which way is good. The arrow
+   carries the direction as well as the colour, and the sign is in the text —
+   colour is never the only signal. */
+.grade-change {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.grade-change--up {
+  color: var(--band-performing-well);
+}
+.grade-change--down {
+  color: var(--band-at-risk-high);
+}
+
 .grade-cell__empty {
   color: var(--color-text-faint);
 }
