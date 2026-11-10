@@ -51,7 +51,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   gap: var(--space-4);
-  align-items: start;
+  /* stretch, not start: side by side, the chart card ended well above the
+     "Needs a conversation" list beside it and left a dead block under it.
+     Both columns now share the row's height. */
+  align-items: stretch;
   margin-bottom: var(--space-5);
 }
 
@@ -63,6 +66,36 @@
 
 .standing-panel {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* The chart card takes the column's full height (the comparison sentence
+   stays underneath it), and its five bars spread down the extra space
+   instead of bunching at the top over an empty band. Each bar keeps its
+   own fixed height; only the spacing between them grows. */
+.standing-panel > .chart-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.standing-panel .chart-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+/* BarChart's own wrapper (it holds the tooltip) sits between the body and
+   the bars, so it has to stretch as well. */
+.standing-panel .chart-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+/* The usual max-height exists for long bar lists that should scroll; this
+   one is always the five performance bands, so it may simply use the room. */
+.standing-panel .bar-chart {
+  flex: 1;
+  max-height: none;
+  justify-content: space-evenly;
 }
 /* ChartCard draws its own surface, so this only carries the deep link in
    its actions slot and the comparison sentence underneath. */
