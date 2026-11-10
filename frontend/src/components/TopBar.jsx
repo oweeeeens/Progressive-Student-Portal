@@ -121,7 +121,13 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar, isPhone = false, dra
         <span className="top-bar__date">{today}</span>
         {gradingPeriod && (
           <span className="pill pill--info">
-            {gradingPeriod.name}, {gradingPeriod.schoolYearLabel}
+            {/* One inline run inside the flex pill, so the pill's gap does
+                not open a space before the comma. The year is the part a
+                320px phone can spare (TopBar.css). */}
+            <span>
+              {gradingPeriod.name}
+              <span className="top-bar__term-year">, {gradingPeriod.schoolYearLabel}</span>
+            </span>
           </span>
         )}
       </div>

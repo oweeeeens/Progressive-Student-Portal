@@ -62,7 +62,10 @@
   text-decoration-thickness: 1px;
   text-underline-offset: 0.2em;
 }
-@media (max-width: 420px) {
+/* Letters only below 360px. An ordinary 390–430px phone has room for all
+   four words (about 270px in a 330px card), and a phone is exactly where a
+   teacher marks the register standing at the classroom door. */
+@media (max-width: 359px) {
   .status-segmented__option {
     padding: 0;
   }

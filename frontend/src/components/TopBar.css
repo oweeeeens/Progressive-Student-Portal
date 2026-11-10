@@ -177,6 +177,21 @@
   .top-bar__profile-text {
     display: none;
   }
+  /* With the 44px touch floor below, menu + date + term + theme + account
+     no longer fit a 390px phone and the bar wrapped onto a second row,
+     taking ~50px off every page. The date is the one item the phone itself
+     already shows in its status bar; the term chip stays, since that is
+     where-am-I information nothing else on the screen gives. */
+  .top-bar__date {
+    display: none;
+  }
+}
+/* The smallest phones still wrapped by ~20px; the school year inside the
+   term chip goes too — "Term 2" alone still says where in the year you are. */
+@media (max-width: 359px) {
+  .top-bar__term-year {
+    display: none;
+  }
 }
 
 /* 26px is a comfortable mouse target and an unusable thumb target, and the
