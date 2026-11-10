@@ -363,7 +363,7 @@ export function BulkImportAttendancePage() {
               <span className="form-steps__index">
                 {index < currentStepIndex ? <Check size={14} strokeWidth={2} /> : index + 1}
               </span>
-              {s.label}
+              <span className="form-steps__label">{s.label}</span>
             </span>
           </li>
         ))}
@@ -472,7 +472,7 @@ export function BulkImportAttendancePage() {
       {step === 'anchors' && (
         <div className="record-section">
           <h2>2. Point at the grid</h2>
-          <p style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-muted">
             {fileName} — the first {Math.max(preview.length - 1, 0)} rows are shown. SF2 forms put a header
             block above the grid, so the import has to be told exactly where the learners and the days are.
             Click a column heading to mark the LRN column, and a row number to mark the day row.
@@ -555,7 +555,7 @@ export function BulkImportAttendancePage() {
             check them against the sheet's own header before continuing.
           </p>
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div className="button-row button-row--spaced">
             <button type="button" onClick={resetAll}>
               <ArrowLeft size={16} strokeWidth={1.75} />
               Start Over
@@ -575,12 +575,12 @@ export function BulkImportAttendancePage() {
       {step === 'symbols' && (
         <div className="record-section">
           <h2>3. Map the marks</h2>
-          <p style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-muted">
             Every distinct mark found in the grid, most common first. One school's "X" is an absence and
             another's is a tick, so nothing is assumed — say what each one means before anything is written.
           </p>
 
-          <div className="table-card" style={{ marginTop: 'var(--space-3)' }}>
+          <div className="table-card mt-3">
             <table>
               <thead>
                 <tr>
@@ -647,7 +647,7 @@ export function BulkImportAttendancePage() {
             </Alert>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div className="button-row button-row--spaced">
             <button type="button" onClick={() => setStep('anchors')}>
               <ArrowLeft size={16} strokeWidth={1.75} />
               Back to the Grid
@@ -699,7 +699,7 @@ export function BulkImportAttendancePage() {
           />
 
           {plan.summary.firstDate && (
-            <p style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-muted">
               Covers {plan.summary.firstDate} to {plan.summary.lastDate}
               {plan.summary.ignoredCells > 0 &&
                 `. ${plan.summary.ignoredCells.toLocaleString()} cell${
@@ -714,8 +714,8 @@ export function BulkImportAttendancePage() {
               server refuses the import while any is undecided. */}
           {plan.conflicts.length > 0 && (
             <>
-              <h3 style={{ marginTop: 'var(--space-5)' }}>Days that already have attendance</h3>
-              <p style={{ color: 'var(--color-text-muted)' }}>
+              <h3 className="mt-5">Days that already have attendance</h3>
+              <p className="text-muted">
                 Someone has already recorded these days. Choose each one: overwrite it with what the sheet
                 says, or leave the existing record alone and skip that day.
               </p>
@@ -761,8 +761,8 @@ export function BulkImportAttendancePage() {
 
           {plan.skipped.unknownStudents.length > 0 && (
             <>
-              <h3 style={{ marginTop: 'var(--space-5)' }}>LRNs not in this {mode === 'subject' ? 'class' : 'section'}</h3>
-              <p style={{ color: 'var(--color-text-muted)' }}>
+              <h3 className="mt-5">LRNs not in this {mode === 'subject' ? 'class' : 'section'}</h3>
+              <p className="text-muted">
                 These rows will not be imported. Either the LRN is mistyped, or the learner belongs to another{' '}
                 {mode === 'subject' ? 'class' : 'section'} — in which case import that sheet separately rather
                 than filing them here.
@@ -792,8 +792,8 @@ export function BulkImportAttendancePage() {
 
           {plan.skipped.duplicateStudents.length > 0 && (
             <>
-              <h3 style={{ marginTop: 'var(--space-5)' }}>Learners listed more than once</h3>
-              <p style={{ color: 'var(--color-text-muted)' }}>
+              <h3 className="mt-5">Learners listed more than once</h3>
+              <p className="text-muted">
                 Only the first row for each learner is imported. If the later row is the correct one, fix the
                 sheet and import it again.
               </p>
@@ -832,7 +832,7 @@ export function BulkImportAttendancePage() {
             <Alert>Nothing in this sheet can be imported. The reasons are listed above.</Alert>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div className="button-row button-row--spaced">
             <button type="button" onClick={() => setStep('symbols')}>
               <ArrowLeft size={16} strokeWidth={1.75} />
               Back to the Marks
@@ -865,14 +865,14 @@ export function BulkImportAttendancePage() {
             } learner${result.studentCount === 1 ? '' : 's'}.`}
           >
             {result.recalculatedPeriods > 0 && (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+              <p className="help-text">
                 Academic Progress Tracking was recalculated for {result.recalculatedPeriods} grading period
                 {result.recalculatedPeriods === 1 ? '' : 's'} — the new attendance rates are already reflected
                 there.
               </p>
             )}
             {mode === 'subject' && (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+              <p className="help-text">
                 Subject attendance is supplementary and is not used in risk scoring, so nothing was
                 recalculated.
               </p>
@@ -883,7 +883,7 @@ export function BulkImportAttendancePage() {
             result.skipped.unknownStudents.length > 0 ||
             result.skipped.duplicateStudents.length > 0 ||
             result.skipped.datesWithoutPeriod.length > 0) && (
-            <div className="record-section" style={{ marginTop: 'var(--space-4)' }}>
+            <div className="record-section mt-4">
               <h3>
                 <CircleSlash size={16} strokeWidth={1.75} /> What was left out
               </h3>
@@ -915,7 +915,7 @@ export function BulkImportAttendancePage() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div className="button-row button-row--spaced">
             <button type="button" onClick={resetAll}>
               Import Another File
             </button>

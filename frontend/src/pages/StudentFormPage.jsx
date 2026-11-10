@@ -231,7 +231,9 @@ export function StudentFormPage() {
           { label: isEdit ? 'Edit' : 'New' },
         ]}
       />
-      <h1>{isEdit ? 'Edit Student' : 'New Student'}</h1>
+      <div className="page-header">
+        <h1>{isEdit ? 'Edit Student' : 'New Student'}</h1>
+      </div>
 
       {/* One column. A preview card used to sit beside this form
           showing the LRN, section and status that the fields themselves
@@ -253,7 +255,7 @@ export function StudentFormPage() {
                   <span className="form-steps__index">
                     {index < currentStep ? <Check size={14} strokeWidth={2} /> : index + 1}
                   </span>
-                  {step.label}
+                  <span className="form-steps__label">{step.label}</span>
                 </button>
               </li>
             ))}
@@ -320,8 +322,10 @@ export function StudentFormPage() {
                   <FormField id="sex" icon={UserRound} label="Sex" width="short">
                     <select id="sex" value={form.sex} onChange={(e) => update('sex', e.target.value)}>
                       <option value="">—</option>
-                      <option value="M">M</option>
-                      <option value="F">F</option>
+                      {/* Stored as M/F; shown as the words the detail page
+                          uses, so one field does not read two ways. */}
+                      <option value="M">Male</option>
+                      <option value="F">Female</option>
                     </select>
                   </FormField>
                   <FormField

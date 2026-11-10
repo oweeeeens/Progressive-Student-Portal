@@ -35,10 +35,18 @@
      gutters moved down onto .app-shell__page. Padding on the scroller
      would have inset that strip and left a gap above it when scrolled. */
   padding: 0;
+  /* The side gutter of everything in this column: the normal 26px, or on a
+     monitor wide enough, whatever centres a --page-max-width column. Done
+     as PADDING rather than a max-width on the page, so the page's
+     full-width wash (.app-shell__page::before) still reaches both edges.
+     The percentage is resolved where the variable is used — the page and
+     the top bar are both full-width children of this element, so it means
+     the same width in both, and the two stay aligned. */
+  --page-gutter: max(var(--space-6), calc((100% - var(--page-max-width)) / 2));
 }
 
 .app-shell__page {
-  padding: var(--space-5) var(--space-6) var(--space-6);
+  padding: var(--space-5) var(--page-gutter) var(--space-6);
 }
 
 /* The app's one authored motion: a page rises a few pixels into place as

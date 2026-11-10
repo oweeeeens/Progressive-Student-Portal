@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, BookMarked, CheckCircle2, XCircle, Pencil } from 'lucide-react'
+import { Plus, BookMarked, CheckCircle2, XCircle, Pencil } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { canManageAcademicSetup } from '../utils/permissions'
@@ -8,7 +8,9 @@ import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { Modal } from '../components/Modal'
 import { DataTable, fieldValue } from '../components/table/DataTable'
+import { TableToolbar } from '../components/table/TableToolbar'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
+import { useConfirm } from '../hooks/useConfirm'
 import { CLASS_TERMS, CLASS_TERM_SHORT } from '../utils/academicTerms'
 
 const PAGE_SIZE = 15
@@ -59,6 +61,7 @@ export function ClassOfferingsPage() {
   // silence was how the user learned it had worked. The keyed busy flag also
   // stops a double-click sending the same write twice.
   const { error, setError, busyKey, runWrite } = useWriteFeedback()
+  const [confirm, confirmDialog] = useConfirm()
 
   useEffect(() => {
     api.get('/school-years').then((data) => setSchoolYears(data.schoolYears))
@@ -140,6 +143,18 @@ export function ClassOfferingsPage() {
 
   async function handleToggleActive(row) {
     const deactivating = row.is_active
+    // Reactivating is harmless and stays one click; deactivating asks first.
+    if (
+      deactivating &&
+      !(await confirm({
+        title: 'Deactivate this class offering?',
+        message: `${row.subject_name} in ${row.section_name} will be deactivated and will no longer appear in its teacher's class list for grades and attendance. You can reactivate it at any time.`,
+        confirmLabel: 'Deactivate',
+        danger: true,
+      }))
+    ) {
+      return
+    }
     await runWrite(
       // Keyed on the row so only that row's actions are disabled while the
       // request is out, rather than freezing the whole table.
@@ -160,38 +175,6 @@ export function ClassOfferingsPage() {
 
       <div className="page-header">
         <h1>Class Offerings</h1>
-        <div className="page-header__actions">
-          <div className="search-field">
-            <Search size={16} strokeWidth={1.75} />
-            <input
-              type="search"
-              placeholder="Search by subject, section, or teacher"
-              value={search}
-              onChange={(e) => {
-                setPage(1)
-                setSearch(e.target.value)
-              }}
-            />
-          </div>
-          <label>
-            <input
-              type="checkbox"
-              checked={includeInactive}
-              onChange={(e) => {
-                setPage(1)
-                setIncludeInactive(e.target.checked)
-              }}
-              style={{ width: 'auto', marginRight: 'var(--space-1)' }}
-            />
-            Show inactive
-          </label>
-          {canWrite && (
-            <button type="button" className="btn-primary" onClick={startCreate}>
-              <Plus size={16} strokeWidth={1.75} />
-              New Class Offering
-            </button>
-          )}
-        </div>
       </div>
 
       {/* The count sits on the table it counts. A figures strip holding
@@ -204,6 +187,40 @@ export function ClassOfferingsPage() {
         </span>
       </p>
 
+      {/* Search, the inactive toggle and the create button sit in the same
+          toolbar, in the same order, as on Students and User Management —
+          they used to be crowded into this page's title row, so the three
+          setup lists were the only list pages laid out differently. */}
+      <TableToolbar
+        search={search}
+        onSearchChange={(value) => {
+          setPage(1)
+          setSearch(value)
+        }}
+        searchPlaceholder="Search by subject, section, or teacher"
+        filters={
+          <label className="table-toolbar__filter">
+            <input
+              type="checkbox"
+              checked={includeInactive}
+              onChange={(e) => {
+                setPage(1)
+                setIncludeInactive(e.target.checked)
+              }}
+            />
+            <span>Show inactive</span>
+          </label>
+        }
+        actions={
+          canWrite && (
+            <button type="button" className="btn-primary" onClick={startCreate}>
+              <Plus size={16} strokeWidth={1.75} />
+              New Class Offering
+            </button>
+          )
+        }
+      />
+
       {error && <Alert>{error}</Alert>}
 
       <Modal
@@ -213,8 +230,8 @@ export function ClassOfferingsPage() {
       >
         <form onSubmit={handleSubmit} className="intervention-log-form">
           <div className="intervention-log-form__fields">
-            <label>School Year</label>
-            <select
+            <label htmlFor="offering-school-year">School Year<span className="required-mark"> *</span></label>
+            <select id="offering-school-year"
               value={form.schoolYearId}
               onChange={(e) => setForm((f) => ({ ...f, schoolYearId: e.target.value }))}
               required
@@ -227,8 +244,8 @@ export function ClassOfferingsPage() {
               ))}
             </select>
 
-            <label>Section</label>
-            <select
+            <label htmlFor="offering-section">Section<span className="required-mark"> *</span></label>
+            <select id="offering-section"
               value={form.sectionId}
               onChange={(e) => setForm((f) => ({ ...f, sectionId: e.target.value }))}
               required
@@ -241,8 +258,8 @@ export function ClassOfferingsPage() {
               ))}
             </select>
 
-            <label>Subject</label>
-            <select
+            <label htmlFor="offering-subject">Subject<span className="required-mark"> *</span></label>
+            <select id="offering-subject"
               value={form.subjectId}
               onChange={(e) => setForm((f) => ({ ...f, subjectId: e.target.value }))}
               required
@@ -255,8 +272,8 @@ export function ClassOfferingsPage() {
               ))}
             </select>
 
-            <label>Teacher</label>
-            <select
+            <label htmlFor="offering-teacher">Teacher<span className="required-mark"> *</span></label>
+            <select id="offering-teacher"
               value={form.teacherId}
               onChange={(e) => setForm((f) => ({ ...f, teacherId: e.target.value }))}
               required
@@ -287,13 +304,13 @@ export function ClassOfferingsPage() {
               ))}
             </select>
             {form.term !== 'full_year' && (
-              <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
+              <p className="form-note">
                 This class appears in that one term only, and in no other. A term is matched by its sequence number
                 under Academic Setup → School Years, so Term 2 means the period numbered 2.
               </p>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div className="button-row">
             <button type="submit" className="btn-primary" disabled={busyKey === 'form'}>
               {busyKey === 'form' ? 'Saving…' : editingId ? 'Save Changes' : 'Create Class Offering'}
             </button>
@@ -375,6 +392,7 @@ export function ClassOfferingsPage() {
         }
       />
 
+      {confirmDialog}
     </div>
   )
 }

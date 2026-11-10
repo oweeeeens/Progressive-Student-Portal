@@ -6,7 +6,9 @@ import '../pages/LoginPage.css'
 // way it did when each one inlined its own copy of this markup.
 export function AuthCard({ heading, children }) {
   return (
-    <div className="login-page">
+    // <main>: these screens render outside the app shell, so without it the
+    // sign-in page had no main landmark for a screen reader to jump to.
+    <main className="login-page">
       <div className="login-card">
         <div className="login-card__brand">
           <img src="/logo.png" alt="" className="login-card__logo" />
@@ -21,6 +23,6 @@ export function AuthCard({ heading, children }) {
           {children}
         </div>
       </div>
-    </div>
+    </main>
   )
 }

@@ -337,7 +337,7 @@ export function AcademicProgressPage() {
   // Returns just the form — DataTable supplies the expanded row and cell.
   function renderInterventionForm(s) {
     return (
-      <div style={{ marginTop: 'var(--space-3)' }}>
+      <div className="mt-3">
           <form
             onSubmit={(e) => handleLogIntervention(e, s.studentId)}
             style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}
@@ -463,7 +463,7 @@ export function AcademicProgressPage() {
             loading={bandPeriods === null}
           />
 
-          <h2 style={{ marginTop: 'var(--space-5)' }}>At Risk ({atRisk.length})</h2>
+          <h2 className="mt-5">At Risk ({atRisk.length})</h2>
           <DataTable
             columns={[
               { key: 'student', header: 'Student', render: (s) => `${s.lastName}, ${s.firstName}` },
@@ -488,7 +488,7 @@ export function AcademicProgressPage() {
                     <>
                       {s.topConcern.factorLabel}
                       {s.advisories.length > 1 && (
-                        <span style={{ color: 'var(--color-text-muted)' }}> (+{s.advisories.length - 1} more)</span>
+                        <span className="text-muted"> (+{s.advisories.length - 1} more)</span>
                       )}
                     </>
                   ) : (
@@ -537,7 +537,7 @@ export function AcademicProgressPage() {
                 <>
                   {showDetail && (
                     <>
-                      <dl className="field-grid field-grid--two-col" style={{ marginBottom: 'var(--space-4)' }}>
+                      <dl className="field-grid field-grid--two-col mb-4">
                         <div>
                           <dt>Risk score</dt>
                           <dd>{fieldValue(s.riskScore)}</dd>
@@ -581,7 +581,7 @@ export function AcademicProgressPage() {
             emptyState={<p>No students at risk right now.</p>}
           />
 
-          <h2 style={{ marginTop: 'var(--space-6)' }}>Average / Steady ({average.length})</h2>
+          <h2 className="mt-6">Average / Steady ({average.length})</h2>
           <DataTable
             columns={[
               { key: 'student', header: 'Student', render: (s) => `${s.lastName}, ${s.firstName}` },
@@ -653,7 +653,7 @@ export function AcademicProgressPage() {
             emptyState={<p>No students in this band right now.</p>}
           />
 
-          <h2 style={{ marginTop: 'var(--space-6)' }}>Performing Well ({performingWell.length})</h2>
+          <h2 className="mt-6">Performing Well ({performingWell.length})</h2>
           <DataTable
             columns={[
               { key: 'student', header: 'Student', render: (s) => `${s.lastName}, ${s.firstName}` },
@@ -726,11 +726,11 @@ export function AcademicProgressPage() {
             /* Closed by default — this is a caveat ("nothing to show yet"),
                not actionable information, so it shouldn't compete for space
                with the three real bands above it. */
-            <details style={{ marginTop: 'var(--space-6)' }}>
+            <details className="mt-6">
               <summary style={{ cursor: 'pointer' }}>
                 <h2 style={{ display: 'inline' }}>Not Yet Calculated ({notYetCalculated.length})</h2>
               </summary>
-              <p style={{ color: 'var(--color-text-muted)' }}>{NOT_CALCULATED_EXPLANATION}</p>
+              <p className="text-muted">{NOT_CALCULATED_EXPLANATION}</p>
               <DataTable
                 columns={[
                   { key: 'student', header: 'Student', render: (s) => `${s.lastName}, ${s.firstName}` },

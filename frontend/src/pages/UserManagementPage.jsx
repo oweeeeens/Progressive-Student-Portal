@@ -12,6 +12,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import { api } from '../api/client'
+import { useConfirm } from '../hooks/useConfirm'
 import { useAuth } from '../context/AuthContext'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
@@ -55,6 +56,7 @@ function AccountStatusCell({ account }) {
 // activate/deactivate — the expanded replacement for the old Staff Accounts
 // list, which only ever showed non-student roles.
 function AllAccountsTab() {
+  const [confirm, confirmDialog] = useConfirm()
   const { user: currentUser } = useAuth()
   const [accounts, setAccounts] = useState(null)
   const [total, setTotal] = useState(0)
@@ -129,6 +131,19 @@ function AllAccountsTab() {
   }
 
   async function handleToggleActive(account) {
+    // Deactivating signs the person out on their next request; ask first,
+    // naming them, since the row menu sits a few pixels from the next row's.
+    if (
+      account.is_active &&
+      !(await confirm({
+        title: 'Deactivate this account?',
+        message: `${account.full_name} (${account.email}) will lose access to the portal immediately. Everything they have recorded stays, and you can reactivate the account at any time.`,
+        confirmLabel: 'Deactivate',
+        danger: true,
+      }))
+    ) {
+      return
+    }
     setError(null)
     try {
       await api.patch(`/users/${account.id}/active`, { isActive: !account.is_active })
@@ -140,6 +155,18 @@ function AllAccountsTab() {
   }
 
   async function handleReset(account) {
+    // Their current password stops working the moment this runs, so a
+    // mis-click locks a real person out until someone hands them the new one.
+    if (
+      !(await confirm({
+        title: 'Reset this password?',
+        message: `${account.full_name}'s current password will stop working immediately. You will be shown a temporary password to give them, and they will have to change it when they next sign in.`,
+        confirmLabel: 'Reset password',
+        danger: true,
+      }))
+    ) {
+      return
+    }
     setError(null)
     setResetResult(null)
     setResettingId(account.id)
@@ -278,7 +305,7 @@ function AllAccountsTab() {
           under its heading, not beside it. */}
       {resetResult && (
         <Alert variant="success" title={`Password reset for ${resetResult.email}.`}>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+          <p className="help-text">
             Share this temporary password with them now — it will not be shown again. They'll be
             required to change it on next login.
           </p>
@@ -289,26 +316,27 @@ function AllAccountsTab() {
       <Modal open={Boolean(editingId)} onClose={() => setEditingId(null)} title="Edit Account">
         <form onSubmit={handleSaveEdit} className="intervention-log-form">
           <div className="intervention-log-form__fields">
-            <label>Full Name</label>
-            <input
+            <label htmlFor="account-full-name">Full Name<span className="required-mark"> *</span></label>
+            <input id="account-full-name"
               value={editForm.fullName}
               onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
               required
             />
 
-            <label>Email</label>
-            <input
+            <label htmlFor="account-email">Email<span className="required-mark"> *</span></label>
+            <input id="account-email"
               type="email"
               value={editForm.email}
               onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
               required
             />
 
-            <label>Role</label>
+            {/* One id on both branches — only one of them ever renders. */}
+            <label htmlFor="account-role">Role</label>
             {editForm.role === 'admin' ? (
-              <input value="Admin" disabled title="Admin accounts cannot be reassigned through this form." />
+              <input id="account-role" value="Admin" disabled title="Admin accounts cannot be reassigned through this form." />
             ) : (
-              <select value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}>
+              <select id="account-role" value={editForm.role} onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}>
                 {Object.entries(ROLE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
@@ -317,12 +345,12 @@ function AllAccountsTab() {
               </select>
             )}
           </div>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+          <p className="text-muted text-sm">
             Section/class assignments are managed from Academic Setup (
             <Link to="/academic-setup/sections">Sections</Link>, <Link to="/academic-setup/class-offerings">Class Offerings</Link>) —
             reassigning a role here is blocked while the account still holds one.
           </p>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div className="button-row">
             <button type="submit" className="btn-primary" disabled={saving}>
               {saving ? 'Saving…' : 'Save Changes'}
             </button>
@@ -401,6 +429,7 @@ function AllAccountsTab() {
           }
         />
       )}
+      {confirmDialog}
     </div>
   )
 }
@@ -474,7 +503,7 @@ function PendingStudentAccountsTab() {
 
   return (
     <div>
-      <div className="page-header__actions" style={{ marginBottom: 'var(--space-5)' }}>
+      <div className="page-header__actions mb-5">
         <div className="search-field">
           <Search size={16} strokeWidth={1.75} />
           <input
@@ -507,12 +536,12 @@ function PendingStudentAccountsTab() {
             result.failures.length > 0 ? `, ${result.failures.length} failed` : ''
           }.`}
         >
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+          <p className="help-text">
             Share each temporary password with that student now — they will not be shown again. Every
             student will be required to change their password on first login.
           </p>
           {result.created.length > 0 && (
-            <div className="table-card" style={{ marginTop: 'var(--space-3)' }}>
+            <div className="table-card mt-3">
               <table>
                 <thead>
                   <tr>
@@ -536,7 +565,7 @@ function PendingStudentAccountsTab() {
             </div>
           )}
           {result.failures.length > 0 && (
-            <div className="table-card" style={{ marginTop: 'var(--space-3)' }}>
+            <div className="table-card mt-3">
               <table>
                 <thead>
                   <tr>

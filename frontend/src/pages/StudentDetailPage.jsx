@@ -192,7 +192,7 @@ function AcademicProgressBadge({ progress }) {
     <div className="risk-badge" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
       <StatusPill label={progress.bandLabel} variant={isPerformingWell ? 'positive' : 'neutral'} />
       {progress.note && (
-        <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>{progress.note}</span>
+        <span className="text-muted text-sm">{progress.note}</span>
       )}
     </div>
   )
@@ -329,12 +329,12 @@ export function StudentDetailPage() {
       {/* The subjects they're actually taking — the schema has no times or
           days on a class offering, so this is a subject list with who
           teaches each, not a period-by-period timetable. */}
-      <div className="panel" style={{ marginBottom: 'var(--space-5)' }}>
+      <div className="panel mb-5">
         <h2>Current Subjects</h2>
         {subjects === null ? (
-          <p style={{ color: 'var(--color-text-muted)', margin: 0 }}>Loading…</p>
+          <p className="text-muted m-0">Loading…</p>
         ) : subjects.length === 0 ? (
-          <p style={{ color: 'var(--color-text-muted)', margin: 0 }}>
+          <p className="text-muted m-0">
             {student.current_section_id
               ? 'No subjects have been set up for this section yet.'
               : 'No section assigned yet, so there are no subjects to show.'}
@@ -359,7 +359,7 @@ export function StudentDetailPage() {
       </div>
 
       {canWrite(user?.role) && (
-        <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+        <div className="button-row">
           <button type="button" onClick={() => navigate(`/students/${id}/edit`)}>
             <Pencil size={16} strokeWidth={1.75} /> Edit Profile
           </button>
@@ -390,7 +390,7 @@ export function StudentDetailPage() {
           under its heading, not beside it. */}
       {resetResult && (
         <Alert variant="success" title="Password reset for this student's portal account.">
-          <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+          <p className="help-text">
             Share this temporary password with them now — it will not be shown again. They'll be
             required to change it on next login.
           </p>
@@ -444,19 +444,25 @@ export function StudentDetailPage() {
             <p className="profile-header__subtitle">
               {student.section_name ? `Grade ${student.grade_level} – ${student.section_name}` : 'No section assigned'}
             </p>
+            {/* The learner's standing sits under their name — it describes
+                them. It used to share the right-hand corner with the
+                Download button, where the progress note wrapped into a
+                sentence fragment squeezed between a pill and a button. */}
+            <div className="profile-header__badges">
+              <StatusPill label={student.enrollment_status} variant={STATUS_VARIANTS[student.enrollment_status]} />
+              {!student.is_active && <StatusPill label="inactive" variant="neutral" />}
+              {academicProgress && <AcademicProgressBadge progress={academicProgress} />}
+            </div>
           </div>
         </div>
-        <div className="profile-header__badges">
-          <StatusPill label={student.enrollment_status} variant={STATUS_VARIANTS[student.enrollment_status]} />
-          {!student.is_active && <StatusPill label="inactive" variant="neutral" />}
-          {academicProgress && <AcademicProgressBadge progress={academicProgress} />}
-          {canSeeReportCard(user?.role) && (
+        {canSeeReportCard(user?.role) && (
+          <div className="profile-header__actions">
             <button type="button" onClick={handleDownloadReportCard} disabled={downloadingReportCard}>
               <FileDown size={16} strokeWidth={1.75} />
               {downloadingReportCard ? 'Generating…' : 'Download Report Card'}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {reportCardError && <Alert>{reportCardError}</Alert>}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { useToast } from '../context/ToastContext'
 import { defaultSelection } from '../utils/defaultSelection'
 import { AttendanceRosterPanel } from '../components/AttendanceRosterPanel'
 import { todayDateString } from '../utils/dateUtils'
@@ -19,6 +20,7 @@ export function SubjectAttendancePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [message, setMessage] = useState(null)
+  const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
   // Bumped every time a genuinely fresh roster lands — either just fetched
   // from the server or just saved — so AttendanceRosterPanel knows exactly
@@ -72,7 +74,9 @@ export function SubjectAttendancePage() {
         attendanceDate: date,
         entries: roster.map((r) => ({ studentId: r.student_id, status: r.status, notes: r.notes || undefined })),
       })
-      setMessage('Attendance saved.')
+      // A toast, not a page-top banner: Save sits at the bottom of the
+      // register, where the teacher is looking (see DailyAttendancePage).
+      showToast('Attendance saved.')
       setRecorded(true)
       setBaselineVersion((v) => v + 1)
     } catch (err) {

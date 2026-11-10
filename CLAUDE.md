@@ -618,6 +618,36 @@ Based on a reference college portal design the team liked — apply these patter
 11. **Loading states draw the shape that is coming** (`components/Skeleton.jsx`).
     "Loading…" as a bare word is reserved for the one case where the shape is
     genuinely unknown — app boot, before the router has chosen a page.
+12. **Anything that cannot be quietly undone asks first** —
+    `hooks/useConfirm.jsx`, the app's own dialog on `Modal`, never
+    `window.confirm`. Resetting a password, deactivating an account and
+    deactivating a section, subject or class offering each name the object and
+    the consequence before acting; Cancel, Escape and the backdrop all answer
+    "no". Reactivating stays one click. The consequence text states only what
+    the system really does — deactivating a section with recorded history is
+    refused by the server, so the dialog does not promise that records "stay".
+13. **One content width.** The page column is capped at `--page-max-width`
+    (1360px) through `--page-gutter` in `Layout.css`, which the top bar
+    shares so the breadcrumbs line up with the title. Without it, list pages
+    on a 1920px monitor used a third to half of the column.
+14. **A list page's table fills that column** (`.table-card--fill`, applied by
+    DataTable when a column is `primary`), sharing the slack across columns.
+    Tables without an identity column (import review, registers) still size to
+    their content, which is where columns-pushed-apart was the real problem.
+15. **Search, filters and the create button sit in `TableToolbar`** on every
+    list page, Academic Setup included.
+16. **Shared utilities, not inline styles** — `.button-row`, `.text-muted`,
+    `.help-text`, `.mt-*`/`.mb-*` at the end of `index.css`. An inline style
+    is for a data-driven value only (a computed width, a series colour).
+
+**Measured, not assumed (2026-11-10).** A Playwright + axe-core sweep of every
+page for every role at 1440/390/320 found 0 console errors and 0 failed
+requests but 6 kinds of WCAG violation (aria-expanded on table rows, aria-sort
+on the button instead of the header, unlabelled grade inputs, an unnamed
+meter, focusable bars inside a `role="img"` chart, no `main` on the sign-in
+pages) and 7 pages silently clipped at phone width. All are fixed and the
+sweep now comes back empty; a keyboard pass of 528 focus stops finds a visible
+focus indicator on every one.
 
 Apply the navy/gold brand palette (see Brand Colors section above) throughout. Build page by page, verifying each before moving to the next.
 

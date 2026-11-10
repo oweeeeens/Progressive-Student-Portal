@@ -164,7 +164,13 @@ export function ColumnChart({
           viewBox={`0 0 ${width} ${chartHeight}`}
           width="100%"
           height={chartHeight}
-          data-chart-density={width < CHART_NARROW ? 'compact' : 'comfortable'} role="img" aria-label="Bar chart by grading period">
+          data-chart-density={width < CHART_NARROW ? 'compact' : 'comfortable'}
+          // "group", not "img": an img's children are presentational, so the
+          // focusable per-period targets below were reachable by Tab but had
+          // their labels hidden from a screen reader — focus landed on
+          // something that could not be described.
+          role="group"
+          aria-label="Bar chart by grading period">
           {gridValues.map((gridValue) => (
             <g key={gridValue}>
               {!gridlineIsUnderReference(gridValue) && (

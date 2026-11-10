@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { useToast } from '../context/ToastContext'
 import { defaultSelection } from '../utils/defaultSelection'
 import { useAuth } from '../context/AuthContext'
 import { AttendanceRosterPanel } from '../components/AttendanceRosterPanel'
@@ -24,6 +25,7 @@ export function DailyAttendancePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [message, setMessage] = useState(null)
+  const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
   // Bumped every time a genuinely fresh roster lands — either just fetched
   // from the server or just saved — so AttendanceRosterPanel knows exactly
@@ -85,7 +87,11 @@ export function DailyAttendancePage() {
         attendanceDate: date,
         entries: roster.map((r) => ({ studentId: r.student_id, status: r.status, notes: r.notes || undefined })),
       })
-      setMessage('Attendance saved.')
+      // A toast, not the page-top banner it used to be: Save sits in the bar
+      // at the BOTTOM of the register, so on a long section the banner
+      // appeared off-screen, above where the adviser was looking.
+      const savedSection = sections.find((s) => String(s.id) === String(sectionId))
+      showToast(savedSection ? `Attendance saved for Grade ${savedSection.grade_level} - ${savedSection.name}.` : 'Attendance saved.')
       setRecorded(true)
       setBaselineVersion((v) => v + 1) // marks the just-saved roster as the new baseline
     } catch (err) {

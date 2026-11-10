@@ -39,8 +39,10 @@
   overflow: hidden;
 }
 .status-segmented__option {
-  width: 27px;
-  height: 27px;
+  /* Sized by its word now, not a fixed 27px square. min-width keeps the
+     letters-only fallback (narrow phones) a square target. */
+  min-width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -50,8 +52,33 @@
   background: var(--color-surface);
   border: none;
   border-radius: 0;
-  padding: 0;
+  padding: 0 var(--space-3);
   cursor: pointer;
+}
+/* The shortcut letter, underlined while the rest of the word is showing —
+   the conventional mark for "this key does it". */
+.status-segmented__key {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+@media (max-width: 420px) {
+  .status-segmented__option {
+    padding: 0;
+  }
+  .status-segmented__rest {
+    display: none;
+  }
+  .status-segmented__key {
+    text-decoration: none;
+  }
+}
+@media (pointer: coarse) {
+  /* The 44px touch floor the rest of the app keeps (index.css). */
+  .status-segmented__option {
+    min-width: 44px;
+    height: 44px;
+  }
 }
 .status-segmented__option + .status-segmented__option {
   border-left: 1px solid var(--color-border-strong);

@@ -122,7 +122,9 @@ export function StudentAttendancePage() {
   return (
     <div>
       <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'My Attendance' }]} />
-      <h1>My Attendance</h1>
+      <div className="page-header">
+        <h1>My Attendance</h1>
+      </div>
 
       {error && <Alert>{error}</Alert>}
 
@@ -221,13 +223,13 @@ export function StudentAttendancePage() {
         />
 
         {showCalendar && (
-          <div className="panel" style={{ marginTop: 'var(--space-4)' }}>
+          <div className="panel mt-4">
             {calendarRecords && calendarRecords.length > 0 ? (
               <AttendanceCalendar records={calendarRecords} />
             ) : (
               <p className="form-note">No daily attendance has been recorded yet.</p>
             )}
-            <div className="chart-legend" style={{ marginTop: 'var(--space-3)' }}>
+            <div className="chart-legend mt-3">
               {ATTENDANCE_STATUSES.map((status) => (
                 <span key={status} className="chart-legend__item">
                   <span className={`attendance-calendar__dot is-${status}`} />

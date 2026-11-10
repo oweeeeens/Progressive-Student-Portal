@@ -57,7 +57,7 @@ export function GradeHistory({ studentId }) {
       <h2>Grades</h2>
 
       {periodAverages.length >= 2 && (
-        <div style={{ marginBottom: 'var(--space-5)' }}>
+        <div className="mb-5">
           <ChartCard title="Average Grade Over Time" description={`Across ${periodAverages.length} finalized grading periods.`}>
             <LineChart
               points={periodAverages.map((p) => ({ label: `Period ${p.sequence_number}`, value: Number(p.average_grade) }))}

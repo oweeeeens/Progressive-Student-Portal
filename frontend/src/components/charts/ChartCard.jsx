@@ -27,12 +27,17 @@ export function ChartCard({
   isEmpty = false,
   emptyMessage = 'No data recorded for this period yet',
   actions,
+  // The title's heading level. 3 by default, because a chart card normally
+  // sits under its section's <h2>. A card that IS the section (no <h2> above
+  // it) passes 2, so the outline never jumps from <h1> straight to <h3>.
+  headingLevel = 3,
   children,
 }) {
+  const Heading = `h${headingLevel}`
   return (
     <section className="chart-card">
       <div className="chart-card__head">
-        <h3 className="chart-card__title">{title}</h3>
+        <Heading className="chart-card__title">{title}</Heading>
         {actions && <div className="chart-card__actions">{actions}</div>}
       </div>
       {description && <p className="chart-card__description">{description}</p>}

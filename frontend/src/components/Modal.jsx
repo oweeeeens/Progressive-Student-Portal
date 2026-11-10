@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useId, useRef } from 'react'
 import { X } from 'lucide-react'
 
 // A form that opens where you are looking, instead of at the top of the page.
@@ -32,6 +32,12 @@ import { X } from 'lucide-react'
 // seven separate approximations of it.
 export function Modal({ open, onClose, title, description, children, size = 'default' }) {
   const dialogRef = useRef(null)
+  // Per-instance ids. A fixed "modal-title" was fine while a page held one
+  // modal; a page with a form modal AND a confirm dialog (useConfirm) would
+  // have had two elements with the same id, and aria-labelledby would name
+  // whichever came first in the document.
+  const titleId = useId()
+  const descriptionId = useId()
   // Whether anything has been typed since this opened. A ref, not state:
   // nothing renders differently because of it, and it is read inside event
   // handlers where a stale state value would be wrong.
@@ -110,8 +116,8 @@ export function Modal({ open, onClose, title, description, children, size = 'def
       ref={dialogRef}
       className={`modal modal--${size}`}
       onClick={handleDialogClick}
-      aria-labelledby="modal-title"
-      aria-describedby={description ? 'modal-description' : undefined}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
     >
       {/* Marks the form dirty on the first keystroke or selection. `input`
           covers typing, `change` covers selects, checkboxes and file
@@ -128,11 +134,11 @@ export function Modal({ open, onClose, title, description, children, size = 'def
       >
         <header className="modal__head">
           <div>
-            <h2 className="modal__title" id="modal-title">
+            <h2 className="modal__title" id={titleId}>
               {title}
             </h2>
             {description && (
-              <p className="modal__description" id="modal-description">
+              <p className="modal__description" id={descriptionId}>
                 {description}
               </p>
             )}

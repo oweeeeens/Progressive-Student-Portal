@@ -281,29 +281,29 @@ export function SchoolYearsPage() {
       >
         <form onSubmit={handleYearSubmit} className="intervention-log-form">
           <div className="intervention-log-form__fields">
-            <label>Label</label>
-            <input
+            <label htmlFor="year-label">Label<span className="required-mark"> *</span></label>
+            <input id="year-label"
               value={yearForm.label}
               onChange={(e) => setYearForm((f) => ({ ...f, label: e.target.value }))}
               placeholder="e.g. 2027-2028"
               required
             />
-            <label>Start Date</label>
-            <input
+            <label htmlFor="year-start-date">Start Date<span className="required-mark"> *</span></label>
+            <input id="year-start-date"
               type="date"
               value={yearForm.startDate}
               onChange={(e) => setYearForm((f) => ({ ...f, startDate: e.target.value }))}
               required
             />
-            <label>End Date</label>
-            <input
+            <label htmlFor="year-end-date">End Date<span className="required-mark"> *</span></label>
+            <input id="year-end-date"
               type="date"
               value={yearForm.endDate}
               onChange={(e) => setYearForm((f) => ({ ...f, endDate: e.target.value }))}
               required
             />
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div className="button-row">
             <button type="submit" className="btn-primary" disabled={busyKey === 'year-form'}>
               {busyKey === 'year-form' ? 'Saving…' : editingYearId ? 'Save Changes' : 'Create School Year'}
             </button>
@@ -325,7 +325,9 @@ export function SchoolYearsPage() {
                 <th>Start</th>
                 <th>End</th>
                 <th>Status</th>
-                <th></th>
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -345,7 +347,7 @@ export function SchoolYearsPage() {
                         when hiding write controls — a read-only principal
                         must get neither. */}
                     {canWrite && (
-                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                      <div className="button-row button-row--tight">
                         <button
                           type="button"
                           className="btn-subtle"
@@ -406,30 +408,30 @@ export function SchoolYearsPage() {
         >
           <form onSubmit={handlePeriodSubmit} className="intervention-log-form">
             <div className="intervention-log-form__fields">
-              <label>Name</label>
-              <input
+              <label htmlFor="period-name">Name<span className="required-mark"> *</span></label>
+              <input id="period-name"
                 value={periodForm.name}
                 onChange={(e) => setPeriodForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="e.g. Q1"
                 required
               />
-              <label>Sequence Number</label>
-              <input
+              <label htmlFor="period-sequence-number">Sequence Number<span className="required-mark"> *</span></label>
+              <input id="period-sequence-number"
                 type="number"
                 min="1"
                 value={periodForm.sequenceNumber}
                 onChange={(e) => setPeriodForm((f) => ({ ...f, sequenceNumber: e.target.value }))}
                 required
               />
-              <label>Start Date</label>
-              <input
+              <label htmlFor="period-start-date">Start Date<span className="required-mark"> *</span></label>
+              <input id="period-start-date"
                 type="date"
                 value={periodForm.startDate}
                 onChange={(e) => setPeriodForm((f) => ({ ...f, startDate: e.target.value }))}
                 required
               />
-              <label>End Date</label>
-              <input
+              <label htmlFor="period-end-date">End Date<span className="required-mark"> *</span></label>
+              <input id="period-end-date"
                 type="date"
                 value={periodForm.endDate}
                 onChange={(e) => setPeriodForm((f) => ({ ...f, endDate: e.target.value }))}
@@ -438,12 +440,12 @@ export function SchoolYearsPage() {
               {/* The sequence number is not just sort order, so the form
                   says so: a class set to run for "Term 2 only" appears in
                   the period numbered 2 and nowhere else. */}
-              <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
+              <p className="form-note">
                 The sequence number decides which classes appear here. A class set to run for a single term shows up in
                 the term with that number &mdash; Term 2 only means the period numbered 2.
               </p>
             </div>
-            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+            <div className="button-row">
               <button type="submit" className="btn-primary" disabled={busyKey === 'period-form'}>
                 {busyKey === 'period-form' ? 'Saving…' : editingPeriodId ? 'Save Changes' : 'Create Grading Period'}
               </button>
@@ -473,7 +475,9 @@ export function SchoolYearsPage() {
                   <th>Name</th>
                   <th>Start</th>
                   <th>End</th>
-                  <th></th>
+                  <th>
+                  <span className="sr-only">Actions</span>
+                </th>
                 </tr>
               </thead>
               <tbody>

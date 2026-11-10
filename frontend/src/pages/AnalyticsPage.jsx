@@ -759,6 +759,7 @@ export function AnalyticsPage() {
                 before it happened to be. */}
             <ChartCard
               title="Risk Distribution"
+              headingLevel={2}
               description={notYetAssessedNote || undefined}
               /* No separate `legend` prop: the ChartFieldToggles row in
                  `actions` already carries the same swatches and labels, and
@@ -779,7 +780,7 @@ export function AnalyticsPage() {
             </ChartCard>
 
             {distribution.breakdown && (
-              <div style={{ marginTop: 'var(--space-4)' }}>
+              <div className="mt-4">
                 <DataTable
                   columns={[
                     {
@@ -845,7 +846,7 @@ export function AnalyticsPage() {
     <div>
       <div className="record-section">
         <h2>Risk Distribution Over Time</h2>
-        <p style={{ color: 'var(--color-text-muted)', marginTop: 0 }}>
+        <p className="text-muted mt-0">
           One chart per grading period, sharing a scale — so a band's bar can be compared straight across.
         </p>
         {!trend ? (
@@ -1067,7 +1068,7 @@ export function AnalyticsPage() {
                 overall row above. */}
             {effectiveness.byType.length > 1 &&
               effectiveness.byType.map((row) => (
-                <div key={row.interventionType} style={{ marginTop: 'var(--space-4)' }}>
+                <div key={row.interventionType} className="mt-4">
                   <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--space-2)' }}>
                     {INTERVENTION_TYPE_LABELS[row.interventionType] || row.interventionType}
                   </h3>
@@ -1104,7 +1105,7 @@ export function AnalyticsPage() {
               ))}
 
             {effectiveness.byType.length > 0 && (
-              <div style={{ marginTop: 'var(--space-4)' }}>
+              <div className="mt-4">
                 <DataTable
                   columns={[
                     {
@@ -1139,7 +1140,7 @@ export function AnalyticsPage() {
 
       <div className="record-section">
         <h2>Intervention Volume Over Time</h2>
-        <p style={{ color: 'var(--color-text-muted)', marginTop: 0 }}>How many interventions were logged each grading period.</p>
+        <p className="text-muted mt-0">How many interventions were logged each grading period.</p>
         {!effectiveness ? null : (
           <div className={frameClass}>
             <ChartCard
@@ -1205,7 +1206,7 @@ export function AnalyticsPage() {
 
       <div className="record-section">
         <h2>Factors Over Time</h2>
-        <p style={{ color: 'var(--color-text-muted)', marginTop: 0 }}>Whether each factor is becoming more or less common period over period.</p>
+        <p className="text-muted mt-0">Whether each factor is becoming more or less common period over period.</p>
         {!factorsTrendData ? (
           <>
             <SkeletonChart />
@@ -1244,7 +1245,7 @@ export function AnalyticsPage() {
 
       <div className="record-section">
         <h2>Factors by Section</h2>
-        <p style={{ color: 'var(--color-text-muted)', marginTop: 0 }}>Which section a given factor concentrates in, this grading period.</p>
+        <p className="text-muted mt-0">Which section a given factor concentrates in, this grading period.</p>
         {!factorsBySection ? (
           <>
             <SkeletonTable rows={4} columns={4} />

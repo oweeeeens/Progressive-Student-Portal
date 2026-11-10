@@ -186,6 +186,16 @@
   --space-6: 1.625rem; /* 26px */
   --space-7: 2.375rem; /* 38px */
 
+  /* The widest the page's content column ever gets. Without a cap, every
+     list page on a 1920px monitor used a third to a half of the column and
+     left the rest as an empty field, because tables are deliberately sized
+     to their content (see .table-card) and nothing else stretched. 1360px
+     is the column a 1600px screen already gives after the sidebar, so
+     laptops see no change; only wide monitors gain margins. Consumed by
+     --page-gutter in Layout.css, which the top bar shares so the
+     breadcrumbs stay aligned with the title beneath them. */
+  --page-max-width: 1360px;
+
   /* ---------------------------------------------------------------------
      Module palette — the colour of WHERE YOU ARE.
 
@@ -713,7 +723,13 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
 }
 input:focus,
 select:focus,
-textarea:focus {
+textarea:focus,
+/* A date/time field's focus sits on a segment INSIDE the browser's own
+   control (the day, the month), so `:focus` never matches the input itself
+   and keyboard focus on the attendance date picker was invisible.
+   `:focus-within` does match. */
+input[type='date']:focus-within,
+input[type='time']:focus-within {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
@@ -1050,6 +1066,40 @@ th {
 .page-header__actions label input {
   margin-top: 0;
 }
+/* A native <select> is as wide as its LONGEST option, and a class picker's
+   options are long ("Grade 11 - STEM A · Understanding Culture, Society and
+   Politics"). On a phone that pushed the row up to 170px past the screen,
+   and since the content column clips rather than scrolls, the picker's
+   right half and its arrow were simply gone. Every control in this row may
+   now shrink to the row; the select truncates its shown value instead. */
+.page-header__actions,
+.page-header__actions > *,
+.page-header__actions label {
+  min-width: 0;
+  max-width: 100%;
+}
+.page-header__actions select {
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+@media (max-width: 720px) {
+  /* On a phone the row's controls each take the full width, label above
+     field, like every other form in the app — a picker is a full-width tap
+     target there, not a squeezed inline one. */
+  .page-header__actions {
+    width: 100%;
+  }
+  .page-header__actions label {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+    width: 100%;
+  }
+  .page-header__actions select {
+    width: 100%;
+  }
+}
 
 /* A bordered, unshadowed container for a table — deliberately flat (no
    drop shadow) so it doesn't compete with record-section dividers below;
@@ -1328,6 +1378,34 @@ th {
 .table-card th.is-primary,
 .table-card td.is-primary {
   width: auto;
+}
+
+/* A LIST PAGE's table fills the column. Revisits the rule above for one
+   case: on Students, Users, Interventions and the setup lists the table is
+   the page, and stopping it at 70–80% of the width — while the stat cards,
+   filters and buttons above it all ran edge to edge — read as an unfinished
+   layout with a dead strip down the right. The original problem (columns
+   that belong together pushed apart) is bounded now that the content
+   column is capped at --page-max-width, and the slack is SHARED: every data
+   column goes back to `auto`, so the browser grows them in proportion to
+   their content instead of handing the whole strip to one column. Only the
+   checkbox and the row-actions columns stay pinned narrow. Tables without
+   an identity column (import review, attendance registers) are unchanged. */
+.table-card--fill {
+  width: 100%;
+}
+.table-card--fill table {
+  width: 100%;
+}
+.table-card--fill th,
+.table-card--fill td {
+  width: auto;
+}
+.table-card--fill .data-table__select-head,
+.table-card--fill .data-table__select-cell,
+.table-card--fill .data-table__actions-cell,
+.table-card--fill .data-table__actions-head {
+  width: 1%;
 }
 
 /* A column lifted out of the table because it said the same thing on every
@@ -1994,6 +2072,12 @@ th {
   font-size: inherit;
   font-weight: 600;
   color: inherit;
+  /* A <button> does not inherit these from the browser's defaults, so every
+     SORTABLE column header came out in sentence case ("Name", "Status")
+     beside its spaced-capital neighbours ("LRN", "GRADE / SECTION") — the
+     one header row in the app that looked like two different tables. */
+  text-transform: inherit;
+  letter-spacing: inherit;
   cursor: pointer;
 }
 .sortable-header:hover {
@@ -2291,6 +2375,15 @@ svg[data-chart-density='compact'] .chart-reference-label {
 .bar-chart__row.is-hovered,
 .bar-chart__row:focus-visible {
   background: var(--color-neutral-bg);
+}
+/* Keyboard focus needs more than the hover wash: that pale grey on white is
+   well under the 3:1 a focus indicator must reach (WCAG 2.4.11), so a
+   keyboard user tabbing through the bars could not see which one they were
+   on. The ring is focus-only; a mouse hover keeps just the wash. */
+.bar-chart__row:focus-visible,
+.change-bar-chart__row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 /* One small size, medium grey — never black, never bold, never the series
    colour. The coloured bar beside it already carries identity. */
@@ -2874,7 +2967,13 @@ svg[data-chart-density='compact'] .chart-reference-label {
 }
 .profile-header__badges {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+.profile-header__actions {
+  display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
 }
@@ -2996,9 +3095,44 @@ svg[data-chart-density='compact'] .chart-reference-label {
 /* 720, not 560: between those two widths this was a fixed 220px track plus
    a gap inside a content column of roughly 300px, leaving the free column
    under 80px. The breakpoint was one step too low. */
+/* A label belongs to the field BESIDE or BELOW it, and spacing has to say
+   so. The base label rule's bottom margin is for a label wrapping its own
+   control; here, in a grid, it only added distance. Side by side, the label
+   is nudged down to sit on its field's text line (the field's 4px top margin
+   + 6px padding + 1px border) instead of floating at the field's top edge. */
+.intervention-log-form__fields > label {
+  margin-bottom: 0;
+  padding-top: calc(var(--space-1) + var(--space-2) + 1px);
+}
+/* A hint explains the field above it, so it sits under that field — in the
+   control column — not across both columns starting under the labels. */
+.intervention-log-form__fields > .form-note {
+  grid-column: 2;
+  margin-top: calc(-1 * var(--space-2));
+}
 @media (max-width: 720px) {
+  /* Stacked, the three spacings used to add up the wrong way round: grid gap
+     + label margin + field margin put 30px between a label and its own field
+     but only 13px between that field and the NEXT label, so every label
+     read as belonging to the control above it. Now: label tight to its
+     field, the gap after the field. */
   .intervention-log-form__fields {
     grid-template-columns: 1fr;
+    row-gap: 0;
+  }
+  .intervention-log-form__fields > label {
+    padding-top: 0;
+  }
+  .intervention-log-form__fields > :not(label) {
+    margin-bottom: var(--space-4);
+  }
+  /* One column: the hint returns to the only track, tucked under its field. */
+  .intervention-log-form__fields > .form-note {
+    grid-column: auto;
+    margin-top: 0;
+  }
+  .intervention-log-form__fields > :has(+ .form-note) {
+    margin-bottom: var(--space-1);
   }
 }
 
@@ -4895,6 +5029,48 @@ textarea[aria-invalid='true']:focus-visible {
 .form-steps--static .form-steps__step:hover {
   color: inherit;
 }
+/* On a phone there is no room for four or five labelled steps in a row —
+   the bulk attendance import's ran 270px off a 320px screen, clipped with
+   no way to scroll to it. The numbered circles stay (where you are, how far
+   to go), and only the CURRENT step keeps its words on screen. The others'
+   labels are hidden visually but not from a screen reader, which still
+   hears every step's name. */
+@media (max-width: 560px) {
+  .form-steps__connector {
+    margin: 0 var(--space-1);
+    min-width: var(--space-1);
+  }
+  /* :last-child named too, to outrank the desktop rule that sets the last
+     step to `flex: 1` (a ZERO basis): with that winning, the last step
+     collapsed to 10px and its circle hung 17px off the screen. */
+  .form-steps__item,
+  .form-steps__item:last-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  /* The one visible label gives way before the row does: on five steps at
+     320px even a single label can be a few pixels too many. Only the CURRENT
+     step may shrink — the others hold their circle's width, or the last
+     circle is what gets pushed off the screen. */
+  .form-steps__item:not(:has(.is-active)) {
+    flex-shrink: 0;
+  }
+  .form-steps__step.is-active {
+    min-width: 0;
+  }
+  .form-steps__step.is-active .form-steps__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .form-steps__step:not(.is-active) .form-steps__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 
 /* The first screen of the import: a drawing, a heading, one sentence and
    two buttons. It used to be those last three on bare page background with
@@ -5316,13 +5492,16 @@ textarea[aria-invalid='true']:focus-visible {
    property cannot be used inside a media condition, hence the literal. */
 .profile-page {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, …), not a bare 1fr: 1fr's minimum is the content's own
+     min-content width, so one long unbreakable value (an email address)
+     made the single phone column 10px wider than the phone. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
 @media (min-width: 721px) {
   .profile-page {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 .profile-page__panel--wide {
@@ -5347,7 +5526,9 @@ textarea[aria-invalid='true']:focus-visible {
 }
 .profile-page__assignments {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  /* min(100%, 18rem): an 18rem floor is wider than a 320px phone's column
+     once the panel's padding is paid, so the card ran off the edge. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: var(--space-4);
 }
 .profile-page__assignment h3 {
@@ -5442,6 +5623,21 @@ textarea[aria-invalid='true']:focus-visible {
 }
 .modal--wide {
   max-width: min(56rem, calc(100vw - 2 * var(--space-4)));
+}
+/* A question, not a form: a few lines of text and two buttons. */
+.modal--narrow {
+  max-width: min(28rem, calc(100vw - 2 * var(--space-4)));
+}
+.confirm-dialog__message {
+  margin: 0 0 var(--space-5);
+  color: var(--color-text);
+  line-height: 1.55;
+}
+/* The confirming action on the right, where the eye ends — the same order
+   as every form's Save beside Cancel, reversed so the safe choice is met
+   first when tabbing from the message. */
+.confirm-dialog__actions {
+  justify-content: flex-end;
 }
 
 .modal::backdrop {
@@ -5618,3 +5814,56 @@ textarea[aria-invalid='true']:focus-visible {
     max-width: 100%;
   }
 }
+
+/* =============================================================================
+   Utilities
+   =============================================================================
+   The handful of layout and text treatments every page needs, given a name
+   once. Before this, the same few were written out by hand as inline
+   styles in sixty-odd places — a row of buttons as
+   `style={{ display: 'flex', gap: 'var(--space-3)' }}`, a hint as
+   `style={{ color: 'var(--color-text-muted)', fontSize: … }}`. Each copy used
+   the right tokens, but each one was a fresh decision that could drift, and
+   none of them wrapped: a modal's Save / Cancel pair on a 320px phone simply
+   ran off the edge. Kept last in the file so they win over a component rule
+   of equal specificity. */
+
+/* A row of actions: buttons that wrap rather than overflow, centred on one
+   line so a button and a link beside it share a baseline. */
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.button-row--tight {
+  gap: var(--space-2);
+}
+/* The row that closes a form or a step, set off from the fields above. */
+.button-row--spaced {
+  margin-top: var(--space-4);
+}
+
+/* Secondary text: the line under a heading, a count, an aside. */
+.text-muted {
+  color: var(--color-text-muted);
+}
+.text-sm {
+  font-size: var(--font-size-sm);
+}
+/* A hint attached to the thing above it — muted, small, no margin of its own. */
+.help-text {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Spacing steps, on the same scale as everything else (--space-*). */
+.m-0 { margin: 0; }
+.mt-0 { margin-top: 0; }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-5 { margin-top: var(--space-5); }
+.mt-6 { margin-top: var(--space-6); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-5 { margin-bottom: var(--space-5); }

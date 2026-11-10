@@ -234,6 +234,10 @@ export function GradeEntryPage() {
                             max="100"
                             step="0.01"
                             value={r.gradeValue}
+                            // Each input is otherwise just "spin button" to a
+                            // screen reader — thirty identical fields with no
+                            // way to tell whose grade is whose.
+                            aria-label={`Grade for ${r.first_name} ${r.last_name}`}
                             onChange={(e) => updateGrade(r.student_id, e.target.value)}
                             className={isMissing ? 'grade-input--missing' : undefined}
                           />

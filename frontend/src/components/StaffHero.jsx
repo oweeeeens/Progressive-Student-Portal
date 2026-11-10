@@ -104,6 +104,7 @@ function TermStanding({ currentPeriod, today }) {
       <div
         className="portal-hero__term-track"
         role="meter"
+        aria-label="Progress through the grading period"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}

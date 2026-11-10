@@ -228,7 +228,7 @@ export function BulkImportStudentsPage() {
                 <span className="form-steps__index">
                   {index < current ? <Check size={14} strokeWidth={2} /> : index + 1}
                 </span>
-                {s.label}
+                <span className="form-steps__label">{s.label}</span>
               </span>
             </li>
           )
@@ -270,12 +270,12 @@ export function BulkImportStudentsPage() {
       {step === 'mapping' && (
         <div className="record-section">
           <h2>2. Match your columns to our fields</h2>
-          <p style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-muted">
             {fileName} — {rows.length} row{rows.length === 1 ? '' : 's'} found. Fields marked{' '}
             <strong>required</strong> must be mapped before continuing.
           </p>
 
-          <div className="table-card" style={{ marginTop: 'var(--space-3)' }}>
+          <div className="table-card mt-3">
             <table>
               <thead>
                 <tr>
@@ -315,7 +315,7 @@ export function BulkImportStudentsPage() {
             </Alert>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div className="button-row button-row--spaced">
             <button type="button" onClick={resetAll}>
               <ArrowLeft size={16} strokeWidth={1.75} />
               Start Over
@@ -362,8 +362,8 @@ export function BulkImportStudentsPage() {
               is a glance rather than a separate cleanup pass. */}
           {rowsNeedingConfirmation.length > 0 && (
             <>
-              <h3 style={{ marginTop: 'var(--space-5)' }}>Confirm detected ALS graduates</h3>
-              <p style={{ color: 'var(--color-text-muted)' }}>
+              <h3 className="mt-5">Confirm detected ALS graduates</h3>
+              <p className="text-muted">
                 "Last School Attended" is free text, so these are matches rather than facts. Untick any row that
                 isn't actually an ALS graduate — everything else about these rows imports either way.
               </p>
@@ -401,8 +401,8 @@ export function BulkImportStudentsPage() {
 
           {invalidRows.length > 0 && (
             <>
-              <h3 style={{ marginTop: 'var(--space-5)' }}>Rows that will be skipped</h3>
-              <p style={{ color: 'var(--color-text-muted)' }}>
+              <h3 className="mt-5">Rows that will be skipped</h3>
+              <p className="text-muted">
                 Fix these in your source file and re-upload just the corrected rows, or continue — only the
                 rows above will be imported now.
               </p>
@@ -439,7 +439,7 @@ export function BulkImportStudentsPage() {
             </>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div className="button-row button-row--spaced">
             <button type="button" onClick={() => setStep('mapping')}>
               <ArrowLeft size={16} strokeWidth={1.75} />
               Back to Mapping
@@ -466,7 +466,7 @@ export function BulkImportStudentsPage() {
             title={`Imported ${result.insertedCount} student${result.insertedCount === 1 ? '' : 's'} successfully.`}
           >
             {result.failures.length > 0 && (
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+              <p className="help-text">
                 {result.failures.length} row{result.failures.length === 1 ? '' : 's'} failed unexpectedly while
                 saving — see below.
               </p>
@@ -474,7 +474,7 @@ export function BulkImportStudentsPage() {
           </Alert>
 
           {result.failures.length > 0 && (
-            <div className="table-card" style={{ marginTop: 'var(--space-3)' }}>
+            <div className="table-card mt-3">
               <table>
                 <thead>
                   <tr>
@@ -495,9 +495,9 @@ export function BulkImportStudentsPage() {
           )}
 
           {result.insertedIds.length > 0 && !accountResult && (
-            <div className="record-section" style={{ marginTop: 'var(--space-4)' }}>
+            <div className="record-section mt-4">
               <h3>Create portal accounts?</h3>
-              <p style={{ color: 'var(--color-text-muted)' }}>
+              <p className="text-muted">
                 {result.insertedIds.length} of the imported students had an email on file and don't have a portal
                 account yet. You can create their logins now, or do it later from User Management.
               </p>
@@ -516,11 +516,11 @@ export function BulkImportStudentsPage() {
                 accountResult.created.length === 1 ? '' : 's'
               }${accountResult.failures.length > 0 ? `, ${accountResult.failures.length} failed` : ''}.`}
             >
-              <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+              <p className="help-text">
                 Share each temporary password with that student now — they will not be shown again.
               </p>
               {accountResult.created.length > 0 && (
-                <div className="table-card" style={{ marginTop: 'var(--space-3)' }}>
+                <div className="table-card mt-3">
                   <table>
                     <thead>
                       <tr>
@@ -546,7 +546,7 @@ export function BulkImportStudentsPage() {
             </Alert>
           )}
 
-          <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+          <div className="button-row button-row--spaced">
             <button type="button" onClick={resetAll}>
               Import Another File
             </button>

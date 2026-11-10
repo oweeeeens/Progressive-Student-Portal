@@ -255,7 +255,11 @@ export function DataTable({
         </p>
       )}
 
-      <div className="table-card">
+      {/* A list page's table (one with an identity column) spans the content
+          column, so its edge lines up with the stat cards and toolbar above
+          it instead of stopping short and leaving a ragged empty strip. Any
+          other table keeps sizing to its content — see .table-card--fill. */}
+      <div className={`table-card${visibleColumns.some((col) => col.primary) ? ' table-card--fill' : ''}`}>
         <table>
           {caption && <caption className="data-table__caption">{caption}</caption>}
           <thead>
@@ -284,12 +288,25 @@ export function DataTable({
                     className={[col.align === 'right' ? 'is-right' : '', col.primary ? 'is-primary' : '']
                       .filter(Boolean)
                       .join(' ') || undefined}
+                    // aria-sort belongs on the column HEADER, not on the
+                    // button inside it — that is the element a screen reader
+                    // announces as "sorted ascending" when moving through the
+                    // table. On the button it was an invalid attribute and was
+                    // ignored, so the sort state was never announced at all.
+                    aria-sort={
+                      col.sortable && onSortChange
+                        ? state === 'none'
+                          ? 'none'
+                          : state === 'asc'
+                            ? 'ascending'
+                            : 'descending'
+                        : undefined
+                    }
                   >
                     {col.sortable && onSortChange ? (
                       <button
                         type="button"
                         className="sortable-header"
-                        aria-sort={state === 'none' ? 'none' : state === 'asc' ? 'ascending' : 'descending'}
                         onClick={() => onSortChange(col.key)}
                       >
                         {col.header}
@@ -315,7 +332,6 @@ export function DataTable({
                   <tr
                     className={clickable ? 'is-clickable-row' : undefined}
                     tabIndex={clickable ? 0 : undefined}
-                    aria-expanded={renderExpanded ? isExpanded : undefined}
                     onClick={clickable ? () => onRowClick(row) : undefined}
                     onKeyDown={
                       clickable
@@ -340,7 +356,7 @@ export function DataTable({
                         />
                       </td>
                     )}
-                    {visibleColumns.map((col) => (
+                    {visibleColumns.map((col, columnIndex) => (
                       <td
                         key={col.key}
                         // The identity column leads; everything else sits
@@ -366,6 +382,17 @@ export function DataTable({
                         data-label={typeof col.header === 'string' ? col.header : undefined}
                       >
                         {col.render(row)}
+                        {/* Whether this row's details are open, said in
+                            words. `aria-expanded` on a <tr> is not valid in a
+                            plain table (only in a treegrid), so screen
+                            readers ignored it and a keyboard user pressing
+                            Enter heard nothing change. The words ride on the
+                            first cell, so they are read with the row. */}
+                        {columnIndex === 0 && renderExpanded && clickable && (
+                          <span className="sr-only">
+                            {isExpanded ? ', details shown below' : ', press Enter to show details'}
+                          </span>
+                        )}
                       </td>
                     ))}
                     {hasActions && (

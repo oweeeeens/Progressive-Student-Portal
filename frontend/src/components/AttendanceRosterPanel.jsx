@@ -203,7 +203,7 @@ export function AttendanceRosterPanel({
             {' · '}
             <span style={{ color: 'var(--color-warning)' }}>{summary.late} late</span>
             {' · '}
-            <span style={{ color: 'var(--color-text-muted)' }}>{summary.excused} excused</span>
+            <span className="text-muted">{summary.excused} excused</span>
           </p>
 
           {filteredRoster.length === 0 ? (
@@ -244,10 +244,24 @@ export function AttendanceRosterPanel({
                                 className={`status-segmented__option status-segmented__option--${s.value}${
                                   r.status === s.value ? ' is-selected' : ''
                                 }`}
-                                title={`${s.label} (${s.letter})`}
+                                title={`${s.label} (press ${s.letter})`}
+                                aria-label={s.label}
                                 onClick={() => updateRow(r.student_id, 'status', s.value)}
                               >
-                                {s.letter}
+                                {/* The whole word, with its shortcut letter
+                                    underlined. Four bare letters asked the
+                                    teacher to remember that E means Excused
+                                    and L means Late on the screen they use
+                                    every single school day; the underline is
+                                    how the P/A/L/E keyboard shortcuts stop
+                                    being a secret. The rest of the word drops
+                                    away on the narrowest phones. */}
+                                {/* One inline run inside the flex button, so
+                                    the letter and the rest stay one word. */}
+                                <span>
+                                  <span className="status-segmented__key">{s.letter}</span>
+                                  <span className="status-segmented__rest">{s.label.slice(1)}</span>
+                                </span>
                               </button>
                             ))}
                           </div>

@@ -362,12 +362,14 @@ export function StudentGradesPage() {
     <div>
       <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'My Grades' }]} />
 
-      <div className="record-section__header-row">
+      <div className="page-header">
         <h1>My Grades</h1>
-        <button type="button" className="btn-subtle" onClick={handleDownloadReportCard} disabled={downloadingReportCard}>
-          <FileDown size={14} strokeWidth={1.75} />
-          {downloadingReportCard ? 'Preparing…' : 'Download report card'}
-        </button>
+        <div className="page-header__actions">
+          <button type="button" onClick={handleDownloadReportCard} disabled={downloadingReportCard}>
+            <FileDown size={16} strokeWidth={1.75} />
+            {downloadingReportCard ? 'Preparing…' : 'Download Report Card'}
+          </button>
+        </div>
       </div>
 
       {error && <Alert>{error}</Alert>}

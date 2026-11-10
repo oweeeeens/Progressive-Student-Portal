@@ -140,7 +140,11 @@ export function LineChart({
           viewBox={`0 0 ${width} ${chartHeight}`}
           width="100%"
           height={chartHeight}
-          data-chart-density={width < CHART_NARROW ? 'compact' : 'comfortable'} role="img" aria-label="Line chart">
+          data-chart-density={width < CHART_NARROW ? 'compact' : 'comfortable'}
+          // "group", not "img" — see ColumnChart: the focusable points
+          // inside must keep their labels.
+          role="group"
+          aria-label="Line chart">
           {gridLines.map((g) => (
             <g key={g}>
               <line x1={plotLeft} x2={plotLeft + plotWidth} y1={yFor(g)} y2={yFor(g)} className="chart-gridline" />

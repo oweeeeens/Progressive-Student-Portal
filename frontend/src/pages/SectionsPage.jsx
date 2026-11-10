@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, Layers, CheckCircle2, XCircle, Pencil } from 'lucide-react'
+import { Plus, Layers, CheckCircle2, XCircle, Pencil } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { canManageAcademicSetup } from '../utils/permissions'
@@ -8,7 +8,9 @@ import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { Modal } from '../components/Modal'
 import { DataTable, fieldValue } from '../components/table/DataTable'
+import { TableToolbar } from '../components/table/TableToolbar'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
+import { useConfirm } from '../hooks/useConfirm'
 
 const PAGE_SIZE = 15
 // Either teaching role can hold either assignment, because that is how the
@@ -54,6 +56,7 @@ export function SectionsPage() {
   // silence was how the user learned it had worked. The keyed busy flag also
   // stops a double-click sending the same write twice.
   const { error, setError, busyKey, runWrite } = useWriteFeedback()
+  const [confirm, confirmDialog] = useConfirm()
 
   useEffect(() => {
     api.get('/school-years').then((data) => setSchoolYears(data.schoolYears))
@@ -133,6 +136,18 @@ export function SectionsPage() {
 
   async function handleToggleActive(row) {
     const deactivating = row.is_active
+    // Reactivating is harmless and stays one click; deactivating asks first.
+    if (
+      deactivating &&
+      !(await confirm({
+        title: 'Deactivate this section?',
+        message: `${row.name} will be deactivated and will no longer appear in the lists and pickers that use active sections. You can reactivate it at any time.`,
+        confirmLabel: 'Deactivate',
+        danger: true,
+      }))
+    ) {
+      return
+    }
     await runWrite(
       // Keyed on the row so only that row's actions are disabled while the
       // request is out, rather than freezing the whole table.
@@ -153,38 +168,6 @@ export function SectionsPage() {
 
       <div className="page-header">
         <h1>Sections</h1>
-        <div className="page-header__actions">
-          <div className="search-field">
-            <Search size={16} strokeWidth={1.75} />
-            <input
-              type="search"
-              placeholder="Search by name or strand"
-              value={search}
-              onChange={(e) => {
-                setPage(1)
-                setSearch(e.target.value)
-              }}
-            />
-          </div>
-          <label>
-            <input
-              type="checkbox"
-              checked={includeInactive}
-              onChange={(e) => {
-                setPage(1)
-                setIncludeInactive(e.target.checked)
-              }}
-              style={{ width: 'auto', marginRight: 'var(--space-1)' }}
-            />
-            Show inactive
-          </label>
-          {canWrite && (
-            <button type="button" className="btn-primary" onClick={startCreate}>
-              <Plus size={16} strokeWidth={1.75} />
-              New Section
-            </button>
-          )}
-        </div>
       </div>
 
       {/* The count sits on the table it counts. A figures strip holding
@@ -197,6 +180,40 @@ export function SectionsPage() {
         </span>
       </p>
 
+      {/* Search, the inactive toggle and the create button sit in the same
+          toolbar, in the same order, as on Students and User Management —
+          they used to be crowded into this page's title row, so the three
+          setup lists were the only list pages laid out differently. */}
+      <TableToolbar
+        search={search}
+        onSearchChange={(value) => {
+          setPage(1)
+          setSearch(value)
+        }}
+        searchPlaceholder="Search by name or strand"
+        filters={
+          <label className="table-toolbar__filter">
+            <input
+              type="checkbox"
+              checked={includeInactive}
+              onChange={(e) => {
+                setPage(1)
+                setIncludeInactive(e.target.checked)
+              }}
+            />
+            <span>Show inactive</span>
+          </label>
+        }
+        actions={
+          canWrite && (
+            <button type="button" className="btn-primary" onClick={startCreate}>
+              <Plus size={16} strokeWidth={1.75} />
+              New Section
+            </button>
+          )
+        }
+      />
+
       {error && <Alert>{error}</Alert>}
 
       <Modal
@@ -206,8 +223,8 @@ export function SectionsPage() {
       >
         <form onSubmit={handleSubmit} className="intervention-log-form">
           <div className="intervention-log-form__fields">
-            <label>School Year</label>
-            <select
+            <label htmlFor="section-school-year">School Year<span className="required-mark"> *</span></label>
+            <select id="section-school-year"
               value={form.schoolYearId}
               onChange={(e) => setForm((f) => ({ ...f, schoolYearId: e.target.value }))}
               required
@@ -220,24 +237,24 @@ export function SectionsPage() {
               ))}
             </select>
 
-            <label>Grade Level</label>
-            <select value={form.gradeLevel} onChange={(e) => setForm((f) => ({ ...f, gradeLevel: e.target.value }))}>
+            <label htmlFor="section-grade-level">Grade Level</label>
+            <select id="section-grade-level" value={form.gradeLevel} onChange={(e) => setForm((f) => ({ ...f, gradeLevel: e.target.value }))}>
               <option value={11}>Grade 11</option>
               <option value={12}>Grade 12</option>
             </select>
 
-            <label>Strand (optional)</label>
-            <input
+            <label htmlFor="section-strand">Strand (optional)</label>
+            <input id="section-strand"
               value={form.strand}
               onChange={(e) => setForm((f) => ({ ...f, strand: e.target.value }))}
               placeholder="e.g. STEM"
             />
 
-            <label>Section Name</label>
-            <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+            <label htmlFor="section-section-name">Section Name<span className="required-mark"> *</span></label>
+            <input id="section-section-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
 
-            <label>Adviser</label>
-            <select
+            <label htmlFor="section-adviser">Adviser<span className="required-mark"> *</span></label>
+            <select id="section-adviser"
               value={form.adviserId}
               onChange={(e) => setForm((f) => ({ ...f, adviserId: e.target.value }))}
               required
@@ -250,7 +267,7 @@ export function SectionsPage() {
               ))}
             </select>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div className="button-row">
             <button type="submit" className="btn-primary" disabled={busyKey === 'form'}>
               {busyKey === 'form' ? 'Saving…' : editingId ? 'Save Changes' : 'Create Section'}
             </button>
@@ -322,6 +339,7 @@ export function SectionsPage() {
         }
       />
 
+      {confirmDialog}
     </div>
   )
 }

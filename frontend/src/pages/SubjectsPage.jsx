@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Search, BookOpen, CheckCircle2, XCircle, Pencil } from 'lucide-react'
+import { Plus, BookOpen, CheckCircle2, XCircle, Pencil } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { canManageAcademicSetup } from '../utils/permissions'
@@ -8,7 +8,9 @@ import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { Modal } from '../components/Modal'
 import { DataTable, fieldValue } from '../components/table/DataTable'
+import { TableToolbar } from '../components/table/TableToolbar'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
+import { useConfirm } from '../hooks/useConfirm'
 import { SUBJECT_CATEGORIES, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
 
 const PAGE_SIZE = 15
@@ -45,6 +47,7 @@ export function SubjectsPage() {
   // said nothing at all — so on a page whose only other message is an error,
   // silence was how the user learned it had worked.
   const { error, setError, busyKey, runWrite } = useWriteFeedback()
+  const [confirm, confirmDialog] = useConfirm()
 
   function loadStats() {
     api.get('/subjects/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total))
@@ -109,6 +112,18 @@ export function SubjectsPage() {
 
   async function handleToggleActive(row) {
     const deactivating = row.is_active
+    // Reactivating is harmless and stays one click; deactivating asks first.
+    if (
+      deactivating &&
+      !(await confirm({
+        title: 'Deactivate this subject?',
+        message: `${row.name} will be deactivated and will no longer be available when setting up class offerings. You can reactivate it at any time.`,
+        confirmLabel: 'Deactivate',
+        danger: true,
+      }))
+    ) {
+      return
+    }
     await runWrite(
       // Keyed on the row so only that row's actions are disabled while the
       // request is out, rather than freezing the whole table.
@@ -129,38 +144,6 @@ export function SubjectsPage() {
 
       <div className="page-header">
         <h1>Subjects</h1>
-        <div className="page-header__actions">
-          <div className="search-field">
-            <Search size={16} strokeWidth={1.75} />
-            <input
-              type="search"
-              placeholder="Search by name or code"
-              value={search}
-              onChange={(e) => {
-                setPage(1)
-                setSearch(e.target.value)
-              }}
-            />
-          </div>
-          <label>
-            <input
-              type="checkbox"
-              checked={includeInactive}
-              onChange={(e) => {
-                setPage(1)
-                setIncludeInactive(e.target.checked)
-              }}
-              style={{ width: 'auto', marginRight: 'var(--space-1)' }}
-            />
-            Show inactive
-          </label>
-          {canWrite && (
-            <button type="button" className="btn-primary" onClick={startCreate}>
-              <Plus size={16} strokeWidth={1.75} />
-              New Subject
-            </button>
-          )}
-        </div>
       </div>
 
       {/* The count sits on the table it counts. A figures strip holding
@@ -173,6 +156,40 @@ export function SubjectsPage() {
         </span>
       </p>
 
+      {/* Search, the inactive toggle and the create button sit in the same
+          toolbar, in the same order, as on Students and User Management —
+          they used to be crowded into this page's title row, so the three
+          setup lists were the only list pages laid out differently. */}
+      <TableToolbar
+        search={search}
+        onSearchChange={(value) => {
+          setPage(1)
+          setSearch(value)
+        }}
+        searchPlaceholder="Search by name or code"
+        filters={
+          <label className="table-toolbar__filter">
+            <input
+              type="checkbox"
+              checked={includeInactive}
+              onChange={(e) => {
+                setPage(1)
+                setIncludeInactive(e.target.checked)
+              }}
+            />
+            <span>Show inactive</span>
+          </label>
+        }
+        actions={
+          canWrite && (
+            <button type="button" className="btn-primary" onClick={startCreate}>
+              <Plus size={16} strokeWidth={1.75} />
+              New Subject
+            </button>
+          )
+        }
+      />
+
       {error && <Alert>{error}</Alert>}
 
       <Modal
@@ -182,11 +199,11 @@ export function SubjectsPage() {
       >
         <form onSubmit={handleSubmit} className="intervention-log-form">
           <div className="intervention-log-form__fields">
-            <label>Name</label>
-            <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+            <label htmlFor="subject-name">Name<span className="required-mark"> *</span></label>
+            <input id="subject-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
 
-            <label>Code (optional)</label>
-            <input
+            <label htmlFor="subject-code">Code (optional)</label>
+            <input id="subject-code"
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
               placeholder="e.g. MATH11"
@@ -206,20 +223,20 @@ export function SubjectsPage() {
             </select>
             {/* The one consequence worth stating on the form itself, since it
                 is not guessable from the word "Specialized". */}
-            <p className="form-note" style={{ gridColumn: '1 / -1', margin: 0 }}>
+            <p className="form-note">
               {form.category === 'specialized'
                 ? 'Specialized subjects run the whole school year in both grade levels, whatever term their classes are given.'
                 : 'Core and applied subjects run for as long as their class offering says — the whole year, or one term.'}
             </p>
 
-            <label>Grade Level (optional)</label>
-            <select value={form.gradeLevel} onChange={(e) => setForm((f) => ({ ...f, gradeLevel: e.target.value }))}>
+            <label htmlFor="subject-grade-level">Grade Level (optional)</label>
+            <select id="subject-grade-level" value={form.gradeLevel} onChange={(e) => setForm((f) => ({ ...f, gradeLevel: e.target.value }))}>
               <option value="">Offered in both grade levels</option>
               <option value={11}>Grade 11</option>
               <option value={12}>Grade 12</option>
             </select>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <div className="button-row">
             <button type="submit" className="btn-primary" disabled={busyKey === 'form'}>
               {busyKey === 'form' ? 'Saving…' : editingId ? 'Save Changes' : 'Create Subject'}
             </button>
@@ -287,6 +304,7 @@ export function SubjectsPage() {
         }
       />
 
+      {confirmDialog}
     </div>
   )
 }
