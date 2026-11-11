@@ -1766,6 +1766,49 @@ th {
   align-items: center;
   gap: var(--space-2);
 }
+/* A list refetching with its old rows still on screen (DataTable's
+   `refreshing`). The rows dim and stop taking clicks so nothing can be acted
+   on that is about to be replaced; the bar and its words say why. */
+.data-table.is-refreshing .table-card {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+.data-table__refreshing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.data-table__refreshing-bar {
+  position: relative;
+  width: 2.5rem;
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-border);
+}
+.data-table__refreshing-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  animation: data-table-refresh 900ms ease-in-out infinite;
+}
+@keyframes data-table-refresh {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .data-table__refreshing-bar::after {
+    animation: none;
+    width: 100%;
+  }
+}
 .data-table__caption {
   caption-side: top;
   text-align: left;
@@ -5820,9 +5863,11 @@ textarea[aria-invalid='true']:focus-visible {
 /* Spacing steps, on the same scale as everything else (--space-*). */
 .m-0 { margin: 0; }
 .mt-0 { margin-top: 0; }
+.mt-2 { margin-top: var(--space-2); }
 .mt-3 { margin-top: var(--space-3); }
 .mt-4 { margin-top: var(--space-4); }
 .mt-5 { margin-top: var(--space-5); }
 .mt-6 { margin-top: var(--space-6); }
+.mb-3 { margin-bottom: var(--space-3); }
 .mb-4 { margin-bottom: var(--space-4); }
 .mb-5 { margin-bottom: var(--space-5); }

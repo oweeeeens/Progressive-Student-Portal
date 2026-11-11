@@ -326,7 +326,7 @@ export function StudentGradesPage() {
       <div className="record-section">
         <h2>Whole Year at a Glance</h2>
         <p className="record-section__note">
-          Every subject against every term, the shape of the paper report card. Select a subject to see each of its
+          Every subject against every term in one grid. Select a subject to see each of its
           marks and who to ask about them.
         </p>
         <WholeYearGrid

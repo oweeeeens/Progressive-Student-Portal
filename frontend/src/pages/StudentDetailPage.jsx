@@ -23,6 +23,8 @@ import { GradeHistory } from '../components/GradeHistory'
 import { InterventionHistory } from '../components/InterventionHistory'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { Alert } from '../components/Alert'
+import { useWriteFeedback } from '../hooks/useWriteFeedback'
+import { useConfirm } from '../hooks/useConfirm'
 import { LoadingAnnouncement, Skeleton, SkeletonTable } from '../components/Skeleton'
 import { humanize } from '../utils/humanize'
 
@@ -197,13 +199,25 @@ export function StudentDetailPage() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [resetResult, setResetResult] = useState(null)
-  const [resetting, setResetting] = useState(false)
   const [academicProgress, setAcademicProgress] = useState(null)
+  // Set when the progress badge's request failed — said in a line rather
+  // than the badge just being absent, which reads as "no assessment yet".
+  const [progressError, setProgressError] = useState(null)
   const [subjects, setSubjects] = useState(null)
+  const [subjectsError, setSubjectsError] = useState(null)
+  // Deactivate / reactivate / reset password: one in-flight guard, failures
+  // inline, receipts as a toast (hooks/useWriteFeedback.js) — these three
+  // used to fail silently, and deactivating asked nothing first.
+  const { error: writeError, busyKey, runWrite } = useWriteFeedback()
+  const [confirm, confirmDialog] = useConfirm()
 
-  function load() {
+  // `quiet` reloads after a write without swapping the whole page for the
+  // loading skeleton — the reader stays where they were, and the toast says
+  // what changed.
+  function load({ quiet = false } = {}) {
     if (!id) return
-    setLoading(true)
+    if (!quiet) setLoading(true)
+    setError(null)
     api
       .get(`/students/${id}`)
       .then((data) => setStudent(data.student))
@@ -218,7 +232,10 @@ export function StudentDetailPage() {
     api
       .get(`/students/${id}/academic-progress`)
       .then((data) => setAcademicProgress(data.academicProgress))
-      .catch(() => setAcademicProgress(null))
+      .catch((err) => {
+        setAcademicProgress(null)
+        setProgressError(`Couldn't load this student's progress band: ${err.message}`)
+      })
   }, [id, user?.role])
 
   useEffect(() => {
@@ -226,28 +243,53 @@ export function StudentDetailPage() {
     api
       .get(`/students/${id}/subjects`)
       .then((data) => setSubjects(data.subjects))
-      // A missing subject list shouldn't blank out the whole profile — the
-      // panel just renders its own empty state.
-      .catch(() => setSubjects([]))
+      // A missing subject list shouldn't blank out the whole profile — but
+      // it must not claim "no subjects have been set up" either, which is
+      // what an empty list here used to say.
+      .catch((err) => {
+        setSubjects([])
+        setSubjectsError(`Couldn't load the subject list: ${err.message}`)
+      })
   }, [id])
 
   async function toggleActive() {
+    const name = `${student.first_name} ${student.last_name}`
     if (student.is_active) {
-      await api.delete(`/students/${id}`)
+      // Only what the server really does: the record's active flag is
+      // switched off (studentModel.setActive). Nothing is deleted.
+      const ok = await confirm({
+        title: 'Deactivate this student?',
+        message: `${name}'s record will be marked inactive and left out of the lists of active students. Their grades and attendance are kept, and you can reactivate the record at any time.`,
+        confirmLabel: 'Deactivate',
+        danger: true,
+      })
+      if (!ok) return
+      const done = await runWrite('active', () => api.delete(`/students/${id}`), `${name} has been deactivated.`)
+      if (done) load({ quiet: true })
     } else {
-      await api.post(`/students/${id}/reactivate`)
+      // Reactivating stays one click (CLAUDE.md UI standard 12).
+      const done = await runWrite('active', () => api.post(`/students/${id}/reactivate`), `${name} has been reactivated.`)
+      if (done) load({ quiet: true })
     }
-    load()
   }
 
   async function handleResetPassword() {
-    setResetting(true)
-    try {
-      const result = await api.post(`/students/${id}/reset-password`)
-      setResetResult(result.tempPassword)
-    } finally {
-      setResetting(false)
-    }
+    const name = `${student.first_name} ${student.last_name}`
+    const ok = await confirm({
+      title: "Reset this student's password?",
+      message: `${name}'s current password will stop working at once. A temporary password will be shown here for you to give them, and they will have to change it when they next sign in.`,
+      confirmLabel: 'Reset password',
+      danger: true,
+    })
+    if (!ok) return
+    await runWrite(
+      'reset',
+      async () => {
+        const result = await api.post(`/students/${id}/reset-password`)
+        setResetResult(result.tempPassword)
+      },
+      `Password reset for ${name}.`
+    )
   }
 
   if (loading) {
@@ -303,8 +345,10 @@ export function StudentDetailPage() {
           teaches each, not a period-by-period timetable. */}
       <div className="panel mb-5">
         <h2>Current Subjects</h2>
-        {subjects === null ? (
-          <p className="text-muted m-0">Loading…</p>
+        {subjectsError ? (
+          <p className="form-note form-note--danger">{subjectsError}</p>
+        ) : subjects === null ? (
+          <SkeletonTable rows={3} columns={3} />
         ) : subjects.length === 0 ? (
           <p className="text-muted m-0">
             {student.current_section_id
@@ -335,14 +379,20 @@ export function StudentDetailPage() {
           <button type="button" onClick={() => navigate(`/students/${id}/edit`)}>
             <Pencil size={16} strokeWidth={1.75} /> Edit Profile
           </button>
-          <button type="button" onClick={toggleActive}>
+          <button type="button" onClick={toggleActive} disabled={busyKey !== null}>
             {student.is_active ? <UserX size={16} strokeWidth={1.75} /> : <UserCheck size={16} strokeWidth={1.75} />}
-            {student.is_active ? 'Deactivate Student' : 'Reactivate Student'}
+            {busyKey === 'active'
+              ? student.is_active
+                ? 'Deactivating…'
+                : 'Reactivating…'
+              : student.is_active
+                ? 'Deactivate Student'
+                : 'Reactivate Student'}
           </button>
           {student.user_id ? (
-            <button type="button" onClick={handleResetPassword} disabled={resetting}>
+            <button type="button" onClick={handleResetPassword} disabled={busyKey !== null}>
               <KeyRound size={16} strokeWidth={1.75} />
-              {resetting ? 'Resetting…' : 'Reset Password'}
+              {busyKey === 'reset' ? 'Resetting…' : 'Reset Password'}
             </button>
           ) : (
             // Enrollment is paper-based now — no event auto-creates this
@@ -360,6 +410,9 @@ export function StudentDetailPage() {
           row, so loose block children lay out side by side. This is a
           temporary password someone has to read and copy — it needs to sit
           under its heading, not beside it. */}
+      {writeError && <Alert>{writeError}</Alert>}
+      {confirmDialog}
+
       {resetResult && (
         <Alert variant="success" title="Password reset for this student's portal account.">
           <p className="help-text">
@@ -417,6 +470,7 @@ export function StudentDetailPage() {
               <StatusPill label={student.enrollment_status} variant={STATUS_VARIANTS[student.enrollment_status]} />
               {!student.is_active && <StatusPill label="inactive" variant="neutral" />}
               {academicProgress && <AcademicProgressBadge progress={academicProgress} />}
+              {progressError && <span className="form-note form-note--danger">{progressError}</span>}
             </div>
           </div>
         </div>

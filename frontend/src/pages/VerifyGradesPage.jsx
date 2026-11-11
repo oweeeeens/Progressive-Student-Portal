@@ -26,7 +26,8 @@ export function VerifyGradesPage() {
   // Was done here by hand, by fetching the whole list and matching on NAME —
   // which only works while a school has one year of data, since "Q1" exists
   // in every school year. The endpoint now returns the id.
-  const { periods, gradingPeriodId, setGradingPeriodId } = useGradingPeriods()
+  const { periods, gradingPeriodId, setGradingPeriodId, error: periodsError } = useGradingPeriods()
+  const [sectionsError, setSectionsError] = useState(null)
   const [sectionId, setSectionId] = useState('')
   const [page, setPage] = useState(1)
   const [rows, setRows] = useState([])
@@ -40,7 +41,11 @@ export function VerifyGradesPage() {
   const [acting, setActing] = useState(false)
 
   useEffect(() => {
-    api.get('/sections').then((data) => setSections(data.sections))
+    api
+      .get('/sections')
+      .then((data) => setSections(data.sections))
+      // Otherwise the filter silently offers only "All sections".
+      .catch((err) => setSectionsError(`Couldn't load the section filter: ${err.message}`))
   }, [])
 
   function loadQueue() {
@@ -62,7 +67,14 @@ export function VerifyGradesPage() {
         setRejectingId(null)
         setRejectionNote('')
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message)
+        // Drop the previous queue: it used to stay listed, and verifiable,
+        // under the newly chosen section or period.
+        setRows([])
+        setTotal(0)
+        setSelectedIds(new Set())
+      })
       .finally(() => setLoading(false))
   }
 
@@ -176,6 +188,8 @@ export function VerifyGradesPage() {
         </div>
       </div>
 
+      {sectionsError && <Alert>{sectionsError}</Alert>}
+      {periodsError && <Alert>{periodsError}</Alert>}
       {error && <Alert>{error}</Alert>}
       {/* These four screens are where the real work of a school week gets
           done — a roster marked, a term's grades submitted, verified, put
@@ -213,6 +227,9 @@ export function VerifyGradesPage() {
 
           <DataTable
             loading={loading}
+            // So a failed load reads as "could not be loaded", not as the
+            // "nothing waiting on you" empty state under the error.
+            error={error}
             illustration="cleared"
             columns={[
               {

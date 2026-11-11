@@ -228,6 +228,13 @@ export function DataTable({
     )
   }
 
+  // A refetch with rows already on screen (a new filter, search, section or
+  // page). The skeleton above only covers a FIRST load, so a change of filter
+  // used to leave the old rows sitting there unchanged until they were
+  // suddenly swapped — no sign anything had happened. Now the old rows dim
+  // and stop taking clicks, and a line says the list is updating.
+  const refreshing = loading && safeRows.length > 0
+
   const from = page && pageSize ? (page - 1) * pageSize + 1 : 1
   const to = page && pageSize ? Math.min(page * pageSize, total ?? safeRows.length) : safeRows.length
   const rowTotal = total ?? safeRows.length
@@ -239,7 +246,13 @@ export function DataTable({
   }
 
   return (
-    <div className="data-table">
+    <div className={`data-table${refreshing ? ' is-refreshing' : ''}`} aria-busy={refreshing || undefined}>
+      {refreshing && (
+        <p className="data-table__refreshing" role="status">
+          <span className="data-table__refreshing-bar" aria-hidden="true" />
+          Updating…
+        </p>
+      )}
       {legend && <div className="data-table__legend">{legend}</div>}
 
       {/* Columns that said the same thing on every row, said once instead.

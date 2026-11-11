@@ -141,7 +141,12 @@ export function SchoolYearsPage() {
     api
       .get(`/grading-periods/admin?schoolYearId=${selectedYearId}`)
       .then((data) => setPeriods(data.gradingPeriods))
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message)
+        // Drop the previously selected year's periods: they used to stay
+        // listed under the newly chosen year, beside the error.
+        setPeriods([])
+      })
       .finally(() => setLoadingPeriods(false))
   }
   useEffect(loadPeriods, [selectedYearId, setError])

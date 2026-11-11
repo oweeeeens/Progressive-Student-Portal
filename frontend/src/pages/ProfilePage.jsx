@@ -42,6 +42,10 @@ export function ProfilePage() {
 
   const [sections, setSections] = useState(null)
   const [offerings, setOfferings] = useState(null)
+  // Set when either assignment request failed. An empty list there used to
+  // print "You do not currently advise a section or teach a class" — a
+  // statement about the person, made from a request that never answered.
+  const [assignmentsError, setAssignmentsError] = useState(null)
 
   // Identity form. Seeded from the signed-in user rather than a fresh
   // request — AuthContext already re-fetched /auth/me on load, so asking
@@ -67,8 +71,21 @@ export function ProfilePage() {
       setOfferings([])
       return
     }
-    api.get('/sections/mine').then((d) => setSections(d.sections || [])).catch(() => setSections([]))
-    api.get('/class-offerings/mine').then((d) => setOfferings(d.classOfferings || [])).catch(() => setOfferings([]))
+    const failed = (err) => setAssignmentsError(`Couldn't load your assignments: ${err.message}`)
+    api
+      .get('/sections/mine')
+      .then((d) => setSections(d.sections || []))
+      .catch((err) => {
+        setSections([])
+        failed(err)
+      })
+    api
+      .get('/class-offerings/mine')
+      .then((d) => setOfferings(d.classOfferings || []))
+      .catch((err) => {
+        setOfferings([])
+        failed(err)
+      })
   }, [isStudent])
 
   // Whether the email field has actually been changed, compared the way the
@@ -327,6 +344,8 @@ export function ProfilePage() {
                 <Skeleton h="1.25rem" w="60%" />
                 <Skeleton h="1.25rem" w="45%" />
               </div>
+            ) : assignmentsError ? (
+              <p className="form-note form-note--danger">{assignmentsError}</p>
             ) : !hasAssignments ? (
               <p className="form-note">
                 You do not currently advise a section or teach a class. An administrator assigns these in Academic

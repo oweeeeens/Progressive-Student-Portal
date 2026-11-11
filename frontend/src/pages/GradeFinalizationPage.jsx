@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { CheckCircle2 } from 'lucide-react'
 import { api } from '../api/client'
 import { defaultSelection } from '../utils/defaultSelection'
@@ -32,8 +33,12 @@ export function GradeFinalizationPage() {
   // Opens on the period the school is in, so an adviser with verified grades
   // waiting lands on them instead of on an empty "pick a section and grading
   // period" state with the work one click away.
-  const { periods, gradingPeriodId, setGradingPeriodId } = useGradingPeriods()
+  const { periods, gradingPeriodId, setGradingPeriodId, error: periodsError } = useGradingPeriods()
   const [verifiedGrades, setVerifiedGrades] = useState([])
+  // Where this section's other grades are in the approval chain, so an empty
+  // list can say WHY it is empty (see gradeModel.countStatusesForSectionPeriod).
+  const [pipeline, setPipeline] = useState(null)
+  const [sectionsError, setSectionsError] = useState(null)
   const [reviewedIds, setReviewedIds] = useState(new Set())
   const [error, setError] = useState(null)
   const [message, setMessage] = useState(null)
@@ -48,24 +53,32 @@ export function GradeFinalizationPage() {
   useEffect(() => {
     const scopedToMe = user.role !== 'admin'
     const path = scopedToMe ? '/sections/mine' : '/sections'
-    api.get(path).then((data) => {
-      setSections(data.sections)
-      setSectionId((current) => current || defaultSelection(data.sections, scopedToMe))
-    })
+    api
+      .get(path)
+      .then((data) => {
+        setSections(data.sections)
+        setSectionId((current) => current || defaultSelection(data.sections, scopedToMe))
+      })
+      // Without this an empty picker sat beside "Pick a section", and a
+      // failed request read as having no sections at all.
+      .catch((err) => setSectionsError(`Couldn't load the section list: ${err.message}`))
   }, [user.role])
 
   function loadVerifiedGrades() {
-    if (!sectionId || !gradingPeriodId) {
-      setVerifiedGrades([])
-      return
-    }
+    // Cleared before every request, not only on success: a failed load used
+    // to leave the previous section's grades listed under the new section's
+    // name, with the Finalize button still live.
+    setVerifiedGrades([])
+    setPipeline(null)
+    setReviewedIds(new Set())
+    if (!sectionId || !gradingPeriodId) return
     setError(null)
     setLoading(true)
     api
       .get(`/grades/pending?sectionId=${sectionId}&gradingPeriodId=${gradingPeriodId}`)
       .then((data) => {
         setVerifiedGrades(data.verified)
-        setReviewedIds(new Set())
+        setPipeline(data.pipeline || null)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
@@ -105,6 +118,11 @@ export function GradeFinalizationPage() {
   }
 
   const ready = Boolean(sectionId && gradingPeriodId)
+  const sectionLabel = (() => {
+    const s = sections.find((x) => String(x.id) === String(sectionId))
+    return s ? `Grade ${s.grade_level} – ${s.name}` : 'this section'
+  })()
+  const periodLabel = periods.find((p) => String(p.id) === String(gradingPeriodId))?.name || 'this period'
 
   return (
     <div>
@@ -138,6 +156,8 @@ export function GradeFinalizationPage() {
         </div>
       </div>
 
+      {sectionsError && <Alert>{sectionsError}</Alert>}
+      {periodsError && <Alert>{periodsError}</Alert>}
       {error && <Alert>{error}</Alert>}
       {/* These four screens are where the real work of a school week gets
           done — a roster marked, a term's grades submitted, verified, put
@@ -171,10 +191,16 @@ export function GradeFinalizationPage() {
               </>
             )}
           </p>
-          <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-faint)', margin: '0 0 var(--space-3)' }}>
+          <p className="help-text mb-3">
             Checking a row marks it reviewed — finalizing always applies to every grade below at once.
           </p>
+          </>
+          )}
 
+          {/* Always rendered once a section and period are chosen. It used to
+              sit inside the `verifiedGrades.length > 0` block above, so its
+              loading skeleton and its empty state could never appear: picking
+              a section with nothing to finalize left the page blank. */}
           <DataTable
             loading={loading}
             illustration="cleared"
@@ -221,16 +247,16 @@ export function GradeFinalizationPage() {
               onToggleAll: toggleAll,
               label: 'Mark all reviewed',
             }}
+            error={error}
             emptyState={
-              <>
-                <p>Nothing to finalize here.</p>
-                <p>No grades for this section and period have been verified yet, or they are already in the record.</p>
-              </>
+              <FinalizeEmptyState
+                sectionLabel={sectionLabel}
+                periodLabel={periodLabel}
+                pipeline={pipeline}
+                canVerify={user.role === 'admin' || user.role === 'principal'}
+              />
             }
           />
-
-          </>
-          )}
 
           {verifiedGrades.length > 0 && (
           <div className="sticky-action-bar">
@@ -247,5 +273,41 @@ export function GradeFinalizationPage() {
         </>
       )}
     </div>
+  )
+}
+
+// Why there is nothing to finalize, in the words of the approval chain.
+// "Nothing here" alone is the same sentence whether twelve grades are still
+// with the principal, three were sent back, or the whole term is already in
+// the record — and those call for three different next steps.
+function FinalizeEmptyState({ sectionLabel, periodLabel, pipeline, canVerify }) {
+  const lines = []
+  if (pipeline) {
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
+    if (pipeline.submitted > 0) {
+      lines.push(`${plural(pipeline.submitted, 'grade is', 'grades are')} with the principal for verification.`)
+    }
+    if (pipeline.rejected > 0) {
+      lines.push(`${plural(pipeline.rejected, 'grade was', 'grades were')} returned to the subject teacher to correct.`)
+    }
+    if (pipeline.finalized > 0) {
+      lines.push(`${plural(pipeline.finalized, 'grade is', 'grades are')} already finalized in the official record.`)
+    }
+    if (lines.length === 0) lines.push('No grades have been submitted for this section in this period yet.')
+  }
+  return (
+    <>
+      <p>
+        Nothing waiting to be finalized for {sectionLabel} in {periodLabel}.
+      </p>
+      {lines.map((line) => (
+        <p key={line}>{line}</p>
+      ))}
+      {canVerify && pipeline?.submitted > 0 && (
+        <p>
+          <Link to="/grades/verify">Go to Verify Grades</Link>
+        </p>
+      )}
+    </>
   )
 }

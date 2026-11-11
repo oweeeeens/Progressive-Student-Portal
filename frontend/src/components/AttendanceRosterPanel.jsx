@@ -45,6 +45,9 @@ export function AttendanceRosterPanel({
   recorded, // true | false | null
   loading,
   error,
+  // True when the register itself failed to load — the empty area then says
+  // so, instead of "Nobody in this section yet" under the error.
+  loadFailed = false,
   message,
   resetKey,
   onSave,
@@ -166,6 +169,12 @@ export function AttendanceRosterPanel({
         </div>
       ) : loading ? (
         <SkeletonTable rows={8} columns={3} />
+      ) : loadFailed ? (
+        <div className="empty-state">
+          <SpotIllustration name="search" />
+          <p>This register could not be loaded.</p>
+          <p>Choose the {pickerLabel.toLowerCase()} or date again, or reload the page. Nothing has been saved.</p>
+        </div>
       ) : roster.length === 0 ? (
         <div className="empty-state">
           <SpotIllustration name="roster" />

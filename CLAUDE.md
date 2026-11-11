@@ -683,6 +683,25 @@ Based on a reference college portal design the team liked — apply these patter
     `.help-text`, `.mt-*`/`.mb-*` at the end of `index.css`. An inline style
     is for a data-driven value only (a computed width, a series colour).
 
+17. **Every action answers, and a failure never looks like "nothing here"
+    (2026-11-12).** Finalize Grades rendered a blank area when an admin picked
+    a section with nothing to finalize — the table, empty state and skeleton
+    all sat inside a `rows.length > 0` block. An audit found ~30 more
+    variants, now fixed system-wide by four rules:
+    - **A list that refetches dims and says "Updating…"** — built into
+      `DataTable` (`refreshing`), so every list page got it at once.
+    - **A failed load clears what was on screen.** Enter Grades and Daily
+      Attendance used to keep the previous sheet editable under the new
+      class/section, so a save would have written it against the wrong one.
+    - **A picker's own request reports its failure** (an inline Alert), and
+      no `.catch(() => [])` is allowed to turn an outage into an empty list
+      that claims something ("no subjects", "you advise nothing").
+      `useGradingPeriods` returns `error` for the same reason.
+    - **Every write gets a receipt and a busy state**, and an empty list says
+      why it is empty where the data can tell: Finalize Grades reports where
+      the section's other grades are in the approval chain
+      (`GET /grades/pending` → `pipeline`).
+
 **Measured, not assumed (2026-11-10).** A Playwright + axe-core sweep of every
 page for every role at 1440/390/320 found 0 console errors and 0 failed
 requests but 6 kinds of WCAG violation (aria-expanded on table rows, aria-sort

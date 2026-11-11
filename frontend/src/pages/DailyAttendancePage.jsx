@@ -35,6 +35,8 @@ export function DailyAttendancePage() {
   // an already-recorded day and immediately, incorrectly, showed "Unsaved
   // changes" because the baseline never got the fetched data).
   const [baselineVersion, setBaselineVersion] = useState(0)
+  const [sectionsError, setSectionsError] = useState(null)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   // admin/registrar have blanket write access by role, so they get every
   // section to choose from; everyone else is scoped to sections they
@@ -46,10 +48,14 @@ export function DailyAttendancePage() {
   useEffect(() => {
     const scopedToMe = !['admin', 'registrar'].includes(user.role)
     const path = scopedToMe ? '/sections/mine' : '/sections'
-    api.get(path).then((data) => {
-      setSections(data.sections)
-      setSectionId((current) => current || defaultSelection(data.sections, scopedToMe))
-    })
+    api
+      .get(path)
+      .then((data) => {
+        setSections(data.sections)
+        setSectionId((current) => current || defaultSelection(data.sections, scopedToMe))
+      })
+      // An empty picker beside "Pick a section" read as advising nothing.
+      .catch((err) => setSectionsError(`Couldn't load the section list: ${err.message}`))
   }, [user.role])
 
   useEffect(() => {
@@ -61,6 +67,7 @@ export function DailyAttendancePage() {
     }
     setError(null)
     setMessage(null)
+    setLoadFailed(false)
     setLoading(true)
     api
       .get(`/attendance/daily?sectionId=${sectionId}&date=${date}`)
@@ -72,7 +79,16 @@ export function DailyAttendancePage() {
         setRoster(data.roster.map((r) => ({ ...r, status: r.status || 'present' })))
         setBaselineVersion((v) => v + 1)
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message)
+        // Drop the previous register. It used to stay on screen, with Save
+        // enabled, under the newly chosen section or date — saving would
+        // have written those marks against the wrong day or section.
+        setRoster([])
+        setRecorded(null)
+        setLoadFailed(true)
+        setBaselineVersion((v) => v + 1)
+      })
       .finally(() => setLoading(false))
   }, [sectionId, date])
 
@@ -114,7 +130,8 @@ export function DailyAttendancePage() {
       onRosterChange={setRoster}
       recorded={recorded}
       loading={loading}
-      error={error}
+      error={sectionsError || error}
+      loadFailed={loadFailed}
       message={message}
       resetKey={baselineVersion}
       onSave={handleSave}

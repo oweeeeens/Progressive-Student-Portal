@@ -22,12 +22,20 @@ import { api } from '../api/client'
 export function useGradingPeriods() {
   const [periods, setPeriods] = useState([])
   const [gradingPeriodId, setGradingPeriodId] = useState('')
+  // Set when the LIST could not be loaded. Swallowing that failure left an
+  // empty picker beside "Pick a grading period" — a request that failed
+  // looking exactly like a school with no terms. The current-period lookup
+  // below stays quiet on failure: without it the reader simply picks.
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     let cancelled = false
 
     Promise.all([
-      api.get('/grading-periods').catch(() => null),
+      api.get('/grading-periods').catch((err) => {
+        if (!cancelled) setError(`Couldn't load the grading periods: ${err.message}`)
+        return null
+      }),
       // A failure here is not fatal: the list still loads and the reader
       // simply picks a period themselves, which is where they were before.
       api.get('/grading-periods/current').catch(() => null),
@@ -51,5 +59,5 @@ export function useGradingPeriods() {
     }
   }, [])
 
-  return { periods, gradingPeriodId, setGradingPeriodId }
+  return { periods, gradingPeriodId, setGradingPeriodId, error }
 }

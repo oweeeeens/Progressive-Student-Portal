@@ -35,7 +35,11 @@ export function GradeEntryPage() {
   const [classOfferingId, setClassOfferingId] = useState('')
   // Same default as Verify and Finalize — a teacher entering marks is almost
   // always entering them for the period the school is currently in.
-  const { periods, gradingPeriodId, setGradingPeriodId } = useGradingPeriods()
+  const { periods, gradingPeriodId, setGradingPeriodId, error: periodsError } = useGradingPeriods()
+  const [offeringsError, setOfferingsError] = useState(null)
+  // Set only when the SHEET failed to load, so the empty area can say so
+  // rather than claim the class has no students.
+  const [rosterFailed, setRosterFailed] = useState(false)
   const [roster, setRoster] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -50,10 +54,14 @@ export function GradeEntryPage() {
   const [baselineVersion, setBaselineVersion] = useState(0)
 
   useEffect(() => {
-    api.get('/class-offerings/mine').then((data) => {
-      setOfferings(data.classOfferings)
-      setClassOfferingId((current) => current || defaultSelection(data.classOfferings, true))
-    })
+    api
+      .get('/class-offerings/mine')
+      .then((data) => {
+        setOfferings(data.classOfferings)
+        setClassOfferingId((current) => current || defaultSelection(data.classOfferings, true))
+      })
+      // An empty Class picker beside "Pick a class" read as teaching nothing.
+      .catch((err) => setOfferingsError(`Couldn't load your classes: ${err.message}`))
   }, [])
 
   useEffect(() => {
@@ -63,6 +71,7 @@ export function GradeEntryPage() {
       return
     }
     setError(null)
+    setRosterFailed(false)
     setLoading(true)
     Promise.all([
       api.get(`/class-offerings/${classOfferingId}/roster`),
@@ -86,7 +95,15 @@ export function GradeEntryPage() {
         )
         setBaselineVersion((v) => v + 1)
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message)
+        // Drop the previous sheet. It used to stay on screen and editable
+        // under the newly chosen class, and "Submit for review" would have
+        // posted those students' marks against the new class offering.
+        setRoster([])
+        setRosterFailed(true)
+        setBaselineVersion((v) => v + 1)
+      })
       .finally(() => setLoading(false))
   }, [classOfferingId, gradingPeriodId])
 
@@ -173,6 +190,8 @@ export function GradeEntryPage() {
         </div>
       </div>
 
+      {offeringsError && <Alert>{offeringsError}</Alert>}
+      {periodsError && <Alert>{periodsError}</Alert>}
       {error && <Alert>{error}</Alert>}
       {/* These four screens are where the real work of a school week gets
           done — a roster marked, a term's grades submitted, verified, put
@@ -192,6 +211,12 @@ export function GradeEntryPage() {
         </div>
       ) : loading ? (
         <SkeletonTable rows={6} columns={3} />
+      ) : rosterFailed ? (
+        <div className="empty-state">
+          <SpotIllustration name="search" />
+          <p>This grade sheet could not be loaded.</p>
+          <p>Choose the class again, or reload the page. Nothing has been submitted.</p>
+        </div>
       ) : roster.length === 0 ? (
         <div className="empty-state">
           <SpotIllustration name="roster" />

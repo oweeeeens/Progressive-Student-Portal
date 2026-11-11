@@ -124,6 +124,10 @@ function interventionStatDetails(counts) {
 
 export function InterventionsPage() {
   const [interventions, setInterventions] = useState(null)
+  // True while ANY load is in flight, not just the first. `!interventions`
+  // only covered the first load, so changing a filter left the old rows on
+  // screen with nothing to say a new list was coming.
+  const [loadingList, setLoadingList] = useState(true)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -152,6 +156,7 @@ export function InterventionsPage() {
     if (status) params.set('status', status)
     if (interventionType) params.set('interventionType', interventionType)
 
+    setLoadingList(true)
     api
       .get(`/interventions?${params.toString()}`)
       .then((data) => {
@@ -167,6 +172,7 @@ export function InterventionsPage() {
         setInterventions([])
         setTotal(0)
       })
+      .finally(() => setLoadingList(false))
   }
 
   useEffect(() => {
@@ -180,7 +186,12 @@ export function InterventionsPage() {
       async () => {
         await api.patch(`/interventions/${id}/status`, { status: newStatus })
         load()
-        api.get('/interventions/stats').then((data) => setCounts(data.counts))
+        // The write already succeeded; a failed refresh of the counts is
+        // said, not swallowed, so the tiles are not trusted while stale.
+        api
+          .get('/interventions/stats')
+          .then((data) => setCounts(data.counts))
+          .catch((err) => setError(`Saved, but the counts could not be refreshed: ${err.message}`))
       },
       // The status word with its underscore removed — these come from the
       // database as `in_progress`-style values.
@@ -294,7 +305,7 @@ export function InterventionsPage() {
 
       <DataTable
       illustration="support"
-      loading={!interventions}
+      loading={loadingList}
       columns={[
           {
             key: 'student',

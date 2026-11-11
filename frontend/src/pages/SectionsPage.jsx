@@ -56,20 +56,27 @@ export function SectionsPage() {
   // silence was how the user learned it had worked. The keyed busy flag also
   // stops a double-click sending the same write twice.
   const { error, setError, busyKey, runWrite } = useWriteFeedback()
+  // A failed request for a picker's or stat's own data. Kept apart from
+  // `error` because loading the list clears that one on every run, and an
+  // empty dropdown with no message reads as "there are none".
+  const [lookupError, setLookupError] = useState(null)
+  const lookupFailed = (what) => (err) => setLookupError(`Couldn't load ${what}: ${err.message}`)
   const [confirm, confirmDialog] = useConfirm()
 
   useEffect(() => {
-    api.get('/school-years').then((data) => setSchoolYears(data.schoolYears))
+    api.get('/school-years').then((data) => setSchoolYears(data.schoolYears), lookupFailed('the school years'))
     // Only for someone who can actually create or edit. /users is admin and
     // registrar only, so a read-only principal asking for it gets a 403 —
     // and the list exists purely to fill a form they never open.
     if (canWrite) {
-      api.get('/users').then((data) => setAdvisers(data.users.filter((u) => ASSIGNABLE_TEACHING_ROLES.includes(u.role))))
+      api
+        .get('/users')
+        .then((data) => setAdvisers(data.users.filter((u) => ASSIGNABLE_TEACHING_ROLES.includes(u.role))), lookupFailed('the adviser list'))
     }
   }, [canWrite, setError])
 
   function loadStats() {
-    api.get('/sections/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total))
+    api.get('/sections/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total), lookupFailed('the section count'))
   }
   useEffect(loadStats, [])
 
@@ -214,6 +221,7 @@ export function SectionsPage() {
         }
       />
 
+      {lookupError && <Alert>{lookupError}</Alert>}
       {error && <Alert>{error}</Alert>}
 
       <Modal

@@ -62,6 +62,7 @@ function importStatDetails(summary) {
 }
 
 export function BulkImportStudentsPage() {
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false)
   const [step, setStep] = useState('upload')
   const { openFor, close: closeStat, cardProps } = useStatExplainer('import-stat-detail')
   const [loading, setLoading] = useState(false)
@@ -111,11 +112,17 @@ export function BulkImportStudentsPage() {
     setError(null)
   }
 
+  // Busy while the file is generated, so the button says something is
+  // happening and cannot start a second identical download.
   async function handleDownloadTemplate() {
+    if (downloadingTemplate) return
+    setDownloadingTemplate(true)
     try {
       await api.downloadFile('/students/bulk-import/template', 'student-import-template.xlsx')
     } catch (err) {
       setError(err.message)
+    } finally {
+      setDownloadingTemplate(false)
     }
   }
 
@@ -248,9 +255,9 @@ export function BulkImportStudentsPage() {
             to our fields on the next step.
           </p>
           <div className="import-upload__actions">
-            <button type="button" onClick={handleDownloadTemplate}>
+            <button type="button" onClick={handleDownloadTemplate} disabled={downloadingTemplate}>
               <Download size={16} strokeWidth={1.75} />
-              Download Template
+              {downloadingTemplate ? 'Preparing…' : 'Download Template'}
             </button>
             <label className="btn-primary import-upload__file">
               <Upload size={16} strokeWidth={1.75} />

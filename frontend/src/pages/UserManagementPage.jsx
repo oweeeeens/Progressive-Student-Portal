@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useConfirm } from '../hooks/useConfirm'
+import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
@@ -67,6 +68,11 @@ function AllAccountsTab() {
   const [sections, setSections] = useState([])
   const [counts, setCounts] = useState(null)
   const [error, setError] = useState(null)
+  // A failed request for a picker's or stat's own data. Kept apart from
+  // `error` because loading the list clears that one on every run, and an
+  // empty dropdown with no message reads as "there are none".
+  const [lookupError, setLookupError] = useState(null)
+  const lookupFailed = (what) => (err) => setLookupError(`Couldn't load ${what}: ${err.message}`)
   const [loading, setLoading] = useState(true)
 
   const [editingId, setEditingId] = useState(null)
@@ -75,9 +81,13 @@ function AllAccountsTab() {
 
   const [resetResult, setResetResult] = useState(null) // { email, tempPassword } | null
   const [resettingId, setResettingId] = useState(null)
+  // The account whose activate/deactivate is in flight. The row menu item is
+  // disabled for it, so a second click cannot send the change twice.
+  const [togglingId, setTogglingId] = useState(null)
+  const { showToast } = useToast()
 
   useEffect(() => {
-    api.get('/sections').then((data) => setSections(data.sections)).catch(() => {})
+    api.get('/sections').then((data) => setSections(data.sections)).catch(lookupFailed('the section filter'))
   }, [])
 
   function loadStats() {
@@ -121,6 +131,8 @@ function AllAccountsTab() {
     try {
       await api.patch(`/users/${editingId}`, editForm)
       setEditingId(null)
+      // The modal closing was the only sign the save had worked.
+      showToast(`Saved changes to ${editForm.fullName}.`)
       load()
     } catch (err) {
       setError(err.message)
@@ -143,13 +155,20 @@ function AllAccountsTab() {
     ) {
       return
     }
+    if (togglingId !== null) return
     setError(null)
+    setTogglingId(account.id)
     try {
       await api.patch(`/users/${account.id}/active`, { isActive: !account.is_active })
+      // A receipt naming who changed, rather than only the row's pill
+      // flipping after the reload.
+      showToast(`${account.full_name} has been ${account.is_active ? 'deactivated' : 'reactivated'}.`)
       load()
       loadStats()
     } catch (err) {
       setError(err.message)
+    } finally {
+      setTogglingId(null)
     }
   }
 
@@ -296,6 +315,7 @@ function AllAccountsTab() {
         }
       />
 
+      {lookupError && <Alert>{lookupError}</Alert>}
       {error && <Alert>{error}</Alert>}
 
       {/* The Alert component rather than a bare .alert div: .alert is a flex
@@ -393,10 +413,10 @@ function AllAccountsTab() {
             { key: 'edit', label: 'Edit account', icon: Pencil, onSelect: () => startEdit(a) },
             {
               key: 'toggle',
-              label: a.is_active ? 'Deactivate' : 'Reactivate',
+              label: togglingId === a.id ? (a.is_active ? 'Deactivating…' : 'Reactivating…') : a.is_active ? 'Deactivate' : 'Reactivate',
               icon: Power,
               danger: a.is_active,
-              disabled: a.id === currentUser?.id && a.is_active,
+              disabled: togglingId === a.id || (a.id === currentUser?.id && a.is_active),
               title: a.id === currentUser?.id && a.is_active ? 'You cannot deactivate your own account.' : undefined,
               onSelect: () => handleToggleActive(a),
             },
@@ -462,7 +482,13 @@ function PendingStudentAccountsTab() {
         setStudents(data.students)
         setTotal(data.total)
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message)
+        // Resolve to an empty list: `students` starts null, and reading
+        // `.length` off it after a failed first load crashed the whole tab.
+        setStudents([])
+        setTotal(0)
+      })
       .finally(() => setLoading(false))
   }
   useEffect(load, [page, search])
@@ -589,8 +615,20 @@ function PendingStudentAccountsTab() {
       {loading ? (
         <SkeletonTable rows={4} columns={4} />
       ) : students.length === 0 ? (
+        // Three different empties, said differently: the list failed, the
+        // search matched nobody, or there really is no one left to create
+        // an account for. The last message used to cover all three.
         <div className="empty-state">
-          <p>Every active student already has a portal account.</p>
+          {error ? (
+            <p>This list could not be loaded.</p>
+          ) : search ? (
+            <>
+              <p>No students without an account match "{search}".</p>
+              <p>Check the spelling or LRN, or clear the search.</p>
+            </>
+          ) : (
+            <p>Every active student already has a portal account.</p>
+          )}
         </div>
       ) : (
         <div className="table-card">

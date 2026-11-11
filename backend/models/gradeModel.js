@@ -177,6 +177,25 @@ async function listPrincipalVerifiedForSection(sectionId, gradingPeriodId) {
   return result.rows;
 }
 
+// How many of a section's grades for one period sit at each stage of the
+// approval chain. Finalize Grades uses it to explain an EMPTY list: "nothing
+// to finalize" means something different when twelve grades are still with
+// the principal than when every grade is already in the record, and the page
+// used to show neither — just a blank area under the pickers.
+async function countStatusesForSectionPeriod(sectionId, gradingPeriodId) {
+  const result = await pool.query(
+    `SELECT g.status, COUNT(*)::int AS count
+     FROM grades g
+     JOIN class_offerings co ON co.id = g.class_offering_id
+     WHERE co.section_id = $1 AND g.grading_period_id = $2
+     GROUP BY g.status`,
+    [sectionId, gradingPeriodId]
+  );
+  const counts = { submitted: 0, principal_verified: 0, finalized: 0, rejected: 0 };
+  for (const row of result.rows) counts[row.status] = row.count;
+  return counts;
+}
+
 // Finalizes every principal-verified grade for a section+period in one
 // action (the adviser reviewing a term's grades for their whole advisory
 // class at once). Returns the distinct student ids affected, so the caller
@@ -296,6 +315,7 @@ module.exports = {
   verifyGrades,
   rejectGrades,
   listPrincipalVerifiedForSection,
+  countStatusesForSectionPeriod,
   finalizeSectionGrades,
   getHistoryForStudent,
   getFinalizedHistoryForStudent,

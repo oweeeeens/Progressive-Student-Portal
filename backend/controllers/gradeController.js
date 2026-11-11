@@ -162,7 +162,10 @@ async function listPrincipalVerifiedForSection(req, res) {
   }
 
   const verified = await gradeModel.listPrincipalVerifiedForSection(Number(sectionId), Number(gradingPeriodId));
-  res.json({ verified });
+  // Where the rest of this section's grades are in the chain, so an empty
+  // list can say WHY it is empty (see countStatusesForSectionPeriod).
+  const pipeline = await gradeModel.countStatusesForSectionPeriod(Number(sectionId), Number(gradingPeriodId));
+  res.json({ verified, pipeline });
 }
 
 async function finalizeGrades(req, res) {

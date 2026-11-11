@@ -174,6 +174,23 @@ test('the principal verifies the other grade (status: principal_verified)', asyn
   assert.deepEqual(res.body.gradeIds, [gradeYId]);
 });
 
+test('the finalize list reports where the section\'s other grades are, and only to the section\'s adviser', async () => {
+  // One grade rejected, one verified at this point — the pipeline is what
+  // lets Finalize Grades explain itself instead of rendering a blank area.
+  const own = await api.get(`/api/grades/pending?sectionId=${ctx.section.id}&gradingPeriodId=${ctx.period.id}`, {
+    token: ctx.adviserOwner.token,
+  });
+  assert.equal(own.status, 200);
+  assert.equal(own.body.verified.length, 1);
+  assert.deepEqual(own.body.pipeline, { submitted: 0, principal_verified: 1, finalized: 0, rejected: 1 });
+
+  const other = await api.get(`/api/grades/pending?sectionId=${ctx.section.id}&gradingPeriodId=${ctx.period.id}`, {
+    token: ctx.adviserOther.token,
+  });
+  assert.equal(other.status, 403);
+  assert.equal(other.body.pipeline, undefined);
+});
+
 test('finalizing too early only finalizes the verified grade, not the rejected one', async () => {
   const res = await api.post('/api/grades/finalize', {
     token: ctx.adviserOwner.token,

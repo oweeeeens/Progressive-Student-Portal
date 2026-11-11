@@ -168,6 +168,11 @@ export function DashboardPage() {
   const [bands, setBands] = useState(null)
   const [attention, setAttention] = useState(null)
   const [activity, setActivity] = useState(null)
+  // Which home-page blocks failed to load. Each still degrades on its own,
+  // but no longer silently: a failed task list used to vanish, and a failed
+  // attention list said "nobody needs attention" — both read as good news.
+  const [failedBlocks, setFailedBlocks] = useState([])
+  const blockFailed = (label) => setFailedBlocks((list) => (list.includes(label) ? list : [...list, label]))
   // The page's own read failure (the stats request), shown inline. The page
   // writes nothing, but useWriteFeedback is still the one place an error
   // state lives (hooks/useWriteFeedback.js).
@@ -197,19 +202,31 @@ export function DashboardPage() {
     api
       .get('/dashboard/queue')
       .then((data) => setQueue(data))
-      .catch(() => setQueue({ tasks: [], gradingPeriodName: null }))
+      .catch(() => {
+        setQueue({ tasks: [], gradingPeriodName: null })
+        blockFailed('your task list')
+      })
     api
       .get('/dashboard/bands')
       .then((data) => setBands(data))
-      .catch(() => setBands({ periods: [] }))
+      .catch(() => {
+        setBands({ periods: [] })
+        blockFailed('the band chart')
+      })
     api
       .get('/dashboard/attention')
       .then((data) => setAttention(data.students))
-      .catch(() => setAttention([]))
+      .catch(() => {
+        setAttention([])
+        blockFailed('the students needing attention')
+      })
     api
       .get('/dashboard/activity')
       .then((data) => setActivity(data.activity))
-      .catch(() => setActivity([]))
+      .catch(() => {
+        setActivity([])
+        blockFailed('recent activity')
+      })
   }, [setError])
 
   const quickActions = getQuickActions(user.role)
@@ -244,6 +261,13 @@ export function DashboardPage() {
       <StaffHero user={user} currentPeriod={currentPeriod} />
 
       <QuickActions actions={quickActions} />
+
+      {failedBlocks.length > 0 && (
+        <Alert variant="warning">
+          Some of this page couldn't be loaded ({failedBlocks.join(', ')}). What is shown is incomplete — reload the
+          page to try again.
+        </Alert>
+      )}
 
       {/* The lead. Null while loading — the queue's shape is unknown until
           the server says which items this person is eligible for, so this is

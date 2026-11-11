@@ -47,10 +47,15 @@ export function SubjectsPage() {
   // said nothing at all — so on a page whose only other message is an error,
   // silence was how the user learned it had worked.
   const { error, setError, busyKey, runWrite } = useWriteFeedback()
+  // A failed request for a picker's or stat's own data. Kept apart from
+  // `error` because loading the list clears that one on every run, and an
+  // empty dropdown with no message reads as "there are none".
+  const [lookupError, setLookupError] = useState(null)
+  const lookupFailed = (what) => (err) => setLookupError(`Couldn't load ${what}: ${err.message}`)
   const [confirm, confirmDialog] = useConfirm()
 
   function loadStats() {
-    api.get('/subjects/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total))
+    api.get('/subjects/admin?page=1&pageSize=1').then((data) => setActiveTotal(data.total), lookupFailed('the subject count'))
   }
   useEffect(loadStats, [])
 
@@ -190,6 +195,7 @@ export function SubjectsPage() {
         }
       />
 
+      {lookupError && <Alert>{lookupError}</Alert>}
       {error && <Alert>{error}</Alert>}
 
       <Modal

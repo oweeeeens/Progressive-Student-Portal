@@ -31,6 +31,8 @@ export function CreateAccountPage() {
   const [role, setRole] = useState(preselectedStudentId ? 'student' : 'adviser')
   const [studentSearch, setStudentSearch] = useState('')
   const [studentOptions, setStudentOptions] = useState([])
+  // 'idle' (nothing typed) | 'searching' | 'done' | 'failed'
+  const [searchState, setSearchState] = useState('idle')
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
@@ -56,13 +58,31 @@ export function CreateAccountPage() {
   useEffect(() => {
     if (role !== 'student' || !studentSearch.trim()) {
       setStudentOptions([])
+      setSearchState('idle')
       return
     }
+    // Typing a name used to give no feedback at all: results appeared only
+    // when there were some, so "still searching", "nobody matched" and "the
+    // search failed" all looked the same — an empty space under the box.
+    let cancelled = false
+    setSearchState('searching')
     const params = new URLSearchParams({ search: studentSearch, pageSize: 10 })
     api
       .get(`/students?${params.toString()}`)
-      .then((data) => setStudentOptions(data.students.filter((s) => !s.user_id)))
-      .catch(() => setStudentOptions([]))
+      .then((data) => {
+        if (cancelled) return
+        setStudentOptions(data.students.filter((s) => !s.user_id))
+        setSearchState('done')
+      })
+      .catch(() => {
+        if (cancelled) return
+        setStudentOptions([])
+        setSearchState('failed')
+      })
+    // A slower, older search must not overwrite a newer one's answer.
+    return () => {
+      cancelled = true
+    }
   }, [role, studentSearch])
 
   async function handleSubmit(e) {
@@ -190,6 +210,17 @@ export function CreateAccountPage() {
                 />
               )}
             </label>
+            {!selectedStudent && studentSearch.trim() && searchState !== 'done' && searchState !== 'idle' && (
+              <p className={`form-note${searchState === 'failed' ? ' form-note--danger' : ''}`} role="status">
+                {searchState === 'failed' ? "The search couldn't be completed. Try again." : 'Searching…'}
+              </p>
+            )}
+            {!selectedStudent && studentSearch.trim() && searchState === 'done' && studentOptions.length === 0 && (
+              <p className="form-note" role="status">
+                No student without an account matches "{studentSearch.trim()}". A student who already has a portal
+                account does not appear here.
+              </p>
+            )}
             {!selectedStudent && studentOptions.length > 0 && (
               <div className="table-card account-form__results">
                 <table>

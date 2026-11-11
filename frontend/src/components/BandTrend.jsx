@@ -50,11 +50,21 @@ const MAX_NAMES = 12
 // `movement` is { improved: [...], slipped: [...], previousPeriodName } or
 // null when there is no previous term to compare against. Each entry
 // carries `toBand` so this can order by consequence — see byConsequence.
-export function BandTrend({ periods, movement, scopeLabel, loading }) {
+export function BandTrend({ periods, movement, scopeLabel, loading, error }) {
   if (loading) {
     return (
       <section className="band-trend">
         <SkeletonChart />
+      </section>
+    )
+  }
+
+  // A failed load says so in the chart's place. Returning nothing — which is
+  // right for a term with no data — would make the failure look like that.
+  if (error) {
+    return (
+      <section className="band-trend">
+        <p className="form-note">{error}</p>
       </section>
     )
   }

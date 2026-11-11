@@ -107,6 +107,11 @@ export function StudentListPage() {
   const [sortDir, setSortDir] = useState('asc')
   const [sections, setSections] = useState([])
   const [error, setError] = useState(null)
+  // A failed request for a picker's or stat's own data. Kept apart from
+  // `error` because loading the list clears that one on every run, and an
+  // empty dropdown with no message reads as "there are none".
+  const [lookupError, setLookupError] = useState(null)
+  const lookupFailed = (what) => (err) => setLookupError(`Couldn't load ${what}: ${err.message}`)
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState(null)
 
@@ -124,7 +129,7 @@ export function StudentListPage() {
   // just be a picker full of choices that always return empty.
   useEffect(() => {
     const path = user?.role === 'adviser' ? '/sections/mine' : '/sections'
-    api.get(path).then((data) => setSections(data.sections))
+    api.get(path).then((data) => setSections(data.sections), lookupFailed('the section filter'))
   }, [user?.role])
 
   // The server is the authority on which learner-status fields this role may
@@ -133,7 +138,10 @@ export function StudentListPage() {
     api
       .get('/students/learner-status-fields')
       .then((data) => setAvailableStatusFilters(data.fields))
-      .catch(() => setAvailableStatusFilters([]))
+      .catch((err) => {
+        setAvailableStatusFilters([])
+        lookupFailed('the learner-status filters')(err)
+      })
   }, [])
 
   useEffect(() => {
@@ -392,6 +400,7 @@ export function StudentListPage() {
         </>
       )}
 
+      {lookupError && <Alert>{lookupError}</Alert>}
       {error && <Alert>{error}</Alert>}
 
       <TableToolbar

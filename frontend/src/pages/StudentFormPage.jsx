@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   IdCard,
   User,
@@ -21,6 +21,7 @@ import { FormField } from '../components/FormField'
 import { StatusPill } from '../components/StatusPill'
 import './StudentFormPage.css'
 import { Alert } from '../components/Alert'
+import { Skeleton, LoadingAnnouncement } from '../components/Skeleton'
 import { humanize } from '../utils/humanize'
 
 const EMPTY_FORM = {
@@ -137,15 +138,29 @@ export function StudentFormPage() {
   const [submitting, setSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [touched, setTouched] = useState({})
+  // Edit mode only: the record being edited. The form used to render at once
+  // with every field blank, filling in a moment later — or never, if the
+  // request failed, leaving an empty form that looked like a new student.
+  const [loadingRecord, setLoadingRecord] = useState(isEdit)
+  const [recordError, setRecordError] = useState(null)
 
   useEffect(() => {
-    api.get('/sections').then((data) => setSections(data.sections))
+    api
+      .get('/sections')
+      .then((data) => setSections(data.sections))
+      // An empty Section picker reads as "no sections exist".
+      .catch((err) => setError(`Couldn't load the section list: ${err.message}`))
   }, [])
 
   useEffect(() => {
-    if (isEdit) {
-      api.get(`/students/${id}`).then((data) => setForm(toFormState(data.student)))
-    }
+    if (!isEdit) return
+    setLoadingRecord(true)
+    setRecordError(null)
+    api
+      .get(`/students/${id}`)
+      .then((data) => setForm(toFormState(data.student)))
+      .catch((err) => setRecordError(err.message))
+      .finally(() => setLoadingRecord(false))
   }, [id, isEdit])
 
   function update(field, value) {
@@ -221,6 +236,40 @@ export function StudentFormPage() {
   const selectedSection = sections.find((s) => String(s.id) === String(form.currentSectionId))
   const sectionLabel = selectedSection ? `Grade ${selectedSection.grade_level} - ${selectedSection.name}` : null
   const fullName = `${form.firstName} ${form.lastName}`.trim()
+
+  // While the record loads, draw the form's shape; if it failed, say so and
+  // offer the way back rather than an empty form that could be saved.
+  if (isEdit && (loadingRecord || recordError)) {
+    return (
+      <div>
+        <Breadcrumbs
+          items={[
+            { label: 'Home', to: '/' },
+            { label: 'Students', to: '/students' },
+            { label: 'Edit' },
+          ]}
+        />
+        <div className="page-header">
+          <h1>Edit Student</h1>
+        </div>
+        {recordError ? (
+          <Alert title="This student record could not be loaded.">
+            {recordError} <Link to="/students">Back to Students</Link>
+          </Alert>
+        ) : (
+          <div className="panel" aria-busy="true">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="mb-4">
+                <Skeleton w="30%" h="0.75rem" />
+                <Skeleton h="2.25rem" className="mt-2" />
+              </div>
+            ))}
+            <LoadingAnnouncement>Loading the student record…</LoadingAnnouncement>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div>

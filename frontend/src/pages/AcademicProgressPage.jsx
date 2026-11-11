@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ShieldAlert, Activity, Award, CircleHelp, HeartHandshake, ChevronUp, ChevronRight, ExternalLink } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
@@ -100,6 +101,7 @@ function bandStatDetails({ atRisk, average, performingWell, notYetCalculated }) 
 
 export function AcademicProgressPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const navigate = useNavigate()
   const [sections, setSections] = useState([])
   const [periods, setPeriods] = useState([])
@@ -123,6 +125,12 @@ export function AcademicProgressPage() {
   // named. Both are separate from `students` because they answer a
   // different question and arrive on their own schedule.
   const [bandPeriods, setBandPeriods] = useState(null)
+  // Set when the band trend failed to load. It used to fall back to an empty
+  // list, which BandTrend renders as no chart at all — a failure that looked
+  // like "no finalized grades yet".
+  const [bandError, setBandError] = useState(null)
+  // The section and period pickers' own lists.
+  const [lookupError, setLookupError] = useState(null)
   // Stored WITH the key it was fetched for, rather than as bare rows.
   // Switching section refetches, and until the new answer lands the old
   // one is still in state — so without the key the page would briefly diff
@@ -136,6 +144,7 @@ export function AcademicProgressPage() {
   const [performingWellPage, setPerformingWellPage] = useState(1)
 
   useEffect(() => {
+    const lookupFailed = (what) => (err) => setLookupError(`Couldn't load the ${what}: ${err.message}`)
     if (user.role === 'adviser') {
       api.get('/sections/mine').then((data) => {
         setSections(data.sections)
@@ -146,11 +155,11 @@ export function AcademicProgressPage() {
         // adviser has more than one, rather than leaving the picker empty
         // and forcing a manual choice before the page shows anything.
         if (data.sections.length > 0) setSectionId(String(data.sections[0].id))
-      })
+      }, lookupFailed('section list'))
     } else {
-      api.get('/sections').then((data) => setSections(data.sections))
+      api.get('/sections').then((data) => setSections(data.sections), lookupFailed('section list'))
     }
-    api.get('/grading-periods').then((data) => setPeriods(data.gradingPeriods))
+    api.get('/grading-periods').then((data) => setPeriods(data.gradingPeriods), lookupFailed('grading periods'))
   }, [user.role])
 
   function load() {
@@ -174,7 +183,12 @@ export function AcademicProgressPage() {
         setAveragePage(1)
         setPerformingWellPage(1)
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setError(err.message)
+        // Drop the previous section's learners: their stat cards and band
+        // tables used to stay up under the new section's name.
+        setStudents([])
+      })
       .finally(() => setLoading(false))
   }
 
@@ -188,10 +202,17 @@ export function AcademicProgressPage() {
     if (user.role === 'adviser' && !sectionId) return
     const params = new URLSearchParams()
     if (sectionId) params.set('sectionId', sectionId)
+    // Back to "loading" on every change of section, so the previous
+    // section's chart is never shown under the new one's name.
+    setBandPeriods(null)
+    setBandError(null)
     api
       .get(`/dashboard/bands?${params.toString()}`)
       .then((data) => setBandPeriods(data.periods || []))
-      .catch(() => setBandPeriods([]))
+      .catch((err) => {
+        setBandPeriods([])
+        setBandError(`Couldn't load the band trend: ${err.message}`)
+      })
   }, [sectionId, user.role])
 
   // The term before the one being viewed, within the same school year.
@@ -321,6 +342,14 @@ export function AcademicProgressPage() {
     try {
       await api.post(`/students/${studentId}/interventions`, { interventionType, notes: interventionNotes })
       setLoggingForId(null)
+      // The form just closing was the only sign it had worked. A receipt
+      // names who it was for, the way every other write in the System does.
+      const learner = students.find((x) => x.studentId === studentId)
+      showToast(
+        learner
+          ? `Intervention logged for ${learner.firstName} ${learner.lastName}.`
+          : 'Intervention logged.'
+      )
     } catch (err) {
       setLoggingError(err.message)
     } finally {
@@ -431,6 +460,7 @@ export function AcademicProgressPage() {
         </>
       )}
 
+      {lookupError && <Alert>{lookupError}</Alert>}
       {error && <Alert>{error}</Alert>}
 
       {loading ? (
@@ -461,6 +491,7 @@ export function AcademicProgressPage() {
             movement={movement}
             scopeLabel={sectionId ? 'section' : 'cohort'}
             loading={bandPeriods === null}
+            error={bandError}
           />
 
           <h2 className="mt-5">At Risk ({atRisk.length})</h2>

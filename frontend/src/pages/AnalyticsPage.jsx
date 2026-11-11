@@ -21,6 +21,7 @@ import { StatCard, StatRow } from '../components/StatCard'
 import { StatDetail } from '../components/StatDetail'
 import { useStatExplainer } from '../hooks/useStatExplainer'
 import { SkeletonChart, SkeletonTable, LoadingAnnouncement } from '../components/Skeleton'
+import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 import { StatusPill } from '../components/StatusPill'
 import { Tabs } from '../components/Tabs'
 import { TrendIcon } from '../components/TrendIcon'
@@ -344,6 +345,9 @@ export function AnalyticsPage() {
   // every later one, when the charts should hold their previous render at
   // reduced opacity rather than flashing back to "Loading…".
   const [loading, setLoading] = useState(true)
+  // Bumped by "Try again" to re-run the chart requests after a failed load.
+  const [retryCount, setRetryCount] = useState(0)
+  const [lookupError, setLookupError] = useState(null)
   const [refetching, setRefetching] = useState(false)
   // Which export is currently generating ('pdf' | 'excel' | null) — the PDF
   // in particular takes a moment, and a button that looks idle invites a
@@ -357,8 +361,15 @@ export function AnalyticsPage() {
   const [hiddenFactors, setHiddenFactors] = useState(() => new Set())
 
   useEffect(() => {
-    api.get('/grading-periods').then((data) => setPeriods(data.gradingPeriods))
-    api.get('/sections').then((data) => setSections(data.sections))
+    // Without the catches the filter dropdowns just stayed empty.
+    api
+      .get('/grading-periods')
+      .then((data) => setPeriods(data.gradingPeriods))
+      .catch((err) => setLookupError(`Couldn't load the grading-period filter: ${err.message}`))
+    api
+      .get('/sections')
+      .then((data) => setSections(data.sections))
+      .catch((err) => setLookupError(`Couldn't load the section filter: ${err.message}`))
   }, [])
 
   // One effect for every chart on the page: all seven endpoints take the
@@ -392,7 +403,7 @@ export function AnalyticsPage() {
         setLoading(false)
         setRefetching(false)
       })
-  }, [filters, groupBy])
+  }, [filters, groupBy, retryCount])
 
   const setFilter = useCallback((key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -1141,7 +1152,11 @@ export function AnalyticsPage() {
       <div className="record-section">
         <h2>Intervention Volume Over Time</h2>
         <p className="text-muted mt-0">How many interventions were logged each grading period.</p>
-        {!effectiveness ? null : (
+        {/* A skeleton while loading, like every other chart here. This
+            used to render nothing, leaving a heading over blank space. */}
+        {!effectiveness ? (
+          <SkeletonChart />
+        ) : (
           <div className={frameClass}>
             <ChartCard
               title="Intervention Volume Over Time"
@@ -1429,9 +1444,33 @@ export function AnalyticsPage() {
         </div>
       </div>
 
-      {error && <Alert>{error}</Alert>}
+      {lookupError && <Alert>{lookupError}</Alert>}
 
-      <Tabs
+      {/* The first load failed, so there is nothing to chart. Every chart
+          used to keep its loading skeleton forever under the error; one
+          clear message with a way to retry replaces seven fake loaders. A
+          failed REFETCH keeps the previous charts, with the error above. */}
+      {error && !distribution ? (
+        <div className="empty-state">
+          <SpotIllustration name="search" />
+          <p>Analytics could not be loaded.</p>
+          <p>{error}</p>
+          <p>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true)
+                setRetryCount((n) => n + 1)
+              }}
+            >
+              Try again
+            </button>
+          </p>
+        </div>
+      ) : (
+        <>
+          {error && <Alert>{error}</Alert>}
+          <Tabs
         tabs={[
           { key: 'overview', label: 'Overview', icon: LayoutGrid, content: overviewTab },
           { key: 'trends', label: 'Trends', icon: TrendingUp, content: trendsTab },
@@ -1440,6 +1479,8 @@ export function AnalyticsPage() {
           { key: 'factors', label: 'Factors', icon: AlertTriangle, content: factorsTab },
         ]}
       />
+        </>
+      )}
     </div>
   )
 }
