@@ -60,14 +60,13 @@ before(async () => {
   // Role labels are chosen to CONTRADICT the assignments on purpose. If any
   // of these tests passes because of the label rather than the assignment,
   // it passes for the wrong reason and the next refactor breaks it.
-  const [teacherWhoAdvises, adviserWhoOnlyTeaches, otherAdviser, principal, registrar, ict, student] =
+  const [teacherWhoAdvises, adviserWhoOnlyTeaches, otherAdviser, principal, registrar, student] =
     await Promise.all([
       fixtures.createStaffUser('subject_teacher', 'queue-advises'),
       fixtures.createStaffUser('adviser', 'queue-teaches'),
       fixtures.createStaffUser('adviser', 'queue-other-adviser'),
       fixtures.createStaffUser('principal', 'queue-principal'),
       fixtures.createStaffUser('registrar', 'queue-registrar'),
-      fixtures.createStaffUser('ict_faculty', 'queue-ict'),
       fixtures.createStaffUser('student', 'queue-student'),
     ]);
 
@@ -115,7 +114,6 @@ before(async () => {
     otherAdviser,
     principal,
     registrar,
-    ict,
     student,
     advisedSection,
     otherSection,
@@ -148,7 +146,6 @@ after(async () => {
       ctx.otherAdviser.id,
       ctx.principal.id,
       ctx.registrar.id,
-      ctx.ict.id,
       ctx.student.id,
     ],
   });
@@ -275,23 +272,20 @@ test('a registrar is offered account creation and nothing to do with grades', as
   assert.deepEqual(keys, ['pending_student_accounts']);
 });
 
-test('ICT faculty and a student are offered no queue at all', async () => {
+test('a student is offered no queue at all', async () => {
   // An EMPTY list, not a list of zeroes. The home page renders nothing for
-  // these three rather than telling them they are "all caught up", which
+  // a learner rather than telling them they are "all caught up", which
   // would be a claim about work they were never given.
-  for (const [label, user] of [
-    ['ict_faculty', ctx.ict],
-    ['student', ctx.student],
-  ]) {
-    const { tasks } = await queueFor(user.token);
-    assert.deepEqual(tasks, [], `${label} should have no queue`);
-  }
+  const { tasks } = await queueFor(ctx.student.token);
+  assert.deepEqual(tasks, [], 'a student should have no queue');
 });
 
 test('the band rollup is scoped the same way, and is empty for a role with no risk scope', async () => {
-  const ictBands = await api.get('/api/dashboard/bands', { token: ctx.ict.token });
-  assert.equal(ictBands.status, 200);
-  assert.deepEqual(ictBands.body.periods, [], 'ICT faculty must see no band data');
+  // A registrar manages records and accounts but holds no risk scope: no
+  // advisory section, and not one of the roles that read risk school-wide.
+  const registrarBands = await api.get('/api/dashboard/bands', { token: ctx.registrar.token });
+  assert.equal(registrarBands.status, 200);
+  assert.deepEqual(registrarBands.body.periods, [], 'a registrar must see no band data');
 
   const studentBands = await api.get('/api/dashboard/bands', { token: ctx.student.token });
   assert.equal(studentBands.status, 200);

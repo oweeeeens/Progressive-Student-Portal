@@ -302,6 +302,23 @@ test('admin is never a role handed out or assigned through the API', async () =>
   assert.equal(promoted.status, 400);
 });
 
+test('the retired ICT faculty role can no longer be created or assigned', async () => {
+  // The role existed only to post announcements, which were removed on
+  // 2026-11-11. Its enum value survives in the database (Postgres cannot drop
+  // one cheaply), so this is what actually keeps it retired.
+  const created = await api.post('/api/auth/register', {
+    token: ctx.admin.token,
+    body: { fullName: 'Should Not Exist', email: `sec-api-ict-${Date.now()}@integration.test`, role: 'ict_faculty' },
+  });
+  assert.equal(created.status, 400);
+
+  const reassigned = await api.patch(`/api/users/${ctx.counselor.id}`, {
+    token: ctx.admin.token,
+    body: { role: 'ict_faculty' },
+  });
+  assert.equal(reassigned.status, 400);
+});
+
 test('nobody can deactivate themselves into a lockout', async () => {
   const res = await api.patch(`/api/users/${ctx.admin.id}/active`, {
     token: ctx.admin.token,

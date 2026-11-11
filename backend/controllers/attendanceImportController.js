@@ -15,34 +15,22 @@ const attendanceImportModel = require('../models/attendanceImportModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const riskEngine = require('../services/riskEngine');
 const { assertCanWriteSection } = require('./dailyAttendanceController');
-const { assertCanWriteOffering } = require('./subjectAttendanceController');
 const { SYMBOL_GUESSES, BLANK_SYMBOL, BLANK_DEFAULT_STATUS, PREVIEW_ROWS } = require('../config/attendanceImport');
 
 // What the review step may decide about a date that already has attendance
 // recorded. Anything else (including nothing) is treated as undecided.
 const CONFLICT_DECISIONS = ['overwrite', 'skip'];
 
-// Both registers are importable, and they differ in who may write them:
-// daily is the adviser's (or admin/registrar's), subject is the teacher's
-// (or admin's — registrar deliberately not included). Reuses the marking
-// sheets' own checks so the two paths cannot drift apart.
-async function assertCanWrite(req, res, { mode, sectionId, classOfferingId }) {
-  if (mode === 'subject') {
-    if (!classOfferingId) {
-      res.status(400).json({ error: 'classOfferingId is required for a subject attendance import.' });
-      return false;
-    }
-    return Boolean(await assertCanWriteOffering(req, res, Number(classOfferingId)));
-  }
+// Only the daily (SF2) register is importable: the subject-level register
+// was removed on 2026-11-11 to keep the System to its title. Who may write
+// it is the marking sheet's own rule (the section's adviser, or the admin or
+// registrar), reused so the two paths cannot drift apart.
+async function assertCanWrite(req, res, { sectionId }) {
   if (!sectionId) {
-    res.status(400).json({ error: 'sectionId is required for a daily attendance import.' });
+    res.status(400).json({ error: 'sectionId is required for an attendance import.' });
     return false;
   }
   return Boolean(await assertCanWriteSection(req, res, Number(sectionId)));
-}
-
-function readMode(value) {
-  return value === 'subject' ? 'subject' : 'daily';
 }
 
 // Step 1 — what is literally in the sheet, plus where the grid probably is.
@@ -54,9 +42,7 @@ async function parseFile(req, res) {
   // included — drive that parser against a section they have nothing to do
   // with. Reading someone else's roster shape is not a write, but it is not
   // theirs to read either.
-  const mode = readMode(req.body.mode);
-  if (!(await assertCanWrite(req, res, { mode, sectionId: req.body.sectionId, classOfferingId: req.body.classOfferingId })))
-    return;
+  if (!(await assertCanWrite(req, res, { sectionId: req.body.sectionId }))) return;
 
   let sheet;
   try {
@@ -81,9 +67,7 @@ async function parseFile(req, res) {
 async function inspectGrid(req, res) {
   const { lrnColumn, dayRow, month, year } = req.body;
 
-  const mode = readMode(req.body.mode);
-  if (!(await assertCanWrite(req, res, { mode, sectionId: req.body.sectionId, classOfferingId: req.body.classOfferingId })))
-    return;
+  if (!(await assertCanWrite(req, res, { sectionId: req.body.sectionId }))) return;
 
   let sheet;
   try {
@@ -122,15 +106,15 @@ async function inspectGrid(req, res) {
 
 // Shared by validate and commit, so the preview and the write can never
 // disagree about what would happen.
-async function buildPlan({ mode, sectionId, classOfferingId, students, symbolMap }) {
-  const studentsByLrn = await attendanceImportModel.getRosterByLrn({ mode, sectionId, classOfferingId });
+async function buildPlan({ sectionId, students, symbolMap }) {
+  const studentsByLrn = await attendanceImportModel.getRosterByLrn({ sectionId });
 
   // Every distinct date in the sheet, resolved to its grading period. A date
   // in no period cannot be stored (grading_period_id is NOT NULL) and is
   // reported rather than dropped.
   //
   // Resolved against ONE school year's periods — the year the chosen section
-  // or class offering belongs to — rather than by asking the database once
+  // belongs to — rather than by asking the database once
   // per date. Two reasons, and the first is the important one:
   //
   //   1. The unscoped gradingPeriodModel.findByDate searches every year's
@@ -146,7 +130,7 @@ async function buildPlan({ mode, sectionId, classOfferingId, students, symbolMap
   // no timezone in play. Periods with no dates configured yet cannot contain
   // anything and are skipped.
   const allDates = [...new Set(students.flatMap((s) => s.marks.map((m) => m.date)))].sort();
-  const schoolYearId = await attendanceImportModel.getSchoolYearId({ mode, sectionId, classOfferingId });
+  const schoolYearId = await attendanceImportModel.getSchoolYearId({ sectionId });
   const periods = schoolYearId ? await gradingPeriodModel.listBySchoolYear(schoolYearId) : [];
   const periodByDate = new Map();
   for (const date of allDates) {
@@ -155,12 +139,7 @@ async function buildPlan({ mode, sectionId, classOfferingId, students, symbolMap
   }
 
   const studentIds = [...studentsByLrn.values()].map((s) => s.id);
-  const existingByDate = await attendanceImportModel.getExistingByDate({
-    mode,
-    classOfferingId,
-    studentIds,
-    dates: allDates,
-  });
+  const existingByDate = await attendanceImportModel.getExistingByDate({ studentIds, dates: allDates });
 
   return validateGrid({ students, symbolMap }, { studentsByLrn, periodByDate, existingByDate });
 }
@@ -168,7 +147,6 @@ async function buildPlan({ mode, sectionId, classOfferingId, students, symbolMap
 // Step 3 — what would be written, and everything that would not be.
 async function validateImport(req, res) {
   const { students, symbolMap, symbols } = req.body;
-  const mode = readMode(req.body.mode);
 
   if (!Array.isArray(students) || students.length === 0) {
     return res.status(400).json({ error: 'No student rows were sent.' });
@@ -184,10 +162,10 @@ async function validateImport(req, res) {
     });
   }
 
-  const { sectionId, classOfferingId } = req.body;
-  if (!(await assertCanWrite(req, res, { mode, sectionId, classOfferingId }))) return;
+  const { sectionId } = req.body;
+  if (!(await assertCanWrite(req, res, { sectionId }))) return;
 
-  const plan = await buildPlan({ mode, sectionId, classOfferingId, students, symbolMap });
+  const plan = await buildPlan({ sectionId, students, symbolMap });
   res.json(plan);
 }
 
@@ -196,16 +174,14 @@ async function validateImport(req, res) {
 // transaction.
 async function commitImport(req, res) {
   const { students, symbolMap, conflictDecisions, fileName } = req.body;
-  const mode = readMode(req.body.mode);
   const sectionId = req.body.sectionId;
-  const classOfferingId = req.body.classOfferingId;
 
   if (!Array.isArray(students) || students.length === 0) {
     return res.status(400).json({ error: 'No student rows were sent.' });
   }
-  if (!(await assertCanWrite(req, res, { mode, sectionId, classOfferingId }))) return;
+  if (!(await assertCanWrite(req, res, { sectionId }))) return;
 
-  const plan = await buildPlan({ mode, sectionId, classOfferingId, students, symbolMap });
+  const plan = await buildPlan({ sectionId, students, symbolMap });
 
   if (plan.groups.length === 0) {
     return res.status(400).json({ error: 'Nothing in this sheet can be imported. See the review step for why.' });
@@ -241,8 +217,6 @@ async function commitImport(req, res) {
   // logged here afterwards: every attendance row written carries its id, so
   // it has to exist first, and a failed import must leave neither.
   const { importId, writtenCount, affectedByPeriod } = await attendanceImportModel.commitImport({
-    mode,
-    classOfferingId: classOfferingId ? Number(classOfferingId) : null,
     groups: groupsToWrite,
     recordedBy: req.user.id,
     log: {
@@ -253,7 +227,7 @@ async function commitImport(req, res) {
         plan.skipped.duplicateStudents.length +
         plan.skipped.datesWithoutPeriod.length,
       columnMapping: symbolMap || {},
-      importType: mode === 'subject' ? 'attendance_subject' : 'attendance_daily',
+      importType: 'attendance_daily',
     },
   });
 
@@ -261,10 +235,8 @@ async function commitImport(req, res) {
   // to leave the risk picture correct. Once per grading period, after every
   // date is written — not once per date, which would recompute the same
   // answer from the same history over and over.
-  if (mode === 'daily') {
-    for (const { gradingPeriodId, studentIds } of affectedByPeriod) {
-      await riskEngine.recalculateRiskForStudents(studentIds, gradingPeriodId);
-    }
+  for (const { gradingPeriodId, studentIds } of affectedByPeriod) {
+    await riskEngine.recalculateRiskForStudents(studentIds, gradingPeriodId);
   }
 
   res.status(201).json({
@@ -272,7 +244,7 @@ async function commitImport(req, res) {
     writtenCount,
     dateCount: groupsToWrite.length,
     studentCount: plan.summary.studentCount,
-    recalculatedPeriods: mode === 'daily' ? affectedByPeriod.length : 0,
+    recalculatedPeriods: affectedByPeriod.length,
     skippedDates,
     skipped: plan.skipped,
   });

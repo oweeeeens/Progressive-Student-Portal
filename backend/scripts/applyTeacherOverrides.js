@@ -148,7 +148,7 @@ async function applyTeacherOverrides() {
     if (created.length === 0 && reassigned.length === 0) {
       console.log('Nothing to do — every assignment already matches the dataset.\n');
     } else {
-      console.log('Done. The affected teachers will see Subject Attendance and Enter Grades');
+      console.log('Done. The affected teachers will see Enter Grades');
       console.log('on their next sign-in (the sidebar counts assignments once per session).\n');
     }
   } catch (error) {

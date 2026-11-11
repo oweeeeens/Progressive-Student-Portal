@@ -111,8 +111,8 @@ function subjectRunsAllYear(category) {
  * appear in this term?
  *
  * Takes the pieces rather than a row, so it can be called from the model
- * layer, a controller and the report card without any of them agreeing on a
- * row shape first.
+ * layer and a controller without either of them agreeing on a row shape
+ * first.
  *
  * THE PARAMETER NAMES MATTER. frontend/src/utils/academicTerms.js mirrors
  * this function and must keep the identical shape: the two used to disagree

@@ -28,8 +28,8 @@ function formatWhen(isoString) {
 // PRESENTATIONAL ONLY, like StudentsNeedingAttention beside it. It used to
 // fetch its own list and return null when that list was empty, which meant
 // the page could not know whether this column would exist — so the grid
-// reserved 300px for something that, for the principal and for ICT faculty,
-// can never contain anything. The page fetches and decides the columns.
+// reserved 300px for something that, for some roles, can never contain
+// anything. The page fetches and decides the columns.
 export function ActivityFeed({ activity }) {
   if (!activity || activity.length === 0) return null
 

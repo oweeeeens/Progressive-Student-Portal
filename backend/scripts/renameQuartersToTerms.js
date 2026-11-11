@@ -104,7 +104,7 @@ async function renameQuartersToTerms() {
       console.log('Nothing to do — no period in this school year is still called Q1, Q2 or Q3.\n');
     } else {
       console.log('Done. The name appears wherever a grading period is named: the grade');
-      console.log('tabs, the report card, the top bar and the home page.\n');
+      console.log('tabs, the top bar and the home page.\n');
     }
   } catch (error) {
     await client.query('ROLLBACK');

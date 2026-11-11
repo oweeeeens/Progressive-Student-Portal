@@ -10,7 +10,9 @@ import { SkeletonTable } from './Skeleton'
 
 const STATUS_VARIANTS = { present: 'positive', late: 'warning', absent: 'negative', excused: 'neutral' }
 
-export function AttendanceHistory({ studentId, kind, title }) {
+// A student's daily (SF2) attendance — the only register the System keeps
+// since subject-level attendance was removed on 2026-11-11.
+export function AttendanceHistory({ studentId, title }) {
   const [history, setHistory] = useState(null) // { records, summary } — unfiltered, every period on record
   const [error, setError] = useState(null)
   const [viewMode, setViewMode] = useState('calendar')
@@ -18,7 +20,7 @@ export function AttendanceHistory({ studentId, kind, title }) {
 
   useEffect(() => {
     api
-      .get(`/students/${studentId}/attendance/${kind}`)
+      .get(`/students/${studentId}/attendance/daily`)
       .then((data) => {
         setHistory(data)
         // Records come back newest-first, so the first row's period is the
@@ -27,7 +29,7 @@ export function AttendanceHistory({ studentId, kind, title }) {
         setPeriodId(data.records[0]?.grading_period_id ?? null)
       })
       .catch((err) => setError(err.message))
-  }, [studentId, kind])
+  }, [studentId])
 
   // SF2 attendance is normally read one grading period at a time, not as a
   // running lifetime total — so everything below (pills, calendar, list) is
@@ -132,16 +134,6 @@ export function AttendanceHistory({ studentId, kind, title }) {
               plainText: (r) => r.attendance_date,
               render: (r) => formatRegisterDate(r.attendance_date),
             },
-            ...(kind === 'subject'
-              ? [
-                  {
-                    key: 'subject',
-                    header: 'Subject / Section',
-                    truncate: true,
-                    render: (r) => `${r.subject_name} / ${r.section_name}`,
-                  },
-                ]
-              : []),
             {
               // uniformValue so a register with no notes at all drops the
               // column instead of printing a stack of em-dashes.

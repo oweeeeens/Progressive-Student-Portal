@@ -20,7 +20,6 @@ const riskAssessmentModel = require('../models/riskAssessmentModel');
 const interventionModel = require('../models/interventionModel');
 const gradeModel = require('../models/gradeModel');
 const dailyAttendanceModel = require('../models/dailyAttendanceModel');
-const subjectAttendanceModel = require('../models/subjectAttendanceModel');
 const classOfferingModel = require('../models/classOfferingModel');
 const { buildStudentAcademicProgress, determineBand } = require('../services/academicProgressCalculator');
 const { BAND_LABELS } = require('../config/academicProgress');
@@ -216,37 +215,6 @@ async function getMySubjects(req, res) {
   });
 }
 
-// Attendance per SUBJECT — the supplementary record each subject teacher
-// keeps, which this portal has collected all along but never showed the
-// student. Deliberately separate from the daily/SF2 figure above, and
-// labelled as such in the UI: only the daily record feeds the risk formula
-// (CLAUDE.md), and the two numbers will legitimately differ.
-async function getMySubjectAttendance(req, res) {
-  const student = await getOwnStudentRecord(req);
-  if (!student) return res.status(404).json({ error: 'No student record is linked to this account.' });
-
-  const rows = await subjectAttendanceModel.getSubjectSummaryForStudent(student.id);
-  res.json({
-    // The attendance page colours a subject's rate against the same number
-    // the risk formula checks, so it reads it from the server rather than
-    // restating it (config/riskConfig.js stays the only place it lives).
-    attendanceThreshold: ATTENDANCE_RISK_THRESHOLD,
-    subjects: rows.map((r) => ({
-      subjectName: r.subject_name,
-      teacherName: r.teacher_name,
-      present: r.present,
-      absent: r.absent,
-      late: r.late,
-      excused: r.excused,
-      totalSessions: r.total_sessions,
-      // Same "present includes late" rule the daily attendance rate uses
-      // (see dailyAttendanceModel.getAttendanceRatesByPeriod) — the student
-      // did attend — so the two figures can be read side by side.
-      attendanceRate: r.total_sessions === 0 ? null : Math.round(((r.present + r.late) / r.total_sessions) * 1000) / 10,
-    })),
-  });
-}
-
 // Day counts per grading period, not just the rate — see
 // dailyAttendanceModel.getStatusCountsByPeriod for why.
 async function getMyAttendanceDetail(req, res) {
@@ -292,7 +260,6 @@ module.exports = {
   getMyAcademicProgress,
   getMyProgressTrend,
   getMySubjects,
-  getMySubjectAttendance,
   getMySubjectGrades,
   getMyAttendanceDetail,
   getMyInterventions,

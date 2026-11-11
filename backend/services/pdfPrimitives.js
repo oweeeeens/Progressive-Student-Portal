@@ -1,11 +1,8 @@
 // Shared PDFKit drawing helpers — the brand palette, page geometry, the
 // branded letterhead, and the hand-drawn table used by every PDF this app
-// produces (the per-student report card and the Analytics report).
-//
-// Extracted from reportCardPdf.js when the Analytics report needed the same
-// letterhead and the same table: two hand-drawn table implementations that
-// have to stay visually identical is exactly the kind of duplication that
-// drifts, so there is deliberately only one of each here.
+// produces — today, the Analytics report. (They were extracted when a second
+// document, the per-student report card, needed the same letterhead; that
+// card was removed on 2026-11-11 and the helpers stayed where they were.)
 //
 // PDFKit is a low-level drawing API (no HTML/CSS, no layout engine), which
 // is why tables are drawn cell by cell and why callers track their own `y`

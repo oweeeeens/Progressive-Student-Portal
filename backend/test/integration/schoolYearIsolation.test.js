@@ -1,8 +1,8 @@
 // Regression coverage for the defect that ran through this whole system:
 // grading_periods.sequence_number is unique only WITHIN a school year
 // (UNIQUE (school_year_id, sequence_number)), but the per-period series
-// queries behind the risk score, the report card and the student's own
-// progress view all keyed on it with no year filter.
+// queries behind the risk score and the student's own grade and
+// progress views all keyed on it with no year filter.
 //
 // A student who has been in the school for two years therefore had two rows
 // numbered 1, two numbered 2, and so on. riskEngine picks "this period" with
@@ -236,16 +236,10 @@ test('the attendance rate ignores the prior year entirely', async () => {
   assert.equal(Number(assessment.attendance_rate), 100);
 });
 
-test('the report card covers one school year, matching the year it names', async () => {
-  const res = await fetch(`${server.baseUrl}/api/students/${ctx.student.id}/report-card`, {
-    headers: { Authorization: `Bearer ${ctx.adviser.token}` },
-  });
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get('content-type'), 'application/pdf');
-
-  // The PDF itself is not parsed here — what matters is the data behind it,
-  // which pivots on sequence_number and so would collide a prior-year Q1
-  // with a current-year Q1 in the same cell.
+test("a student's finalized grade history covers one school year", async () => {
+  // The student's grade view pivots these rows on sequence_number, so an
+  // unscoped series would collide a prior-year Term 1 with a current-year
+  // Term 1 in the same cell.
   const gradeModel = require('../../models/gradeModel');
   const studentModel = require('../../models/studentModel');
   const schoolYearId = await studentModel.resolveSchoolYearId(ctx.student.id);

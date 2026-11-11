@@ -6,7 +6,7 @@
 // apply — while every WRITE guard was already assignment-based. The result
 // was that such a teacher could submit a student's grade and then not be
 // allowed to open that student's record: 404 on the detail page, no
-// attendance history, no report card, missing from the roster entirely.
+// attendance history, missing from the roster entirely.
 //
 // These tests exist because the fix widens read access, and widening read
 // access on a system holding minors' records is exactly the change that

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FileDown, GraduationCap, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
+import { GraduationCap, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Alert } from '../components/Alert'
@@ -13,8 +13,8 @@ import { Tabs } from '../components/Tabs'
 import { offeringCoversPeriod, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
 import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
 
-// The student's grades, on their own page: the report-card matrix, the
-// per-subject comparison for the current period, and the printable PDF.
+// The student's grades, on their own page: the report-card matrix and the
+// per-subject comparison for the current period.
 //
 // Split out of the home page once that page had grown to roughly four
 // screens. Home keeps what a student needs at a glance — the figures, the
@@ -123,8 +123,6 @@ export function StudentGradesPage() {
   const [grades, setGrades] = useState(null)
   const [gradingPeriods, setGradingPeriods] = useState([])
   const [error, setError] = useState(null)
-  const [reportCardError, setReportCardError] = useState(null)
-  const [downloadingReportCard, setDownloadingReportCard] = useState(false)
   // Which subject's history is open. One at a time, the same detail-on-demand
   // pattern Interventions and Academic Progress already use.
   const [expandedSubject, setExpandedSubject] = useState(null)
@@ -329,24 +327,6 @@ export function StudentGradesPage() {
     setOpenStat((current) => (current === key ? null : key))
   }
 
-  // The same printable record the registrar can generate. The server builds
-  // it from finalized grades and daily attendance, and its own scoping
-  // guarantees a student can only ever reach their own.
-  async function handleDownloadReportCard() {
-    setReportCardError(null)
-    setDownloadingReportCard(true)
-    try {
-      await api.downloadFile(
-        `/students/${student.id}/report-card`,
-        `${student.last_name}_${student.first_name}_ReportCard.pdf`
-      )
-    } catch (err) {
-      setReportCardError(err.message)
-    } finally {
-      setDownloadingReportCard(false)
-    }
-  }
-
   if (loadingStudent) return <p>Loading your grades…</p>
   if (studentError) return <Alert>{studentError}</Alert>
   if (!student) {
@@ -364,16 +344,9 @@ export function StudentGradesPage() {
 
       <div className="page-header">
         <h1>My Grades</h1>
-        <div className="page-header__actions">
-          <button type="button" onClick={handleDownloadReportCard} disabled={downloadingReportCard}>
-            <FileDown size={16} strokeWidth={1.75} />
-            {downloadingReportCard ? 'Preparing…' : 'Download Report Card'}
-          </button>
-        </div>
       </div>
 
       {error && <Alert>{error}</Alert>}
-      {reportCardError && <Alert>{reportCardError}</Alert>}
 
       {summary && (
         <>

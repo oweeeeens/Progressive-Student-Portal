@@ -11,7 +11,6 @@ const {
   getMyAcademicProgress,
   getMyProgressTrend,
   getMySubjects,
-  getMySubjectAttendance,
   getMySubjectGrades,
   getMyAttendanceDetail,
   getMyInterventions,
@@ -23,7 +22,6 @@ router.use(requireAuth, requireRole('student'));
 router.get('/academic-progress', getMyAcademicProgress);
 router.get('/trend', getMyProgressTrend);
 router.get('/subjects', getMySubjects);
-router.get('/subject-attendance', getMySubjectAttendance);
 router.get('/subject-grades', getMySubjectGrades);
 router.get('/attendance-detail', getMyAttendanceDetail);
 router.get('/interventions', getMyInterventions);

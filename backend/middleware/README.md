@@ -23,11 +23,10 @@ per-role scope clause. A student outside the caller's scope comes back as
 
 ## Upload middleware
 
-`bulkImportUploadMiddleware` (5 MB, `.xlsx`, memory) and
-`announcementUploadMiddleware` (10 MB, PDF/JPEG/PNG, disk). Both set a size
-limit and a type filter; neither trusts the client's filename, which is
-replaced with a server-generated UUID so an upload cannot be
-path-traversed.
+`bulkImportUploadMiddleware` (5 MB, `.xlsx`, memory). It sets a size limit
+and a type filter, and the file is parsed from memory and discarded — never
+written to disk. (An announcement-attachment upload, written to disk under a
+generated name, existed until Announcements was removed on 2026-11-11.)
 
 The import upload is memory-backed because the file is parsed and discarded
 — there is nothing to clean up afterwards.

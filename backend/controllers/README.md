@@ -14,12 +14,13 @@ checked here:
 
 - `dailyAttendanceController.assertCanWriteSection` — admin/registrar, or
   this section's `adviser_id`.
-- `subjectAttendanceController.assertCanWriteOffering` — admin, or this
-  offering's `teacher_id`. Registrar is deliberately *not* included: the
-  daily register is an administrative record, a subject's is the teacher's.
+- `gradeController` — the class offering's `teacher_id` to submit, the
+  section's `adviser_id` to finalize.
 
-Both are exported and reused by the bulk importer, so the two paths cannot
-drift apart. A person labelled `adviser` who does not advise *this* section
+`assertCanWriteSection` is exported and reused by the attendance bulk
+importer, so the two paths cannot drift apart. (A subject-attendance guard,
+`assertCanWriteOffering`, existed until subject attendance was removed on
+2026-11-11.) A person labelled `adviser` who does not advise *this* section
 has no more right to it than anyone else.
 
 `userController.assertCanActOnTarget` is the equivalent for accounts: an

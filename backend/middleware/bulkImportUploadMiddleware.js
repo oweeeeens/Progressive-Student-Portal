@@ -1,5 +1,4 @@
-// Multer config for the bulk student import upload. Unlike announcements'
-// upload (middleware/announcementUploadMiddleware.js), the file itself is
+// Multer config for the bulk student import upload. The file itself is
 // never kept — it's parsed into rows and discarded — so this uses
 // memoryStorage rather than writing to disk, giving the controller a plain
 // Buffer (req.file.buffer) with nothing to clean up afterward.

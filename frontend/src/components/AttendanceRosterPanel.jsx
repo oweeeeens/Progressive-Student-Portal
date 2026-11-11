@@ -17,12 +17,12 @@ const STATUSES = [
 ]
 const SHORTCUT_TO_STATUS = Object.fromEntries(STATUSES.map((s) => [s.letter.toLowerCase(), s.value]))
 
-// Shared by DailyAttendancePage and SubjectAttendancePage — same marking UI,
-// same keyboard/search/bulk behavior, so the two feel like one consistent
-// pattern rather than each page inventing its own. Each page keeps its own
-// data-fetching and save-request logic (the payload's key field differs:
-// sectionId vs classOfferingId), and hands this component the roster plus a
-// few callbacks.
+// The marking UI of DailyAttendancePage — segmented status buttons, keyboard
+// shortcuts, search, bulk actions and the sticky save bar. (It was shared with
+// a subject-attendance page until that register was removed on 2026-11-11,
+// which is why it is its own component.) The page keeps the data-fetching and
+// save-request logic, and hands this component the roster plus a few
+// callbacks.
 //
 // `resetKey` is how this component knows "a genuinely fresh roster just
 // landed" vs. "the existing roster was edited" — pass a counter the parent

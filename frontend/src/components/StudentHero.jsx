@@ -10,8 +10,8 @@ import { StatusPill } from './StatusPill'
 // actually came for: how they are doing.
 //
 // This inverts it. The student's name, their standing and the one sentence
-// that explains it come first; the school's noticeboard and their record on
-// file move down the page, where reference material belongs.
+// that explains it come first; their record on file moves down the page,
+// where reference material belongs.
 
 // Time-of-day greeting. Deliberately not "Welcome back" — a greeting that
 // could have been written for any product on any day is worse than none.

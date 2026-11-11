@@ -1,4 +1,4 @@
-// Populates grades, attendance, interventions and announcements for the
+// Populates grades, attendance and interventions for the
 // school created by seedSampleData.js, going through the REAL API — submit →
 // principal verify → adviser finalize, and the real attendance endpoints —
 // not raw INSERTs. That matters: risk_assessments is then produced by the
@@ -25,10 +25,8 @@ const {
   ATTENDANCE_PROFILES,
   STUDENTS,
   PERIOD_DATES,
-  SUBJECT_ATTENDANCE_CODES,
   CURRENT_PERIOD_LANES,
   INTERVENTIONS,
-  ANNOUNCEMENTS,
   SECTIONS,
   PERIODS,
   GRADED_PERIODS,
@@ -63,7 +61,7 @@ const ADVISER_BY_SECTION = Object.fromEntries(SECTIONS.map((sec) => [sec.name, s
 // `offeringByKey` from each teacher's own /class-offerings/mine. An offering
 // reassigned to somebody outside the list therefore never appeared in that
 // map, `offeringsFor()` filtered it out, and the class silently received no
-// grades and no subject attendance for the entire seed. ABM A's Personal
+// grades for the entire seed. ABM A's Personal
 // Development had been in exactly that state since the first override was
 // added.
 //
@@ -118,7 +116,7 @@ async function api(method, path, token, body) {
 // --- Grade and attendance shapes --------------------------------------------
 
 // Each subject is nudged a few points off the student's profile average, so a
-// report card does not read as the same number eight times. Deterministic
+// student's grade view does not read as the same number eight times. Deterministic
 // (derived from the subject code) so re-running produces identical data.
 // Clamped to 60-100, the range the grade endpoint accepts.
 function gradeFor(profileName, periodSequence, subjectCode) {
@@ -370,32 +368,6 @@ async function main() {
     }
   }
 
-  // --- Subject attendance (supplementary; never feeds the risk score) ------
-  // Only a few subjects keep it, and over fewer days, so it visibly differs
-  // from the homeroom record — which is the whole reason both tables exist.
-  for (const periodKey of GRADED_PERIODS) {
-    const dates = PERIOD_DATES[sequenceOfPeriod(periodKey)].slice(0, 6);
-    for (const sectionName of sectionNames) {
-      for (const code of SUBJECT_ATTENDANCE_CODES) {
-        const offeringId = offeringByKey.get(`${sectionName}|${code}`);
-        if (!offeringId) continue;
-        const subject = SUBJECTS.find((s) => s.code === code);
-        const roster = rosterFor(sectionName).map((student) => ({
-          studentId: studentIdByLrn.get(student.lrn),
-          statuses: attendanceFor(student.attendance, sequenceOfPeriod(periodKey), dates.length),
-        }));
-        for (let dayIndex = 0; dayIndex < dates.length; dayIndex += 1) {
-          await api('POST', '/api/attendance/subject', tokens[teacherFor(sectionName, code, subject.teacher)], {
-            classOfferingId: offeringId,
-            attendanceDate: dates[dayIndex],
-            entries: roster.map((r) => ({ studentId: r.studentId, status: r.statuses[dayIndex] })),
-          });
-        }
-        console.log(`  subject attendance ${periodKey} ${sectionName} ${code}: ${dates.length} meetings`);
-      }
-    }
-  }
-
   // --- Interventions --------------------------------------------------------
   // The API requires a risk assessment for TODAY's grading period before an
   // intervention can be logged, and that assessment exists only because the
@@ -416,58 +388,8 @@ async function main() {
     console.log(`  intervention ${intervention.type} (${intervention.status}) for LRN ${intervention.lrn}`);
   }
 
-  // --- Announcements --------------------------------------------------------
-  // Posted by the registrar, one of the four roles allowed to post. One
-  // carries a PDF, which also proves the deployment's upload volume is
-  // mounted and writable.
-  for (const announcement of ANNOUNCEMENTS) {
-    const form = new FormData();
-    form.append('title', announcement.title);
-    form.append('body', announcement.body);
-    if (announcement.attachment) {
-      const pdf = buildPlaceholderPdf(announcement.title);
-      form.append('file', new Blob([pdf], { type: 'application/pdf' }), announcement.attachment);
-    }
-    const res = await fetch(`${BASE_URL}/api/announcements`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${tokens[REGISTRAR]}` },
-      body: form,
-    });
-    if (!res.ok) throw new Error(`announcement "${announcement.title}" failed: ${res.status} ${await res.text()}`);
-    console.log(`  announcement: ${announcement.title}`);
-  }
-
   console.log('\nDone. Every finalization and attendance submission above ran a real risk recalculation.');
   console.log(`Sign in as student@studentportal.local / ${DEMO_PASSWORD} (Carlo Santos, High Risk) for the student view.`);
-}
-
-// A minimal valid one-page PDF, assembled here rather than pulled from a
-// library, so the seed can attach a real file without the repo carrying a
-// binary fixture. Byte offsets are collected as the objects are written,
-// which is what the xref table at the end needs.
-function buildPlaceholderPdf(title) {
-  const safeTitle = title.replace(/[()\\]/g, '');
-  const content = `BT /F1 16 Tf 72 720 Td (${safeTitle}) Tj ET`;
-  const objects = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
-    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-  ];
-
-  let pdf = '%PDF-1.4\n';
-  const offsets = [];
-  objects.forEach((body, index) => {
-    offsets.push(pdf.length);
-    pdf += `${index + 1} 0 obj\n${body}\nendobj\n`;
-  });
-
-  const xrefStart = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  for (const offset of offsets) pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
-  return Buffer.from(pdf, 'binary');
 }
 
 main().catch((err) => {

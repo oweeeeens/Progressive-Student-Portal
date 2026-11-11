@@ -133,9 +133,8 @@ const QUEUE_ITEMS = {
 //
 // The principal appears with one item only, and that is the point: CLAUDE.md
 // is explicit that they approve grades and read the rollup, while the
-// per-learner follow-up belongs to advisers and guidance counselors. ICT
-// faculty appear nowhere - their home page is the noticeboard. Students
-// appear nowhere either: nothing in this list is a learner's job.
+// per-learner follow-up belongs to advisers and guidance counselors.
+// Students appear nowhere: nothing in this list is a learner's job.
 const ROLE_ITEMS = {
   principal: ['verify_grades'],
   admin: ['verify_grades', 'pending_student_accounts', 'temporary_passwords'],

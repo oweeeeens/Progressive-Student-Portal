@@ -36,8 +36,7 @@ The split exists so that a question like "what does this app ever write to
   statement with the expected prior status in its `WHERE`, so two people
   acting at once cannot produce a state that skipped a step.
 - **`dailyAttendanceModel`** — the official SF2 register, and the only
-  attendance the risk formula reads. `subjectAttendanceModel` is its
-  per-class sibling and never feeds risk.
+  attendance the System records and the one the risk formula reads.
 - **`riskAssessmentModel`** — stores the computed snapshot. The computing
   itself is in `services/`.
 - **`attendanceImportModel`** — the one place that opens a transaction by

@@ -29,7 +29,6 @@ const ROLE_LABELS = {
   adviser: 'Adviser',
   subject_teacher: 'Subject Teacher',
   guidance_counselor: 'Guidance Counselor',
-  ict_faculty: 'ICT Faculty',
 }
 
 // A grading period's dates arrive as plain 'YYYY-MM-DD' strings (the server

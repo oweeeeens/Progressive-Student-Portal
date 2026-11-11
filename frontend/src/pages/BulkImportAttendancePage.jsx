@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   CalendarCheck,
   CalendarRange,
-  ClipboardList,
   Layers,
   CheckCircle2,
   AlertTriangle,
@@ -25,7 +24,7 @@ import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 
 // Bulk import of the school's existing SF2 spreadsheets — students down the
 // side, school days across the top, a mark in each cell. Marking attendance
-// by hand (Daily Attendance / Subject Attendance) is unchanged and remains
+// by hand (Daily Attendance) is unchanged and remains
 // the normal path; this page exists for the backlog of Excel files the
 // school already keeps.
 //
@@ -80,9 +79,7 @@ function symbolLabel(symbol) {
 // "Days already recorded" is the one that matters: it is the only number
 // here that can DESTROY existing data rather than add to it, and only if the
 // reader chooses overwrite. It says so.
-function attendanceImportStatDetails(plan, datesToWrite, skippedCount, mode) {
-  const register = mode === 'subject' ? 'subject register' : 'daily (SF2) register'
-
+function attendanceImportStatDetails(plan, datesToWrite, skippedCount) {
   return {
     learners: {
       title: 'Learners matched',
@@ -107,7 +104,7 @@ function attendanceImportStatDetails(plan, datesToWrite, skippedCount, mode) {
         { label: 'Will be written', value: datesToWrite, isTotal: true },
       ],
       rules: [
-        `Every mark lands in the ${register}.`,
+        'Every mark lands in the daily (SF2) register.',
         'A date with no mark for a learner is left alone rather than written as absent — a blank cell in an SF2 is not a statement about that learner.',
       ],
     },
@@ -146,12 +143,10 @@ export function BulkImportAttendancePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Step 1 — which register, and which section or class.
-  const [mode, setMode] = useState('daily')
+  // Step 1 — which section. Only the daily (SF2) register is importable:
+  // subject-level attendance was removed on 2026-11-11.
   const [sections, setSections] = useState([])
-  const [offerings, setOfferings] = useState([])
   const [sectionId, setSectionId] = useState('')
-  const [classOfferingId, setClassOfferingId] = useState('')
 
   // The chosen file is kept, not just its parsed contents: step 2 sends it
   // up again once the user has confirmed where the grid is, because the raw
@@ -180,8 +175,8 @@ export function BulkImportAttendancePage() {
   const [result, setResult] = useState(null)
   const { openFor, close: closeStat, cardProps } = useStatExplainer('attendance-import-stat-detail')
 
-  const target = mode === 'subject' ? { mode, classOfferingId: Number(classOfferingId) } : { mode, sectionId: Number(sectionId) }
-  const targetChosen = mode === 'subject' ? Boolean(classOfferingId) : Boolean(sectionId)
+  const target = { sectionId: Number(sectionId) }
+  const targetChosen = Boolean(sectionId)
   const unmappedSymbols = symbols.filter((s) => !symbolMap[s.symbol])
   const undecidedConflicts = (plan?.conflicts || []).filter((c) => !conflictDecisions[c.date])
   const skippedCount = (plan?.conflicts || []).filter((c) => conflictDecisions[c.date] === 'skip').length
@@ -206,36 +201,26 @@ export function BulkImportAttendancePage() {
     setError(null)
   }
 
-  // Whichever list the chosen register needs, fetched when that register is
-  // chosen (and once on mount for the default). admin/registrar see every
-  // section; everyone else only sees sections they actually advise — the same
-  // scoping the two marking pages use, and the server enforces it either way.
+  // admin/registrar see every section; everyone else only sees sections they
+  // actually advise — the same scoping the marking page uses, and the server
+  // enforces it either way.
   useEffect(() => {
     let cancelled = false
-    const path =
-      mode === 'subject'
-        ? '/class-offerings/mine'
-        : ['admin', 'registrar'].includes(user.role)
-          ? '/sections'
-          : '/sections/mine'
+    const path = ['admin', 'registrar'].includes(user.role) ? '/sections' : '/sections/mine'
 
     api
       .get(path)
       .then((data) => {
-        if (cancelled) return
-        if (mode === 'subject') setOfferings(data.classOfferings)
-        else setSections(data.sections)
+        if (!cancelled) setSections(data.sections)
       })
       .catch((err) => {
         if (!cancelled) setError(err.message)
       })
 
-    // Switching register mid-fetch would otherwise let the slower response
-    // land in the wrong list.
     return () => {
       cancelled = true
     }
-  }, [mode, user.role])
+  }, [user.role])
 
   async function handleFileSelected(e) {
     const chosen = e.target.files[0]
@@ -245,13 +230,11 @@ export function BulkImportAttendancePage() {
     setLoading(true)
     setError(null)
     // The target goes up with the file: the server checks ownership on this
-    // step too, so it has to know which register and which section/class the
-    // sheet is being pointed at before it reads a single cell.
+    // step too, so it has to know which section the sheet is being pointed
+    // at before it reads a single cell.
     const formData = new FormData()
     formData.append('file', chosen)
-    formData.append('mode', mode)
-    if (mode === 'subject') formData.append('classOfferingId', classOfferingId)
-    else formData.append('sectionId', sectionId)
+    formData.append('sectionId', sectionId)
     try {
       const data = await api.upload('/attendance/bulk-import/parse', formData)
       setFile(chosen)
@@ -278,9 +261,7 @@ export function BulkImportAttendancePage() {
     setError(null)
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('mode', mode)
-    if (mode === 'subject') formData.append('classOfferingId', classOfferingId)
-    else formData.append('sectionId', sectionId)
+    formData.append('sectionId', sectionId)
     formData.append('lrnColumn', lrnColumn)
     formData.append('dayRow', dayRow)
     formData.append('month', month)
@@ -377,77 +358,27 @@ export function BulkImportAttendancePage() {
           <h2>Import an attendance sheet</h2>
           <p className="form-note">
             An .xlsx file shaped like an SF2 — learners down the side, school days across the top, a mark in
-            each cell. Choose which register it belongs to, then pick the file.
+            each cell. It is imported into the daily (SF2) register, which feeds the risk calculation. Choose the
+            section, then pick the file.
           </p>
 
           <div className="import-target">
-            <fieldset className="import-target__modes">
-              <legend className="form-field__label">Which register</legend>
-              <label className={`import-target__mode${mode === 'daily' ? ' is-active' : ''}`}>
-                <input
-                  type="radio"
-                  name="register"
-                  value="daily"
-                  checked={mode === 'daily'}
-                  onChange={() => setMode('daily')}
-                />
-                <CalendarCheck size={18} strokeWidth={1.75} />
-                <span>
-                  <strong>Daily (SF2)</strong>
-                  <small>The adviser's official record. Feeds the risk calculation.</small>
-                </span>
-              </label>
-              <label className={`import-target__mode${mode === 'subject' ? ' is-active' : ''}`}>
-                <input
-                  type="radio"
-                  name="register"
-                  value="subject"
-                  checked={mode === 'subject'}
-                  onChange={() => setMode('subject')}
-                />
-                <ClipboardList size={18} strokeWidth={1.75} />
-                <span>
-                  <strong>Subject</strong>
-                  <small>Per-class, logged by the teacher. Not used in risk scoring.</small>
-                </span>
-              </label>
-            </fieldset>
-
             <div className="form-field form-field--medium">
               <label htmlFor="import-target-picker" className="form-field__label">
                 <Layers size={16} strokeWidth={1.75} />
-                {mode === 'subject' ? 'Class' : 'Section'}
+                Section
                 <span className="required-mark"> *</span>
               </label>
-              {mode === 'subject' ? (
-                <select
-                  id="import-target-picker"
-                  value={classOfferingId}
-                  onChange={(e) => setClassOfferingId(e.target.value)}
-                >
-                  <option value="">-- Select a class --</option>
-                  {offerings.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      Grade {o.grade_level} - {o.section_name} · {o.subject_name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <select
-                  id="import-target-picker"
-                  value={sectionId}
-                  onChange={(e) => setSectionId(e.target.value)}
-                >
-                  <option value="">-- Select a section --</option>
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      Grade {s.grade_level} - {s.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <select id="import-target-picker" value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
+                <option value="">-- Select a section --</option>
+                {sections.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    Grade {s.grade_level} - {s.name}
+                  </option>
+                ))}
+              </select>
               <p className="form-note">
-                Learners are matched by LRN, and only against this {mode === 'subject' ? 'class' : 'section'} —
+                Learners are matched by LRN, and only against this section —
                 an LRN from elsewhere in the school is reported, never written in here.
               </p>
             </div>
@@ -694,7 +625,7 @@ export function BulkImportAttendancePage() {
 
           <StatDetail
             id="attendance-import-stat-detail"
-            detail={attendanceImportStatDetails(plan, datesToWrite, skippedCount, mode)[openFor()]}
+            detail={attendanceImportStatDetails(plan, datesToWrite, skippedCount)[openFor()]}
             onClose={closeStat}
           />
 
@@ -761,10 +692,10 @@ export function BulkImportAttendancePage() {
 
           {plan.skipped.unknownStudents.length > 0 && (
             <>
-              <h3 className="mt-5">LRNs not in this {mode === 'subject' ? 'class' : 'section'}</h3>
+              <h3 className="mt-5">LRNs not in this section</h3>
               <p className="text-muted">
-                These rows will not be imported. Either the LRN is mistyped, or the learner belongs to another{' '}
-                {mode === 'subject' ? 'class' : 'section'} — in which case import that sheet separately rather
+                These rows will not be imported. Either the LRN is mistyped, or the learner belongs to another
+                section — in which case import that sheet separately rather
                 than filing them here.
               </p>
               <div className="table-card">
@@ -871,12 +802,6 @@ export function BulkImportAttendancePage() {
                 there.
               </p>
             )}
-            {mode === 'subject' && (
-              <p className="help-text">
-                Subject attendance is supplementary and is not used in risk scoring, so nothing was
-                recalculated.
-              </p>
-            )}
           </Alert>
 
           {(result.skippedDates.length > 0 ||
@@ -897,8 +822,7 @@ export function BulkImportAttendancePage() {
                 {result.skipped.unknownStudents.length > 0 && (
                   <li>
                     {result.skipped.unknownStudents.length} row
-                    {result.skipped.unknownStudents.length === 1 ? '' : 's'} whose LRN is not in this{' '}
-                    {mode === 'subject' ? 'class' : 'section'}.
+                    {result.skipped.unknownStudents.length === 1 ? '' : 's'} whose LRN is not in this section.
                   </li>
                 )}
                 {result.skipped.duplicateStudents.length > 0 && (
@@ -919,9 +843,9 @@ export function BulkImportAttendancePage() {
             <button type="button" onClick={resetAll}>
               Import Another File
             </button>
-            <Link to={mode === 'subject' ? '/attendance/subject' : '/attendance/daily'} className="btn-primary">
+            <Link to="/attendance/daily" className="btn-primary">
               <CalendarCheck size={16} strokeWidth={1.75} />
-              {mode === 'subject' ? 'Go to Subject Attendance' : 'Go to Daily Attendance'}
+              Go to Daily Attendance
             </Link>
           </div>
         </div>

@@ -244,7 +244,7 @@ function itemsFor({ role, advisesCount, teachesCount }) {
 // eligible for INCLUDING the ones that count zero, because "nothing to
 // finalize" is information an adviser wants rather than an empty space, and
 // the frontend shows the cleared ones quietly below the live ones. An empty
-// `tasks` array means this role has no queue at all (ICT faculty, students),
+// `tasks` array means this role has no queue at all (students),
 // which is a different thing from being caught up.
 async function getTaskQueue(user) {
   const today = todayInSchoolTimezone();

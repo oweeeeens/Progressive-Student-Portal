@@ -1,7 +1,7 @@
 /* =============================================================================
    The staff home page
    =============================================================================
-   This page was organised by CONTENT TYPE: announcements in the big column,
+   This page was organised by CONTENT TYPE: announcements (since removed) in the big column,
    everything about learners in a 300px sidebar, every block the same white
    panel with a bold heading. The result was that nothing on it could lead —
    a registrar's exam-schedule notice occupied the largest region of the page
@@ -10,7 +10,7 @@
 
    It is organised by PRIORITY now, and the rhythm is deliberate: a wide
    hero, then a list, then a card row, then a chart beside a list, then the
-   feeds. Five different textures rather than five identical boxes, so the
+   activity feed. Five different textures rather than five identical boxes, so the
    order the page wants to be read in is visible before a word of it is.
 
    Breakpoints below are literals (560 / 720 / 960), as they must be — a CSS
@@ -113,104 +113,6 @@
   font-size: var(--font-size-sm);
   line-height: 1.5;
   color: var(--color-text-muted);
-}
-
-/* --- The feeds ----------------------------------------------------------- */
-/* Announcements and recent activity, the two things that are genuinely a
-   feed. Both demoted to the bottom of the page: they are what you read when
-   you have dealt with everything above them.
-   The activity column is dropped entirely for the roles eligible for no
-   activity at all, rather than left as an empty 300px gutter. */
-.dashboard-feeds {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: var(--space-4);
-  align-items: start;
-}
-.dashboard-feeds--single {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@media (max-width: 860px) {
-  .dashboard-feeds {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* A panel whose heading shares its line with the action that acts on it.
-   The "New Announcement" button used to live in the page header; with the
-   header now a hero, it belongs on the thing it adds to. */
-.panel__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
-}
-.panel__head h2 {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-}
-/* The icon is a quiet marker beside the heading, not a second heading. It
-   takes the module-neutral muted ink rather than a hue, because the
-   noticeboard is not one of the school's areas of work. */
-.panel__head h2 svg {
-  flex-shrink: 0;
-  color: var(--color-text-faint);
-}
-
-/* --- Announcements ------------------------------------------------------- */
-
-.announcement-list {
-  display: flex;
-  flex-direction: column;
-}
-
-/* A long notice collapses to three lines with "Read more" underneath. The
-   noticeboard had been rendering every body in full, so three posts of any
-   length pushed everything else on the page off the screen. */
-.feed-item__body--clamped {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-/* The loading placeholders stack with real gaps — .feed-item itself has no
-   idea what is inside it. */
-.feed-item--loading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.announcement-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-/* Was four inline `style` objects on the form's own elements. Inputs that
-   fill their label and a textarea that uses the body font are the same
-   thing every other form in the app does; they belong in a rule, not
-   repeated per element. */
-.announcement-form input[type='text'],
-.announcement-form input:not([type]),
-.announcement-form textarea {
-  width: 100%;
-}
-.announcement-form textarea {
-  font-family: inherit;
-  font-size: var(--font-size-base);
-  padding: var(--space-2) var(--space-3);
-}
-.announcement-form__actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
 }
 
 /* --- Recent activity ----------------------------------------------------- */

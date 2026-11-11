@@ -16,7 +16,6 @@ const subjectRoutes = require('./routes/subjectRoutes');
 const classOfferingRoutes = require('./routes/classOfferingRoutes');
 const schoolYearRoutes = require('./routes/schoolYearRoutes');
 const dailyAttendanceRoutes = require('./routes/dailyAttendanceRoutes');
-const subjectAttendanceRoutes = require('./routes/subjectAttendanceRoutes');
 const attendanceImportRoutes = require('./routes/attendanceImportRoutes');
 const studentAttendanceRoutes = require('./routes/studentAttendanceRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
@@ -28,7 +27,6 @@ const gradingPeriodRoutes = require('./routes/gradingPeriodRoutes');
 const studentInterventionRoutes = require('./routes/studentInterventionRoutes');
 const interventionRoutes = require('./routes/interventionRoutes');
 const userRoutes = require('./routes/userRoutes');
-const announcementRoutes = require('./routes/announcementRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
@@ -75,8 +73,7 @@ app.use('/api/subjects', subjectRoutes);
 app.use('/api/class-offerings', classOfferingRoutes);
 app.use('/api/school-years', schoolYearRoutes);
 app.use('/api/attendance/daily', dailyAttendanceRoutes);
-app.use('/api/attendance/subject', subjectAttendanceRoutes);
-// Bulk import of SF2-shaped attendance grids, for both registers above.
+// Bulk import of SF2-shaped attendance grids into the daily register.
 app.use('/api/attendance/bulk-import', attendanceImportRoutes);
 app.use('/api/students/:studentId/grades', studentGradeRoutes);
 app.use('/api/grades', gradeRoutes);
@@ -87,7 +84,6 @@ app.use('/api/grading-periods', gradingPeriodRoutes);
 app.use('/api/students/:studentId/interventions', studentInterventionRoutes);
 app.use('/api/interventions', interventionRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/announcements', announcementRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // An unknown /api path is an API call, so it gets an API answer. Without

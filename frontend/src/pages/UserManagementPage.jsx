@@ -38,7 +38,6 @@ const ROLE_LABELS = {
   guidance_counselor: 'Guidance Counselor',
   registrar: 'Registrar',
   principal: 'Principal',
-  ict_faculty: 'ICT Faculty',
   student: 'Student',
 }
 // The admin account(s) still need to display correctly in the roster even

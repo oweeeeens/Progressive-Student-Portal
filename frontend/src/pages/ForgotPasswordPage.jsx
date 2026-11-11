@@ -57,8 +57,7 @@ export function ForgotPasswordPage() {
           <Alert variant="info" title="Reset by email isn't available">
             {/* Only admin and registrar can actually reset a password (see
                 canWrite in backend/routes/userRoutes.js). The earlier
-                wording also named advisers and ICT staff, who would both be
-                turned away — and with email unconfigured this is the only
+                wording also named advisers, who would be turned away — and with email unconfigured this is the only
                 recovery route there is. */}
             Your school hasn't set up password reset emails. Ask the registrar or a system administrator to reset your
             password — they can issue you a temporary one, and you'll be asked to choose a new password when you next

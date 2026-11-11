@@ -65,11 +65,10 @@ const SCHOOL_WIDE_READ_ROLES = ['admin', 'registrar', 'guidance_counselor', 'pri
 //
 // Meanwhile every WRITE guard in the app is already assignment-based and
 // says so in its own comment (dailyAttendanceController.assertCanWriteSection,
-// subjectAttendanceController.assertCanWriteOffering, gradeController's
-// teacher_id and adviser_id checks). The two halves disagreed, and the
+// gradeController's teacher_id and adviser_id checks). The two halves disagreed, and the
 // result was that an adviser who also taught could submit a student's grade
 // and then not be allowed to look that student up: 404 on the detail page,
-// no attendance history, no report card, missing from every dashboard count.
+// no attendance history, missing from every dashboard count.
 //
 // So the predicates are OR-ed rather than switched. dailyAttendanceController's
 // read guard already demonstrated this shape; this brings the rest of the app
@@ -357,8 +356,8 @@ async function countsByEnrollmentStatus(user) {
 // they are currently in, falling back to the school's current year when they
 // have no section yet.
 //
-// Needed because almost every per-period series (grades, attendance, risk,
-// the report card) keys on grading_periods.sequence_number, which repeats
+// Needed because almost every per-period series (grades, attendance, risk)
+// keys on grading_periods.sequence_number, which repeats
 // across years — so every one of those queries has to be told WHICH year, and
 // they should all answer that question the same way.
 async function resolveSchoolYearId(studentId) {

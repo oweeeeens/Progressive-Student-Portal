@@ -1,6 +1,6 @@
 // The adviser's official daily/homeroom register (DepEd SF2) — one row per
-// student per day. This is the table the risk formula's attendance rate will
-// read from (see schema notes), not subject_attendance_records.
+// student per day. This is the only attendance the System records, and the
+// table the risk formula's attendance rate reads from.
 const { pool } = require('../config/db');
 
 // Which students belong to a section right now — used both to validate a

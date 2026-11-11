@@ -10,8 +10,7 @@ import { api } from '../api/client'
 // name.
 //
 // Returns the full record, not just an id, because every caller needs both:
-// the id for the report-card download and the attendance endpoints, the
-// record for the namecard. Learner-status fields (PWD / 4Ps / ALS) never
+// the id for the attendance endpoints, the record for the namecard. Learner-status fields (PWD / 4Ps / ALS) never
 // arrive here — the server strips them for the student role before the
 // response leaves studentController.
 export function useOwnStudentRecord() {

@@ -92,7 +92,7 @@ function TaskRow({ task }) {
 // included deliberately — see below.
 export function TaskQueue({ tasks, gradingPeriodName }) {
   // No queue AT ALL is different from an empty queue, and the difference
-  // matters: ICT faculty, and anyone holding no advisory section and no
+  // matters: a student, and anyone holding no advisory section and no
   // class, have nothing on this list by definition. Telling them they are
   // "all caught up" would be a claim about work they were never given.
   if (!tasks || tasks.length === 0) return null

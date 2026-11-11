@@ -1,11 +1,10 @@
 // How a role is written when it is shown to a person.
 //
 // Three places used to render it as `role.replace(/_/g, ' ')` plus a CSS
-// `text-transform: capitalize` — which works for every role except the one
-// that is an acronym: ICT faculty came out as "Ict Faculty" in the sidebar,
-// the top bar and the profile card, on an account whose whole purpose is
-// being the ICT staff. Capitalisation is a property of the word, not
-// something a stylesheet can derive.
+// `text-transform: capitalize`, which cannot spell a role whose words a
+// stylesheet would capitalise wrongly (an acronym, "Administrator" rather
+// than "Admin"). Capitalisation is a property of the word, not something a
+// stylesheet can derive.
 //
 // Deliberately NOT merged with the role maps in CreateAccountPage and
 // UserManagementPage: those are pickers listing the roles that may be
@@ -19,7 +18,6 @@ const ROLE_LABELS = {
   adviser: 'Adviser',
   subject_teacher: 'Subject Teacher',
   guidance_counselor: 'Guidance Counselor',
-  ict_faculty: 'ICT Faculty',
   student: 'Student',
 }
 

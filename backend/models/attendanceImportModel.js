@@ -8,24 +8,18 @@
 // all. All dates go in together or none do.
 const { pool } = require('../config/db');
 const dailyAttendanceModel = require('./dailyAttendanceModel');
-const subjectAttendanceModel = require('./subjectAttendanceModel');
 const bulkImportModel = require('./bulkImportModel');
 
-// The roster of the section or class offering being imported into, keyed by
-// LRN. Reusing the same "who is actually in this group right now" queries the
-// marking sheets use means an import can never write a student into a
-// register they do not belong to.
-async function getRosterByLrn({ mode, sectionId, classOfferingId }) {
+// The roster of the section being imported into, keyed by LRN. Reusing the
+// same "who is actually in this section right now" query the marking sheet
+// uses means an import can never write a student into a register they do
+// not belong to.
+async function getRosterByLrn({ sectionId }) {
   const result = await pool.query(
-    mode === 'subject'
-      ? `SELECT s.id, s.lrn, s.first_name, s.last_name
-         FROM students s
-         JOIN class_offerings co ON co.section_id = s.current_section_id
-         WHERE co.id = $1 AND s.is_active = TRUE`
-      : `SELECT id, lrn, first_name, last_name
-         FROM students
-         WHERE current_section_id = $1 AND is_active = TRUE`,
-    [mode === 'subject' ? classOfferingId : sectionId]
+    `SELECT id, lrn, first_name, last_name
+     FROM students
+     WHERE current_section_id = $1 AND is_active = TRUE`,
+    [sectionId]
   );
 
   const byLrn = new Map();
@@ -35,43 +29,30 @@ async function getRosterByLrn({ mode, sectionId, classOfferingId }) {
   return byLrn;
 }
 
-// The school year the chosen section or class offering belongs to. Every
+// The school year the chosen section belongs to. Every
 // date in the sheet is resolved to a grading period within THIS year, so a
 // sheet of last year's attendance imported against last year's section
 // lands in last year's periods — and never silently in another year's,
 // which the unscoped lookup could do (see
 // gradingPeriodModel.findByDateInSchoolYear).
-async function getSchoolYearId({ mode, sectionId, classOfferingId }) {
-  const result = await pool.query(
-    mode === 'subject'
-      ? 'SELECT school_year_id FROM class_offerings WHERE id = $1'
-      : 'SELECT school_year_id FROM sections WHERE id = $1',
-    [mode === 'subject' ? classOfferingId : sectionId]
-  );
+async function getSchoolYearId({ sectionId }) {
+  const result = await pool.query('SELECT school_year_id FROM sections WHERE id = $1', [sectionId]);
   return result.rows[0]?.school_year_id || null;
 }
 
 // Attendance already on file for these dates, so the preview can say exactly
 // which days an import would overwrite and for how many students.
-async function getExistingByDate({ mode, classOfferingId, studentIds, dates }) {
+async function getExistingByDate({ studentIds, dates }) {
   const byDate = new Map();
   for (const date of dates) byDate.set(date, new Set());
   if (studentIds.length === 0 || dates.length === 0) return byDate;
 
-  const result =
-    mode === 'subject'
-      ? await pool.query(
-          `SELECT student_id, attendance_date
-           FROM subject_attendance_records
-           WHERE class_offering_id = $1 AND student_id = ANY($2::int[]) AND attendance_date = ANY($3::date[])`,
-          [classOfferingId, studentIds, dates]
-        )
-      : await pool.query(
-          `SELECT student_id, attendance_date
-           FROM daily_attendance_records
-           WHERE student_id = ANY($1::int[]) AND attendance_date = ANY($2::date[])`,
-          [studentIds, dates]
-        );
+  const result = await pool.query(
+    `SELECT student_id, attendance_date
+     FROM daily_attendance_records
+     WHERE student_id = ANY($1::int[]) AND attendance_date = ANY($2::date[])`,
+    [studentIds, dates]
+  );
 
   for (const row of result.rows) {
     // attendance_date comes back as a plain YYYY-MM-DD string (see the type
@@ -83,7 +64,7 @@ async function getExistingByDate({ mode, classOfferingId, studentIds, dates }) {
 }
 
 // Writes the audit row and every date in one transaction, reusing the exact
-// upsert the daily and subject marking sheets use — so the ON CONFLICT
+// upsert the daily marking sheet uses — so the ON CONFLICT
 // behaviour cannot drift between the import and the marking sheet.
 //
 // The audit row is written FIRST, inside the same transaction, because every
@@ -93,7 +74,7 @@ async function getExistingByDate({ mode, classOfferingId, studentIds, dates }) {
 // audit row at all, rather than the old shape where the log was written
 // after the fact and a crash in between produced written data with nothing
 // recording it.
-async function commitImport({ mode, classOfferingId, groups, recordedBy, log }) {
+async function commitImport({ groups, recordedBy, log }) {
   const client = await pool.connect();
   const affectedByPeriod = new Map();
   let writtenCount = 0;
@@ -117,25 +98,14 @@ async function commitImport({ mode, classOfferingId, groups, recordedBy, log }) 
     importId = auditRow.id;
 
     for (const group of groups) {
-      const saved =
-        mode === 'subject'
-          ? await subjectAttendanceModel.recordAttendance({
-              classOfferingId,
-              gradingPeriodId: group.gradingPeriodId,
-              attendanceDate: group.date,
-              recordedBy,
-              entries: group.entries,
-              client,
-              importId,
-            })
-          : await dailyAttendanceModel.recordAttendance({
-              gradingPeriodId: group.gradingPeriodId,
-              attendanceDate: group.date,
-              recordedBy,
-              entries: group.entries,
-              client,
-              importId,
-            });
+      const saved = await dailyAttendanceModel.recordAttendance({
+        gradingPeriodId: group.gradingPeriodId,
+        attendanceDate: group.date,
+        recordedBy,
+        entries: group.entries,
+        client,
+        importId,
+      });
 
       writtenCount += saved.length;
 

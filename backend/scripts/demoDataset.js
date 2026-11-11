@@ -2,8 +2,7 @@
 //
 // Both seed scripts read this one file: seedSampleData.js writes the
 // structure straight to the database, and seedDemoAcademicData.js drives the
-// real API to produce grades, attendance, interventions and announcements on
-// top of it. Keeping the roster in one place is what stops the two from
+// real API to produce grades, attendance and interventions on top of it. Keeping the roster in one place is what stops the two from
 // drifting — the academic script looks everything up by LRN, section name and
 // subject code rather than by hardcoded id.
 //
@@ -22,7 +21,6 @@ const STAFF = [
   { email: 'principal@studentportal.local', fullName: 'Remedios T. Alcantara', role: 'principal' },
   { email: 'registrar@studentportal.local', fullName: 'Nenita B. Villamor', role: 'registrar' },
   { email: 'guidance@studentportal.local', fullName: 'Josefina R. Delos Santos', role: 'guidance_counselor' },
-  { email: 'ict@studentportal.local', fullName: 'Arnel P. Bautista', role: 'ict_faculty' },
   { email: 'adviser@studentportal.local', fullName: 'Maricel S. Robles', role: 'adviser' },
   { email: 'adviser2@studentportal.local', fullName: 'Edgardo L. Ramos', role: 'adviser' },
   { email: 'adviser3@studentportal.local', fullName: 'Teresita M. Aquino', role: 'adviser' },
@@ -124,7 +122,7 @@ const TEACHER_OVERRIDES = {
   // Until this, only the first adviser did, so the dual-hat case — the one
   // CLAUDE.md calls the ordinary way this school staffs its timetable — was
   // demonstrable on exactly one account out of three. The other two had no
-  // Enter Grades and no Subject Attendance in their sidebar, which was the
+  // Enter Grades in their sidebar, which was the
   // navigation telling the truth about data that was not.
   //
   // Deliberately a section they do not advise: an adviser teaching their own
@@ -258,11 +256,6 @@ const PERIOD_DATES = {
   ],
 };
 
-// Which subjects also keep their own per-period attendance. Not every teacher
-// does, which is the point: the student's "Attendance by Subject" table is
-// meant to differ from the daily homeroom record.
-const SUBJECT_ATTENDANCE_CODES = ['MATH11', 'ENG11', 'SCI11'];
-
 // --- Work left deliberately unfinished --------------------------------------
 // Each page in the grade workflow reads a different status, so a dataset
 // where every grade is already finalized leaves Verify Grades and Finalize
@@ -301,28 +294,6 @@ const INTERVENTIONS = [
   { lrn: '100000000008', type: 'attendance_follow_up', status: 'resolved', notes: 'Attendance recovered after the guardian meeting. Closed.' },
 ];
 
-const ANNOUNCEMENTS = [
-  {
-    title: 'Term 2 Examination Schedule',
-    body:
-      'Term 2 examinations will run from 8 to 12 December 2026. The schedule per subject is attached. ' +
-      'Students are reminded to settle any outstanding requirements with their advisers before the examination week begins.',
-    attachment: 'Q2-Examination-Schedule.pdf',
-  },
-  {
-    title: 'Parent-Teacher Conference',
-    body:
-      'The parent-teacher conference for this term is set for Saturday, 14 November 2026, 8:00 AM at the school gymnasium. ' +
-      'Advisers will release the Term 2 report cards during the conference. Parents of students flagged for academic follow-up will be met individually.',
-  },
-  {
-    title: 'Portal Accounts for Grade 11',
-    body:
-      'Grade 11 students may now sign in to the Student Portal to view their grades, attendance and standing. ' +
-      'If you have not received your account details, please see the registrar. Passwords must be changed on first sign-in.',
-  },
-];
-
 module.exports = {
   TEACHER_OVERRIDES,
   PERIODS,
@@ -335,8 +306,6 @@ module.exports = {
   ATTENDANCE_PROFILES,
   STUDENTS,
   PERIOD_DATES,
-  SUBJECT_ATTENDANCE_CODES,
   CURRENT_PERIOD_LANES,
   INTERVENTIONS,
-  ANNOUNCEMENTS,
 };

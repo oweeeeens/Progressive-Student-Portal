@@ -8,8 +8,8 @@
 // interventions) — so each run starts from a clean slate for academic data.
 // User accounts are upserted rather than truncated, so logins stay stable.
 //
-// Deliberately structural only. Grades, attendance, interventions and
-// announcements are created by seedDemoAcademicData.js THROUGH THE REAL API,
+// Deliberately structural only. Grades, attendance and interventions are
+// created by seedDemoAcademicData.js THROUGH THE REAL API,
 // so the approval chain runs and risk scores are calculated rather than
 // invented. The roster both scripts work from lives in demoDataset.js.
 require('dotenv').config();
@@ -37,12 +37,6 @@ async function upsertUser(email, fullName, role) {
 
 async function seed() {
   await pool.query('TRUNCATE school_years RESTART IDENTITY CASCADE');
-  // Announcements hang off users, not school_years, so the cascade above
-  // misses them — and seedDemoAcademicData.js POSTs them rather than
-  // upserting, so without this a second run would leave two copies of every
-  // announcement. Any attachment already written to the uploads directory is
-  // left behind as an unreferenced file, which is harmless.
-  await pool.query('TRUNCATE announcements RESTART IDENTITY');
 
   // --- Staff accounts, one per role ----------------------------------------
   const userIdByEmail = new Map();
@@ -195,7 +189,7 @@ async function seed() {
   // a hard-coded "Q1 Jun1-Sep15, …" that kept saying Q1 after the periods
   // had been renamed.
   console.log(`  Grading periods: ${PERIODS.map((p) => `${p.name} ${p.startDate}..${p.endDate}`).join(', ')}`);
-  console.log(`\nNext: npm run seed:demo-data  (grades, attendance, interventions, announcements)`);
+  console.log(`\nNext: npm run seed:demo-data  (grades, attendance, interventions)`);
 }
 
 seed()

@@ -379,9 +379,6 @@ export function ProfilePage() {
                       ))}
                     </ul>
                     <p className="profile-page__links">
-                      <Link to="/attendance/subject">
-                        <CalendarCheck size={14} strokeWidth={1.75} aria-hidden="true" /> Subject attendance
-                      </Link>
                       <Link to="/grades/entry">
                         <BookOpen size={14} strokeWidth={1.75} aria-hidden="true" /> Enter grades
                       </Link>

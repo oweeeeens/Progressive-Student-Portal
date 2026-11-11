@@ -10,7 +10,7 @@
 //
 // This is the only file in the Analytics module that does DB access AND
 // composition; the calculators stay pure and the PDF/workbook builders stay
-// pure presentation (same split as reportCardController -> reportCardPdf).
+// pure presentation (analyticsReportPdf.js / analyticsReportWorkbook.js).
 const analyticsModel = require('./../models/analyticsModel');
 const gradingPeriodModel = require('./../models/gradingPeriodModel');
 const sectionModel = require('./../models/sectionModel');

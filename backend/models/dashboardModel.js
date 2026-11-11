@@ -80,8 +80,8 @@ async function countOpenInterventions(user) {
 }
 
 // Returns only the stats this role has any business seeing — the frontend
-// renders a card per key present, so an ICT faculty member or principal
-// simply gets fewer cards rather than zeros for things they can't access.
+// renders a card per key present, so a principal or registrar simply gets
+// fewer cards rather than zeros for things they can't access.
 async function getStats(user) {
   const currentPeriod = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
   const stats = {};
@@ -90,13 +90,11 @@ async function getStats(user) {
   // so this only has to decide whether the CARD is meaningful — not who may
   // see what.
   //
-  // Two roles get no card. ICT faculty hold no assignment and so have no
-  // roster to count. A STUDENT is excluded for a different and firmer
-  // reason: their scope is themselves, so the count would read "1", and
-  // CLAUDE.md is explicit that no school-wide figure of any kind reaches a
-  // learner's view. A stat card saying "1 student" is a aggregate shaped
-  // like one they should never be shown.
-  const seesStudents = !['ict_faculty', 'student'].includes(user.role);
+  // A STUDENT gets no card: their scope is themselves, so the count would
+  // read "1", and CLAUDE.md is explicit that no school-wide figure of any
+  // kind reaches a learner's view. A stat card saying "1 student" is an
+  // aggregate shaped like one they should never be shown.
+  const seesStudents = user.role !== 'student';
   if (seesStudents) {
     stats.students = await countVisibleStudents(user);
   }

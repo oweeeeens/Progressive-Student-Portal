@@ -69,8 +69,8 @@ async function login(req, res) {
 // infrastructure in this system to do it automatically).
 //
 // Two shapes, by role:
-// - Staff (adviser/subject_teacher/guidance_counselor/registrar/principal/
-//   ict_faculty): { email, fullName, role } — a fresh account, same as always.
+// - Staff (adviser/subject_teacher/guidance_counselor/registrar/principal):
+//   { email, fullName, role } — a fresh account, same as always.
 // - Student: { role: 'student', studentId } — no email/fullName from the
 //   client; both are derived from the existing Student Record so the
 //   account can never drift from what's on file. studentId must point at a

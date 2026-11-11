@@ -2,24 +2,11 @@
    index.css (namecard, context cards, stat row, chart cards, tables). This
    file just decides where they sit. */
 
-/* Row 2: the student's own identity and figures on the left, the school's
-   noticeboard on the right. The right column is fixed-width so the stat
-   tiles and charts on the left keep a predictable width as announcement
-   titles get longer or shorter. */
+/* The record on file. A single column: until 2026-11-11 the school's
+   noticeboard sat beside it in a fixed 320px column, and announcements were
+   removed to keep the System to its title. */
 .student-home__split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: var(--space-4);
-  align-items: start;
   margin-bottom: var(--space-5);
-}
-
-/* Below this width the announcements panel would be narrower than its own
-   titles, so it drops under the record instead. */
-@media (max-width: 980px) {
-  .student-home__split {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Namecard above its stat tiles, as one column. */

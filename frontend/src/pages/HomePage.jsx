@@ -7,11 +7,10 @@ import { StudentHomePage } from './StudentHomePage'
 // threaded through it:
 //
 //   - a student's home IS their whole portal — record, advice, charts and
-//     tables on one scrolling page, with the school's announcements on top
-//     (pages/StudentHomePage.jsx). They have no other nav item.
-//   - every staff role gets the announcements feed, their role's quick
-//     actions, and the stat figures their role is allowed to see
-//     (pages/DashboardPage.jsx).
+//     tables on one scrolling page (pages/StudentHomePage.jsx).
+//   - every staff role gets the tasks waiting for them, their role's quick
+//     actions, the stat figures their role is allowed to see, and the risk
+//     picture for their own scope (pages/DashboardPage.jsx).
 //
 // Splitting here keeps each page readable on its own, which matters more
 // than saving a file: neither has to explain the other's layout.

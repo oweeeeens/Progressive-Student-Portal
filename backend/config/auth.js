@@ -18,6 +18,13 @@ const MIN_PASSWORD_LENGTH = 8;
 // Every role this system recognizes. "student" also covers parent-level
 // (view-own-records) access for now — a separate parent role/account type
 // was intentionally deferred (see CLAUDE.md scope notes).
+//
+// 'ict_faculty' is gone from this list (2026-11-11). It existed only to post
+// announcements, and Announcements was removed to keep the System to its
+// title. The value still exists in the database's user_role enum — Postgres
+// cannot drop an enum value without rebuilding the type — but the migration
+// that removed the feature deactivated every such account, and nothing can
+// create a new one.
 const USER_ROLES = [
   'admin',
   'adviser',
@@ -26,7 +33,6 @@ const USER_ROLES = [
   'registrar',
   'student',
   'principal',
-  'ict_faculty',
 ];
 
 // Roles creatable through the account-creation form (POST /api/auth/register,
@@ -45,14 +51,8 @@ const CREATABLE_ROLES = [
   'guidance_counselor',
   'registrar',
   'principal',
-  'ict_faculty',
   'student',
 ];
-
-// Who can post an announcement — admin, registrar, guidance_counselor, or
-// ICT faculty. Edit/delete is further restricted to the author or admin;
-// see announcementController.js.
-const ANNOUNCEMENT_AUTHOR_ROLES = ['admin', 'registrar', 'guidance_counselor', 'ict_faculty'];
 
 module.exports = {
   JWT_SECRET,
@@ -61,5 +61,4 @@ module.exports = {
   MIN_PASSWORD_LENGTH,
   USER_ROLES,
   CREATABLE_ROLES,
-  ANNOUNCEMENT_AUTHOR_ROLES,
 };

@@ -116,7 +116,7 @@ async function updateAccount(req, res) {
     // between the two teaching roles is now a no-op for their assignments.
     //
     // Moving OUT of teaching entirely still has to be refused — a registrar
-    // or ICT faculty member left as a section's adviser_id would keep write
+    // or principal left as a section's adviser_id would keep write
     // access to that register through every assignment-based guard in the
     // app, which is not what "changed their role" is meant to mean.
     if (!ASSIGNABLE_TEACHING_ROLES.includes(role) && (await userModel.hasActiveAssignments(id))) {

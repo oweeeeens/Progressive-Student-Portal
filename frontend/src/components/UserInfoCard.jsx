@@ -18,8 +18,8 @@ function getTaskInfo(user, stats) {
   return null
 }
 
-// A quick-glance "who's logged in and what's on their plate" card, next to
-// the announcements feed on the dashboard. Sections (adviser) and class
+// A quick-glance "who's logged in and what's on their plate" card for the
+// dashboard. Sections (adviser) and class
 // offerings (subject_teacher) reuse the same /sections/mine and
 // /class-offerings/mine endpoints already used elsewhere in the app.
 export function UserInfoCard({ stats }) {

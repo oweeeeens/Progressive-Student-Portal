@@ -44,8 +44,8 @@ the strict setting, never the permissive one.
   title, the clause saying exactly what its count includes, where it links,
   which module hue it wears, and which role or assignment earns it. The
   counting is in `models/dashboardQueueModel.js`; no label is written there.
-- **`rateLimits.js`**, **`bulkImport.js`**, **`attendanceImport.js`**,
-  **`announcements.js`** — limits and vocabularies for their features.
+- **`rateLimits.js`**, **`bulkImport.js`**, **`attendanceImport.js`** —
+  limits and vocabularies for their features.
 - **`db.js`** — the pool, plus a type parser that keeps `DATE` columns as
   plain `YYYY-MM-DD` strings. Letting them become JavaScript `Date` objects
   shifts them by a timezone, which is a whole class of off-by-one-day bug

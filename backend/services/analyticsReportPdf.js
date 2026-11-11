@@ -1,9 +1,7 @@
-// Draws the printable Analytics report. Pure presentation, exactly like
-// reportCardPdf.js: every figure arrives already computed and already
-// filtered from analyticsReport.js, so this file only decides how a page is
-// laid out. Shares the letterhead, palette and table with the report card
-// via pdfPrimitives.js — one visual language for every document the school
-// prints out of this system.
+// Draws the printable Analytics report. Pure presentation: every figure
+// arrives already computed and already filtered from analyticsReport.js, so
+// this file only decides how a page is laid out. The letterhead, palette and
+// table come from pdfPrimitives.js.
 //
 // The charts on screen become TABLES here rather than rendered images. A
 // printed report is read for exact figures (and often retyped into a DepEd
@@ -354,7 +352,7 @@ function drawPageNumbers(doc) {
 
 // data: the snapshot from analyticsReport.buildAnalyticsReportData.
 // Returns a PDFDocument — the caller pipes it to the HTTP response and
-// calls .end(), same contract as buildReportCardPdf.
+// calls .end().
 function buildAnalyticsReportPdf(data) {
   const doc = createDocument();
 

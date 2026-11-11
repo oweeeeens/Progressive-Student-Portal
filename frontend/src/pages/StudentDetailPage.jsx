@@ -12,7 +12,6 @@ import {
   GraduationCap,
   CalendarCheck,
   HeartHandshake,
-  FileDown,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -39,19 +38,6 @@ const canWrite = (role) => role === 'admin' || role === 'registrar'
 // Interventions tab that 403s on open.
 const canSeeAcademicProgress = (role) => ['admin', 'principal', 'adviser', 'guidance_counselor'].includes(role)
 const canSeeInterventions = (role) => ['admin', 'adviser', 'guidance_counselor'].includes(role)
-// The backend is the real gate here (admin, registrar, or whoever actually
-// advises this student's section — by assignment, not role label; see
-// reportCardController.js). Shown to any non-student role rather than just
-// 'adviser'/'registrar' literally, so a person who holds the adviser
-// assignment under a different role label still sees the button instead of
-// it silently not appearing for them — the backend 403s if they turn out
-// not to actually be this section's adviser.
-//
-// Principal is the one explicit exclusion: it's a single school-wide
-// position that is never a section's adviser, so unlike the ambiguous roles
-// above the button would 403 for them every single time. A control that can
-// only ever fail is worse than no control.
-const canSeeReportCard = (role) => Boolean(role) && role !== 'student' && role !== 'principal'
 
 const STATUS_VARIANTS = { enrolled: 'positive', pending: 'warning', dropped: 'negative', transferred: 'neutral', graduated: 'info' }
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
@@ -214,8 +200,6 @@ export function StudentDetailPage() {
   const [resetting, setResetting] = useState(false)
   const [academicProgress, setAcademicProgress] = useState(null)
   const [subjects, setSubjects] = useState(null)
-  const [reportCardError, setReportCardError] = useState(null)
-  const [downloadingReportCard, setDownloadingReportCard] = useState(false)
 
   function load() {
     if (!id) return
@@ -263,18 +247,6 @@ export function StudentDetailPage() {
       setResetResult(result.tempPassword)
     } finally {
       setResetting(false)
-    }
-  }
-
-  async function handleDownloadReportCard() {
-    setReportCardError(null)
-    setDownloadingReportCard(true)
-    try {
-      await api.downloadFile(`/students/${id}/report-card`, `${student.last_name}_${student.first_name}_ReportCard.pdf`)
-    } catch (err) {
-      setReportCardError(err.message)
-    } finally {
-      setDownloadingReportCard(false)
     }
   }
 
@@ -407,12 +379,7 @@ export function StudentDetailPage() {
       key: 'attendance',
       label: 'Attendance',
       icon: CalendarCheck,
-      content: (
-        <div>
-          <AttendanceHistory studentId={id} kind="daily" title="Daily Attendance (SF2)" />
-          <AttendanceHistory studentId={id} kind="subject" title="Subject Attendance" />
-        </div>
-      ),
+      content: <AttendanceHistory studentId={id} title="Daily Attendance (SF2)" />,
     },
   ]
   if (canSeeInterventions(user?.role)) {
@@ -445,9 +412,7 @@ export function StudentDetailPage() {
               {student.section_name ? `Grade ${student.grade_level} – ${student.section_name}` : 'No section assigned'}
             </p>
             {/* The learner's standing sits under their name — it describes
-                them. It used to share the right-hand corner with the
-                Download button, where the progress note wrapped into a
-                sentence fragment squeezed between a pill and a button. */}
+                them. */}
             <div className="profile-header__badges">
               <StatusPill label={student.enrollment_status} variant={STATUS_VARIANTS[student.enrollment_status]} />
               {!student.is_active && <StatusPill label="inactive" variant="neutral" />}
@@ -455,17 +420,7 @@ export function StudentDetailPage() {
             </div>
           </div>
         </div>
-        {canSeeReportCard(user?.role) && (
-          <div className="profile-header__actions">
-            <button type="button" onClick={handleDownloadReportCard} disabled={downloadingReportCard}>
-              <FileDown size={16} strokeWidth={1.75} />
-              {downloadingReportCard ? 'Generating…' : 'Download Report Card'}
-            </button>
-          </div>
-        )}
       </div>
-
-      {reportCardError && <Alert>{reportCardError}</Alert>}
 
       <Tabs tabs={tabs} />
     </div>

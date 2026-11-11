@@ -1297,8 +1297,8 @@ th {
   textarea {
     min-height: 44px;
   }
-  /* Shortcut links on the dashboard and the attachment buttons on an
-     announcement: both are primary things to tap and both were 32px. */
+  /* Shortcut links on the dashboard are primary things to tap, and were
+     32px. */
   .quick-actions__item {
     min-height: 44px;
   }
@@ -1539,136 +1539,6 @@ th {
 .context-card__icon--info {
   background: var(--color-neutral-bg);
   color: var(--color-text-muted);
-}
-
-/* The newest announcement, full width above the student's own record. Only
-   the title and the first two lines of the body show (clamped), so a long
-   post can never grow tall enough to push the record below the fold — the
-   rest expands in the announcements panel further down the page. */
-.announcement-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-4);
-  background: var(--color-primary-light);
-  border: 1px solid var(--color-primary-light-2);
-  border-radius: var(--radius-md);
-}
-.announcement-banner__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  color: var(--color-primary);
-}
-.announcement-banner__text {
-  flex: 1;
-  min-width: 0;
-}
-.announcement-banner__title {
-  margin: 0;
-  font-weight: 600;
-  color: var(--color-text);
-}
-.announcement-banner__body {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.announcement-banner__aside {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--space-1);
-  flex-shrink: 0;
-}
-.announcement-banner__date {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-@media (max-width: 620px) {
-  .announcement-banner {
-    flex-wrap: wrap;
-  }
-  /* On a phone the date and the action were still sharing the first line
-     with the headline, squeezing a two-word title onto two lines and
-     clipping the body mid-word. They take their own row instead, indented
-     to the text column so the banner still reads as one block. */
-  .announcement-banner__aside {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    /* The indent is subtracted from the width, not added to it: as a plain
-       width:100% plus a left margin, this row ran 28px past the banner and
-       pushed its own action out through the right edge. */
-    width: calc(100% - 32px - var(--space-3));
-    margin-left: calc(32px + var(--space-3));
-  }
-}
-
-/* The read-only, paginated announcements list beside the student's record
-   (components/AnnouncementsPanel.jsx). Rows are title + date only; the
-   body, byline and attachment expand in place, the same detail-on-demand
-   pattern the rest of the app uses. */
-.announcement-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.announcement-item {
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border);
-}
-.announcement-item:first-child {
-  padding-top: 0;
-}
-.announcement-item:last-child {
-  padding-bottom: 0;
-  border-bottom: none;
-}
-.announcement-item__title {
-  margin: 0;
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--color-text);
-}
-.announcement-item__meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.announcement-item__detail {
-  margin-top: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px dashed var(--color-border);
-}
-.announcement-item__byline {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-faint);
-}
-/* Authors type announcements as plain text with their own line breaks —
-   preserve them rather than collapsing a posted list into one paragraph. */
-.announcement-item__body {
-  margin: var(--space-2) 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-  white-space: pre-wrap;
 }
 
 /* The counselling card. Sits directly under the stat strip because it's the
@@ -3300,7 +3170,7 @@ textarea[aria-invalid='true']:focus-visible {
 /* A bordered, padded content box — for a block of content that
    isn't a table (.table-card) and isn't one of several stacked record
    sections on a detail page (.record-section), e.g. the dashboard's
-   announcements feed, activity feed, and sidebar widgets. Without this,
+   activity feed and sidebar widgets. Without this,
    those blocks sat directly on the page background with nothing marking
    where they began or ended. */
 /* Flat on purpose. Elevation in this product now means "floating above the
@@ -3411,7 +3281,7 @@ textarea[aria-invalid='true']:focus-visible {
 
 /* Numbered pagination (see components/Pagination.jsx) — a page-number row
    with the current page highlighted, used where that's more useful than
-   .pagination's plain "Page X of Y" text (e.g. a long announcements feed). */
+   .pagination's plain "Page X of Y" text (e.g. a long list). */
 .pagination-nav {
   display: flex;
   align-items: center;
@@ -3747,7 +3617,7 @@ textarea[aria-invalid='true']:focus-visible {
 
 /* A sentence under a section heading, explaining what the table below it
    actually is — used where two similar tables could otherwise be mistaken
-   for each other (daily vs per-subject attendance). */
+   for each other. */
 .record-section__note {
   margin: calc(var(--space-2) * -1) 0 var(--space-3);
   font-size: var(--font-size-sm);
@@ -4411,43 +4281,6 @@ textarea[aria-invalid='true']:focus-visible {
 }
 .stat-card--compact .stat-card__label {
   font-size: var(--font-size-xs);
-}
-
-/* A feed entry (announcements) — hairline-divided like .record-section
-   rather than individually boxed/shadowed, consistent with that choice. */
-.feed-item {
-  padding: var(--space-5) 0;
-  border-bottom: 1px solid var(--color-border);
-}
-.feed-item:first-child {
-  padding-top: 0;
-}
-.feed-item__header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-.feed-item__title {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  margin: 0;
-}
-.feed-item__byline {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  margin: 0 0 var(--space-3);
-}
-.feed-item__body {
-  white-space: pre-wrap;
-  margin: 0 0 var(--space-3);
-}
-.feed-item__actions {
-  display: flex;
-  gap: var(--space-2);
-  flex-shrink: 0;
 }
 
 /* Loading placeholder shape, used while a list's data hasn't resolved yet —

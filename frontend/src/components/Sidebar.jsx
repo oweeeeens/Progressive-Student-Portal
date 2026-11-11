@@ -7,7 +7,6 @@ import {
   FileUp,
   CalendarCheck,
   GraduationCap,
-  ClipboardList,
   PenLine,
   ShieldCheck,
   CheckCircle2,
@@ -33,23 +32,21 @@ import './Sidebar.css'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
 
-// The five links below are gated on the backend by actual assignment
+// The four links below are gated on the backend by actual assignment
 // (sections.adviser_id / class_offerings.teacher_id), not by role — so role
 // alone cannot answer whether a page has anything to show.
 //
-// The sidebar used to show all five to every staff role and let the page be
-// an empty picker if the person held nothing. That meant a principal, a
-// guidance counselor and an ICT faculty member — three school-wide positions
-// that by definition advise no section and teach no class — each got five
-// dead ends out of nine links. It also hit real advisers and teachers: an
-// adviser who teaches nothing still saw Enter Grades.
+// The sidebar used to show them to every staff role and let the page be an
+// empty picker if the person held nothing. That meant a principal and a
+// guidance counselor — school-wide positions that by definition advise no
+// section and teach no class — each got dead ends. It also hit real advisers
+// and teachers: an adviser who teaches nothing still saw Enter Grades.
 //
 // So there are two filters, applied in order:
 //
 //   1. the role list — what the server would let through at all, including
 //      the blanket grants: admin everywhere, registrar on the daily register
-//      (an administrative record they may correct) but NOT on subject
-//      attendance, which belongs to the teacher who teaches the class;
+//      (an administrative record they may correct);
 //   2. the assignment count — whether this particular person holds anything
 //      for that page to show (AuthContext counts /sections/mine and
 //      /class-offerings/mine once per session).
@@ -64,11 +61,9 @@ const teaches = (has) => has === null || has.offerings > 0
 
 const canMarkDaily = (role, has) =>
   ['admin', 'registrar'].includes(role) || (['adviser', 'subject_teacher'].includes(role) && advises(has))
-const canImportAttendance = (role, has) =>
-  ['admin', 'registrar'].includes(role) ||
-  (['adviser', 'subject_teacher'].includes(role) && (advises(has) || teaches(has)))
-const canMarkSubject = (role, has) =>
-  role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && teaches(has))
+// The importer writes the daily register only (subject attendance was
+// removed on 2026-11-11), so it is offered to exactly who may mark it.
+const canImportAttendance = canMarkDaily
 const canEnterGrades = (role, has) =>
   role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && teaches(has))
 const canFinalizeGrades = (role, has) =>
@@ -122,13 +117,7 @@ function getNavSections(role, has) {
         // advice, charts and tables scroll on that one page (see
         // pages/StudentHomePage.jsx), so this section renders nothing at
         // all for them.
-        // Not ict_faculty either, for the same reason as the five
-        // assignment-gated links below: studentModel.appendScopeClause has
-        // no case for them, so it falls to its fail-closed default and the
-        // roster is empty by construction, not by circumstance. Their job
-        // is the noticeboard (CLAUDE.md), which lives on Home — so Home is
-        // the whole of their nav, and nothing in it is a dead end.
-        { to: '/students', label: 'Students', icon: Users, show: !['student', 'ict_faculty'].includes(role) },
+        { to: '/students', label: 'Students', icon: Users, show: role !== 'student' },
         { to: '/students/new', label: 'New Student', icon: UserPlus, show: canWrite(role) },
         { to: '/students/bulk-import', label: 'Bulk Import', icon: FileUp, show: canWrite(role) },
       ],
@@ -137,9 +126,6 @@ function getNavSections(role, has) {
       label: 'Attendance',
       items: [
         { to: '/attendance/daily', label: 'Daily Attendance', icon: CalendarCheck, show: canMarkDaily(role, has) },
-        { to: '/attendance/subject', label: 'Subject Attendance', icon: ClipboardList, show: canMarkSubject(role, has) },
-        // Same roles as the daily register above: the importer writes both
-        // registers, and registrar may write the daily one.
         { to: '/attendance/bulk-import', label: 'Bulk Import', icon: FileUp, show: canImportAttendance(role, has) },
       ],
     },

@@ -24,7 +24,6 @@ import { CheckStrip } from '../components/CheckStrip'
 import { TargetBar } from '../components/TargetBar'
 import { TrendIcon } from '../components/TrendIcon'
 import { StudentHero } from '../components/StudentHero'
-import { AnnouncementsPanel } from '../components/AnnouncementsPanel'
 import { ChartCard, ChartCardRow } from '../components/charts/ChartCard'
 import { ColumnChart } from '../components/charts/ColumnChart'
 import { DataTable, fieldValue } from '../components/table/DataTable'
@@ -49,7 +48,6 @@ const TARGET_BAR_SCALES = {
   low_attendance: { max: 100, unit: '%', gapNoun: 'points' },
 }
 const CLOSED_STATUSES = ['resolved', 'escalated']
-const ANNOUNCEMENTS_PAGE_SIZE = 5
 // One panel serves all four figures, so one id is enough for every card's
 // aria-controls — they are all pointing at the same region.
 const STAT_EXPLAINER_ID = 'stat-explainer'
@@ -66,13 +64,12 @@ function formatPercent(v) {
 
 // Turns an enum value into display text ("enrolled" -> "Enrolled").
 
-// The student's ENTIRE portal, on one scrolling page: the school's
-// announcements, who they are, how they are doing, what to do about it, then
-// the supporting detail. There is no student sub-navigation anywhere — this
-// was once six routes behind two collapsible sidebar parents, which put the
-// advice a flagged student most needs three clicks away from where they
-// land. Nothing here is behind a click except the month calendar, which is
-// simply too tall to sit open, and each announcement's full text.
+// The student's ENTIRE portal, on one scrolling page: who they are, how they
+// are doing, what to do about it, then the supporting detail. There is no
+// student sub-navigation anywhere — this was once six routes behind two
+// collapsible sidebar parents, which put the advice a flagged student most
+// needs three clicks away from where they land. Nothing here is behind a
+// click except the month calendar, which is simply too tall to sit open.
 export function StudentHomePage() {
   const [student, setStudent] = useState(null)
   const [progress, setProgress] = useState(null)
@@ -95,10 +92,6 @@ export function StudentHomePage() {
   // here or from the top bar's account menu.
   const [showRecord, setShowRecord] = useState(false)
   const [currentPeriod, setCurrentPeriod] = useState(null)
-  const [announcements, setAnnouncements] = useState(null)
-  const [announcementTotal, setAnnouncementTotal] = useState(0)
-  const [announcementPage, setAnnouncementPage] = useState(1)
-  const [expandedAnnouncementId, setExpandedAnnouncementId] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -163,17 +156,6 @@ export function StudentHomePage() {
     namecardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [location.state?.openRecord])
 
-  // The banner always shows the newest announcement, so it is fetched on its
-  useEffect(() => {
-    api
-      .get(`/announcements?page=${announcementPage}&pageSize=${ANNOUNCEMENTS_PAGE_SIZE}`)
-      .then((data) => {
-        setAnnouncements(data.announcements)
-        setAnnouncementTotal(data.total)
-      })
-      .catch((err) => setError(err.message))
-  }, [announcementPage])
-
   // One row per flagged thing, pairing each exit target with the advice for
   // the SAME factor. Both come from the same triggered-factor list on the
   // server (academicProgressCalculator), so they pair one-to-one — but the
@@ -227,7 +209,6 @@ export function StudentHomePage() {
   const attendanceThresholdText = requiredAttendance != null ? `${requiredAttendance}%` : '—'
 
   const BandIcon = progress ? BAND_ICONS[progress.band] : null
-  const announcementPages = Math.max(Math.ceil(announcementTotal / ANNOUNCEMENTS_PAGE_SIZE), 1)
 
   function toggleStat(key) {
     setOpenStat((current) => (current === key ? null : key))
@@ -249,10 +230,9 @@ export function StudentHomePage() {
       <Breadcrumbs items={[{ label: 'Home' }]} />
 
       {/* 1. The student, and how they are doing. This page used to open with
-          the school's newest announcement and a row of context cards, which
-          pushed the one thing a student comes here for below the fold. The
-          noticeboard and the record on file are further down now — they are
-          reference, not the headline. */}
+          a banner and a row of context cards, which pushed the one thing a
+          student comes here for below the fold. The record on file is further
+          down now — it is reference, not the headline. */}
       <StudentHero
         student={student}
         progress={progress}
@@ -541,7 +521,7 @@ export function StudentHomePage() {
           <GraduationCap size={18} strokeWidth={1.75} />
           <span>
             <strong>My Grades</strong>
-            <span>Every subject, every grading period, and your report card</span>
+            <span>Every subject, every grading period</span>
           </span>
           <ChevronRight size={16} strokeWidth={2} />
         </Link>
@@ -555,10 +535,9 @@ export function StudentHomePage() {
         </Link>
       </div>
 
-      {/* 6. Reference: the record the school holds, and the school's
-          noticeboard. Both were above the fold before, which put a
-          student's own guardian contact number ahead of the advice they
-          came here for. */}
+      {/* 6. Reference: the record the school holds. It was above the fold
+          before, which put a student's own guardian contact number ahead of
+          the advice they came here for. */}
       <div className="student-home__split">
         <div className="student-home__identity">
           {/* The namecard identifies, it does not re-print a form. A student
@@ -647,14 +626,6 @@ export function StudentHomePage() {
           </section>
         </div>
 
-        <AnnouncementsPanel
-          announcements={announcements}
-          page={announcementPage}
-          totalPages={announcementPages}
-          onPageChange={setAnnouncementPage}
-          expandedId={expandedAnnouncementId}
-          onToggle={(id) => setExpandedAnnouncementId((current) => (current === id ? null : id))}
-        />
       </div>
 
       {/* 7. Interventions */}

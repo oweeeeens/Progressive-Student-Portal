@@ -174,7 +174,7 @@ test('parse finds the grid inside an SF2 header block without being told where i
   const res = await api.upload(`${BASE}/parse`, {
     token: ctx.adviser.token,
     buffer,
-    fields: { mode: 'daily', sectionId: ctx.section.id },
+    fields: { sectionId: ctx.section.id },
   });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   // Column 1 holds the LRNs; row 4 holds the day numbers (title, month, one
@@ -199,7 +199,7 @@ test('a two-date import writes exactly the expected rows, blank cells read as pr
     ],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { inspect, validate, symbolMap } = await runToValidate({
     token: ctx.adviser.token,
     buffer,
@@ -259,7 +259,7 @@ test('a date already recorded is a conflict, and commit refuses until it is deci
     rows: [{ lrn: ctx.studentA.lrn, name: 'A', marks: ['A', 'A'] }],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { inspect, validate, symbolMap } = await runToValidate({
     token: ctx.adviser.token,
     buffer,
@@ -339,7 +339,7 @@ test('a student listed twice is reported, never sent to Postgres as a doubled co
     ],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { inspect, validate, symbolMap } = await runToValidate({
     token: ctx.adviser.token,
     buffer,
@@ -380,7 +380,7 @@ test('an LRN that is not in this section is reported and never written into it',
     ],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { inspect, validate, symbolMap } = await runToValidate({
     token: ctx.adviser.token,
     buffer,
@@ -412,7 +412,7 @@ test('a date in no grading period is reported, and nothing is written', async ()
     rows: [{ lrn: ctx.studentA.lrn, name: 'A', marks: ['P', 'P'] }],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { inspect, validate, symbolMap } = await runToValidate({
     token: ctx.adviser.token,
     buffer,
@@ -454,7 +454,7 @@ test('risk is recalculated once per grading period, not once per date', async ()
     rows: [{ lrn: ctx.studentA.lrn, name: 'A', marks: ['P', 'A', 'A', 'A', 'A'] }],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const calls = [];
   const original = riskEngine.recalculateRiskForStudents;
   riskEngine.recalculateRiskForStudents = async (studentIds, gradingPeriodId) => {
@@ -508,7 +508,7 @@ test('a failure partway through a commit leaves no partial rows', async () => {
     rows: [{ lrn: ctx.studentA.lrn, name: 'A', marks: ['P', 'P'] }],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { inspect, validate, symbolMap } = await runToValidate({
     token: ctx.adviser.token,
     buffer,
@@ -560,14 +560,14 @@ test("an adviser cannot import into another adviser's section", async () => {
   const inspectRes = await api.upload(`${BASE}/inspect`, {
     token: ctx.adviser.token,
     buffer,
-    fields: { lrnColumn: 1, dayRow: 4, month: 10, year: 2032, mode: 'daily', sectionId: ctx.otherSection.id },
+    fields: { lrnColumn: 1, dayRow: 4, month: 10, year: 2032, sectionId: ctx.otherSection.id },
   });
   assert.equal(inspectRes.status, 403);
 
   const parseRes = await api.upload(`${BASE}/parse`, {
     token: ctx.adviser.token,
     buffer,
-    fields: { mode: 'daily', sectionId: ctx.otherSection.id },
+    fields: { sectionId: ctx.otherSection.id },
   });
   assert.equal(parseRes.status, 403);
 
@@ -575,7 +575,6 @@ test("an adviser cannot import into another adviser's section", async () => {
   const commitRes = await api.post(`${BASE}/commit`, {
     token: ctx.adviser.token,
     body: {
-      mode: 'daily',
       sectionId: ctx.otherSection.id,
       students: [{ rowNumber: 6, lrn: ctx.outsider.lrn, marks: [{ date: '2032-10-28', symbol: 'P' }] }],
       symbolMap: { p: 'present' },
@@ -584,7 +583,7 @@ test("an adviser cannot import into another adviser's section", async () => {
   assert.equal(commitRes.status, 403);
 });
 
-test('a registrar can import the daily register but not subject attendance', async () => {
+test('a registrar can import the daily register; a teacher who does not advise the section cannot', async () => {
   const buffer = await buildGridWorkbook({
     month: 'OCTOBER',
     year: 2032,
@@ -598,49 +597,21 @@ test('a registrar can import the daily register but not subject attendance', asy
     token: ctx.registrar.token,
     buffer,
     anchors,
-    target: { mode: 'daily', sectionId: ctx.section.id },
+    target: { sectionId: ctx.section.id },
   });
   assert.equal(daily.validate.status, 200, JSON.stringify(daily.validate.body));
 
-  // Subject attendance belongs to whoever teaches the class — registrar is
-  // deliberately not privileged there, and is turned away at the first step
-  // that names the class rather than after the sheet has been read.
-  const asRegistrar = await api.upload(`${BASE}/inspect`, {
-    token: ctx.registrar.token,
-    buffer,
-    fields: { ...anchors, mode: 'subject', classOfferingId: ctx.offering.id },
-  });
-  assert.equal(asRegistrar.status, 403);
-
-  // The teacher who does teach it can.
-  const asTeacher = await runToValidate({
+  // Teaching a class in the section is not the same as advising it: the
+  // daily register is the adviser's, so a subject teacher is turned away at
+  // the first step that names the section, before the sheet is even read.
+  // (A subject-attendance import existed until 2026-11-11; with that
+  // register gone, a teacher has no attendance import of their own.)
+  const asTeacher = await api.upload(`${BASE}/inspect`, {
     token: ctx.teacher.token,
     buffer,
-    anchors,
-    target: { mode: 'subject', classOfferingId: ctx.offering.id },
+    fields: { ...anchors, sectionId: ctx.section.id },
   });
-  assert.equal(asTeacher.validate.status, 200, JSON.stringify(asTeacher.validate.body));
-
-  const commitRes = await api.post(`${BASE}/commit`, {
-    token: ctx.teacher.token,
-    body: {
-      mode: 'subject',
-      classOfferingId: ctx.offering.id,
-      students: asTeacher.inspect.students,
-      symbolMap: asTeacher.symbolMap,
-    },
-  });
-  assert.equal(commitRes.status, 201, JSON.stringify(commitRes.body));
-  // Subject attendance never feeds the risk formula, so nothing is
-  // recalculated for it (CLAUDE.md: "supplementary, not used in risk
-  // scoring").
-  assert.equal(commitRes.body.recalculatedPeriods, 0);
-
-  const written = await pool.query(
-    'SELECT status FROM subject_attendance_records WHERE student_id = $1 AND class_offering_id = $2 AND attendance_date = $3',
-    [ctx.studentA.id, ctx.offering.id, '2032-10-29']
-  );
-  assert.equal(written.rows[0].status, 'present');
+  assert.equal(asTeacher.status, 403);
 });
 
 test('every mark in the file must be given a meaning before anything is written', async () => {
@@ -654,7 +625,7 @@ test('every mark in the file must be given a meaning before anything is written'
   const inspectRes = await api.upload(`${BASE}/inspect`, {
     token: ctx.adviser.token,
     buffer,
-    fields: { lrnColumn: 1, dayRow: 4, month: 10, year: 2032, mode: 'daily', sectionId: ctx.section.id },
+    fields: { lrnColumn: 1, dayRow: 4, month: 10, year: 2032, sectionId: ctx.section.id },
   });
   assert.equal(inspectRes.status, 200, JSON.stringify(inspectRes.body));
   // An unrecognised mark is surfaced with no guess attached — the user has
@@ -664,7 +635,6 @@ test('every mark in the file must be given a meaning before anything is written'
   const res = await api.post(`${BASE}/validate`, {
     token: ctx.adviser.token,
     body: {
-      mode: 'daily',
       sectionId: ctx.section.id,
       students: inspectRes.body.students,
       symbols: inspectRes.body.symbols,
@@ -683,7 +653,7 @@ test('an imported mark points at the import that wrote it, and the audit row mat
     rows: [{ lrn: ctx.studentA.lrn, name: 'A', marks: ['P', 'A'] }],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { inspect, symbolMap } = await runToValidate({
     token: ctx.adviser.token,
     buffer,
@@ -770,7 +740,7 @@ test('a commit that fails partway leaves no audit row either', async () => {
     rows: [{ lrn: ctx.studentA.lrn, name: 'A', marks: ['P', 'P'] }],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { inspect, symbolMap } = await runToValidate({
     token: ctx.adviser.token,
     buffer,
@@ -825,7 +795,7 @@ test('dates are resolved only within the section\'s own school year', async () =
     rows: [{ lrn: ctx.studentA.lrn, name: 'A', marks: ['P', 'A'] }],
   });
 
-  const target = { mode: 'daily', sectionId: ctx.section.id };
+  const target = { sectionId: ctx.section.id };
   const { validate } = await runToValidate({
     token: ctx.adviser.token,
     buffer,

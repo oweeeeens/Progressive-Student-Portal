@@ -13,10 +13,42 @@ The system replaces manual, paper-based record keeping with a centralized digita
 
 ## Scope (Phase 1 — do not expand beyond this without discussion)
 1. **Student Records Management** — centralized digital student info (replaces paper files/Excel)
-2. **Attendance Tracking** — two levels, both manually input (no QR/RFID/biometric scanning):
-   - **Daily/homeroom attendance** — logged by the adviser (the official DepEd SF2 record); this is the authoritative record used for the risk formula's attendance rate
-   - **Subject-level attendance** — logged separately by each subject teacher, per subject/period; supplementary, not used in risk scoring
+2. **Attendance Tracking** — daily/homeroom attendance, manually input (no QR/RFID/biometric scanning), logged by the adviser (the official DepEd SF2 record); the record used for the risk formula's attendance rate. (A second, subject-level register existed until 2026-11-11 — see REMOVED below.)
 3. **Trend-Based Academic Risk & Intervention Tracking Dashboard** (the innovation — see below)
+
+## REMOVED: Announcements, Subject Attendance, Report Card PDF (as of 2026-11-11)
+The research adviser asked the group to remove every module the **title** does
+not cover — "Web-Based Student Portal with Trend-Based Academic Risk
+Analytics and Intervention Monitoring Dashboard" — and keep the System simple.
+The group chose three:
+
+1. **Announcements, and the ICT Faculty role.** The role existed only to post
+   announcements. Its value stays in the `user_role` enum (Postgres cannot drop
+   an enum value without rebuilding the type), but it is gone from
+   `USER_ROLES`/`CREATABLE_ROLES` in `backend/config/auth.js`, the migration
+   deactivated every such account, and a test asserts it can be neither
+   created nor assigned.
+2. **Subject-level attendance**, including the subject half of the attendance
+   import. It never fed the risk score — only the adviser's daily SF2 record
+   does — so nothing about risk changed.
+3. **Report Card PDF.** Grades remain viewable on screen; the official card
+   stays the school's existing process. `services/pdfPrimitives.js` stays for
+   the Analytics PDF.
+
+Migration `20261111090000000_narrow-scope-to-title.sql` drops
+`announcements` and `subject_attendance_records` (13 tables remain) and
+removes the subject-import audit rows. Its down migration recreates the
+tables **empty**. Kept deliberately, by the group's choice: learner-status
+fields, forgot-password by email, both bulk imports, the home task list, and
+Analytics (risk analytics is in the title).
+
+**For the thesis manuscript:** the same framing as the Enrollment removal — a
+documented scope reduction at the adviser's direction to keep the study on
+its title. Announcements were client-requested, so the Limitations section
+says so and notes the school keeps its existing noticeboard.
+
+Older sections below still describe these features where they explain how
+something else came to be built; read them as history.
 
 ## REMOVED: Enrollment Management (as of 2026-10-08)
 The client requested removing digital enrollment entirely — they want to keep their existing **paper/hard-copy** enrollment process (report card, birth certificate, SF10 submitted physically), not digitized through the portal.
@@ -32,10 +64,10 @@ The client requested removing digital enrollment entirely — they want to keep 
 - **Admin** — manages accounts (registration is admin-only, no public self-signup)
 - **Principal** — verifies/approves grades submitted by subject teachers (see Grade Approval Workflow below). One school-wide position, so they also *read* school-wide: Analytics, the Academic Progress Tracking dashboard, student records, and **Academic Setup — read-only** (school years, sections, subjects, class offerings, grading periods). The structure of the school year is theirs to see; restructuring it stays with the admin, and those four pages hide their write controls rather than letting them fail with a permission error. They hold no advisory section and teach no class, so the attendance and grade-entry pages are not shown to them. Logging interventions stays with advisers and guidance counselors — the principal approves grades and reads the rollup; the per-learner follow-up is not theirs.
 - **Advisers** — see only students in their own advisory section; finalize grades into the official record (final step of the approval workflow)
-- **Subject teachers** — submit initial grades and input attendance for the classes they actually teach (scoped by class/subject, not by advisory section — a teacher may teach students across multiple sections)
+- **Subject teachers** — submit initial grades for the classes they actually teach (scoped by class/subject, not by advisory section — a teacher may teach students across multiple sections)
 - **Guidance counselors** — view flagged/at-risk students, log interventions
 - **Registrar staff** — manage student records; create student/staff portal accounts once a student has enrolled on paper (see REMOVED: Enrollment Management above)
-- **ICT faculty** — post announcements. Added alongside the Announcements feature (see below) and has no other permissions: the school's ICT staff maintain the noticeboard, they do not mark attendance or handle records. Their navigation is Home and nothing else — the noticeboard lives there. (Until 2026-10-29 the sidebar also offered them the attendance, grade and student pages, because visibility was guessed from the role label; every one of them opened empty, since they advise no section, teach no class, and have no student read scope. The server always refused the writes; it was the navigation that lied.)
+- ~~**ICT faculty**~~ — **removed 2026-11-11** with Announcements, the only thing the role did (see REMOVED above).
 - **Students / Parents** — view own records only (no separate parent role yet — out of scope for Phase 1, students role covers this access level)
 
 **One person can hold two kinds of assignment.** A teacher commonly advises
@@ -83,7 +115,7 @@ subject teacher who advises nothing is not offered Finalize Grades. If those
 counts fail to load the sidebar falls back to showing every role-eligible
 link, which is only a cluttered menu: the server is the real boundary.
 
-**Note on who can reset a password.** Only **admin** and **registrar** can create accounts or issue a temporary password (`CREATABLE_ROLES` in `backend/config/auth.js`, and `canWrite` in `backend/routes/userRoutes.js`). Advisers and ICT faculty cannot — the forgot-password fallback text says so, and must keep saying so, since with email unconfigured that is the only recovery route a user has.
+**Note on who can reset a password.** Only **admin** and **registrar** can create accounts or issue a temporary password (`CREATABLE_ROLES` in `backend/config/auth.js`, and `canWrite` in `backend/routes/userRoutes.js`). Advisers cannot — the forgot-password fallback text says so, and must keep saying so, since with email unconfigured that is the only recovery route a user has.
 
 **Admin accounts are special.** `admin` is never offered on any account-creation form and can never be assigned or removed by editing an account. Beyond that, an admin account may only be acted on by *that same admin* — no other role, and no second admin, can reset its password, change its email or deactivate it. Without that last rule a registrar could reset the admin's password, read it out of the response, and sign in as admin.
 
@@ -153,7 +185,7 @@ CLAUDE.md's Code Quality Standards ask for per-module orientation notes. Each ba
 - **Bulk Student Import** — an .xlsx of student records, mapped column by column to our fields. Four steps (upload → match columns → review → done), stateless between them. `services/bulkImportParser.js` reads the file, `services/bulkImportValidator.js` decides what is importable, `controllers/bulkImportController.js` drives it. Re-validates server-side on commit, including the learner-status write gate.
 - **Bulk Attendance Import** — the school's existing DepEd SF2 spreadsheets: learners down the side, school days across the top, a mark per cell. A different shape from the student import, so it has its own grid parser (`services/attendanceGridParser.js`). Five steps, and a day that already has attendance takes an explicit overwrite-or-skip decision. Writes the daily register, so it triggers the same risk recalculation the marking sheet does — once per grading period, never once per date. Every imported mark records which import wrote it (`import_id`), and correcting a day by hand clears that attribution.
 - **Analytics** — the school-wide rollup of risk, factors, attendance and intervention effectiveness, with PDF and Excel export. Admin, principal and guidance counselor only; advisers keep the per-section Academic Progress view instead. `services/analyticsCalculator.js` does the maths, `analyticsReportPdf.js` / `analyticsReportWorkbook.js` render it.
-- **Report Card PDF** — a printable card per student, built from finalized grades and daily attendance, scoped to one school year. Adviser (own section), admin, registrar, or the student themselves.
+- ~~**Report Card PDF**~~ — removed 2026-11-11 (see REMOVED above).
 - **My Progress** (student self-view) — a student's own grades, attendance, risk band and the plain-language version of any triggered factors, including what number they would have to reach to clear each one. Read-only and scoped to themselves; no school-wide figures reach it.
 - **Your profile** (`/profile`, every role) — the one page a person owns: their
   name and email, their password, and what they advise and teach. The
@@ -222,7 +254,7 @@ Three rules make it trustworthy:
   that the question does not apply.
 
 An empty queue and *no* queue are different states and are rendered
-differently. ICT faculty are offered nothing, so nothing is drawn; somebody
+differently. A student is offered nothing, so nothing is drawn; somebody
 who has cleared theirs is told so, and told which checks came back empty.
 
 **3. The risk picture is promoted out of the sidebar**, as a band
@@ -236,10 +268,9 @@ the chart reuses the frozen, CVD-validated band tokens exactly (asserted
 against their literal values in the browser check), and the task strip
 reuses the already-validated module palette.
 
-**4. ICT faculty get a noticeboard.** Not by a special case — their queue,
-stats and risk picture are all empty by scope, so Home *is* the
-announcements feed, which is their whole job. Announcements are demoted for
-everyone else: five per page, long bodies collapsed behind "Read more".
+**4. (Removed 2026-11-11.)** This section described the announcements feed
+and the ICT faculty noticeboard, both since removed — the page now ends with
+the recent-activity feed.
 
 **One shared file came out of it.** The band order, labels and colours lived
 inside `AnalyticsPage.jsx`; they are now `utils/performanceBands.js`, shared
@@ -476,7 +507,7 @@ built today). `npm run check:email` now recognizes this exact failure by
 name (`CONNECT_TIMEOUT`) and says so, rather than printing a bare error, so
 it is immediately recognizable if it comes up again.
 
-## Announcements (client-requested, added post-Phase-1)
+## Announcements (client-requested, added post-Phase-1 — REMOVED 2026-11-11, kept here as history)
 - A home page / announcement banner feature, requested directly by the client
 - Posting access: **admin, registrar, guidance counselor, or ICT faculty** (not advisers/subject teachers/students)
 - Visible to all logged-in users on login/home page

@@ -10,7 +10,6 @@ const ROLE_LABELS = {
   guidance_counselor: 'Guidance Counselor',
   registrar: 'Registrar',
   principal: 'Principal',
-  ict_faculty: 'ICT Faculty',
   student: 'Student',
 }
 

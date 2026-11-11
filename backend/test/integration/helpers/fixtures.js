@@ -199,7 +199,6 @@ async function deleteFixtures({
     await pool.query('DELETE FROM risk_assessments WHERE student_id = ANY($1::int[])', [studentIds]);
     await pool.query('DELETE FROM grades WHERE student_id = ANY($1::int[])', [studentIds]);
     await pool.query('DELETE FROM daily_attendance_records WHERE student_id = ANY($1::int[])', [studentIds]);
-    await pool.query('DELETE FROM subject_attendance_records WHERE student_id = ANY($1::int[])', [studentIds]);
     await pool.query('DELETE FROM students WHERE id = ANY($1::int[])', [studentIds]);
   }
   if (offeringIds.length > 0) {

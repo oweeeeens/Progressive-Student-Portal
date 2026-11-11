@@ -11,8 +11,7 @@ import { todayDateString } from '../utils/dateUtils'
 // picker (the server still enforces this even if the picker were
 // bypassed). All the marking UI itself — segmented status buttons, bulk
 // actions, search, notes, the sticky save bar — lives in
-// AttendanceRosterPanel, shared with SubjectAttendancePage so both feel
-// like one consistent pattern.
+// AttendanceRosterPanel.
 
 
 export function DailyAttendancePage() {

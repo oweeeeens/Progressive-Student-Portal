@@ -7,19 +7,14 @@ import { StatCard, StatRow } from '../components/StatCard'
 import { AttendanceStatExplainer } from '../components/AttendanceStatExplainer'
 import { DataTable } from '../components/table/DataTable'
 import { AttendanceCalendar } from '../components/AttendanceCalendar'
-import { InlineRateBar } from '../components/InlineRateBar'
 import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
 import { humanize } from '../utils/humanize'
 
-// The student's attendance, on its own page: the official daily record per
-// grading period, the month calendar behind a toggle, and the separate
-// per-subject record their subject teachers keep.
-//
-// Both records are shown because they answer different questions and will
-// legitimately disagree — the daily homeroom record is the SF2 figure the
-// school reports on and the only one the risk formula reads (CLAUDE.md),
-// while the subject record is what tells a student which particular class
-// they are missing.
+// The student's attendance, on its own page: the official daily (SF2) record
+// per grading period and the month calendar. This is the figure the school
+// reports on and the one the risk formula reads (CLAUDE.md). A separate
+// per-subject record was shown here until subject-level attendance was
+// removed on 2026-11-11 to keep the System to its title.
 
 const ATTENDANCE_STATUSES = ['present', 'late', 'absent', 'excused']
 // One panel serves all four figures, so one id covers every card's
@@ -34,7 +29,6 @@ function dayWord(count) {
 export function StudentAttendancePage() {
   const { student, loading: loadingStudent, error: studentError } = useOwnStudentRecord()
   const [attendanceDetail, setAttendanceDetail] = useState(null)
-  const [subjectAttendance, setSubjectAttendance] = useState(null)
   const [requiredAttendance, setRequiredAttendance] = useState(null)
   const [calendarRecords, setCalendarRecords] = useState(null)
   // Open by default: this is the attendance page, and a month grid of
@@ -49,20 +43,18 @@ export function StudentAttendancePage() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([api.get('/my-progress/attendance-detail'), api.get('/my-progress/subject-attendance')])
-      .then(([daily, bySubject]) => {
+    Promise.all([api.get('/my-progress/attendance-detail'), api.get('/my-progress/trend')])
+      .then(([daily, trend]) => {
         setAttendanceDetail(daily.periods)
-        setSubjectAttendance(bySubject.subjects)
         // The required rate travels with the data, from the same risk config
         // the formula checks — never written down in the frontend.
-        setRequiredAttendance(bySubject.attendanceThreshold ?? null)
+        setRequiredAttendance(trend.attendanceThreshold ?? null)
       })
       .catch((err) => {
         setError(err.message)
-        // A failed request is not an empty record: resolve both lists so the
-        // tables stop saying "loading" and say what actually happened.
+        // A failed request is not an empty record: resolve the list so the
+        // table stops saying "loading" and says what actually happened.
         setAttendanceDetail([])
-        setSubjectAttendance([])
       })
   }, [])
 
@@ -241,55 +233,6 @@ export function StudentAttendancePage() {
         )}
       </div>
 
-      <div className="record-section">
-        <h2>Attendance by Subject</h2>
-        <p className="record-section__note">
-          Taken by each subject teacher for their own class. These counts can differ from the daily record above — you can
-          be marked present in homeroom and still miss a subject period.
-        </p>
-        <DataTable illustration="calendar"
-          columns={[
-            {
-              key: 'subject',
-              header: 'Subject',
-              render: (s) => (
-                <>
-                  <span className="cell-primary">{s.subjectName}</span>
-                  <span className="cell-secondary">{s.teacherName}</span>
-                </>
-              ),
-            },
-            { key: 'present', header: 'Present', align: 'right', render: (s) => s.present },
-            { key: 'absent', header: 'Absent', align: 'right', render: (s) => s.absent },
-            { key: 'late', header: 'Late', align: 'right', render: (s) => s.late },
-            { key: 'excused', header: 'Excused', align: 'right', render: (s) => s.excused },
-            { key: 'sessions', header: 'Sessions', align: 'right', render: (s) => s.totalSessions },
-            {
-              key: 'rate',
-              header: 'Rate',
-              align: 'right',
-              // The bar is the column: the number alone makes 25% and 87.5%
-              // look like the same amount of text, and neither shows how far
-              // either sits from the required line.
-              render: (s) => <InlineRateBar value={s.attendanceRate} required={requiredAttendance} />,
-            },
-          ]}
-          rows={subjectAttendance || []}
-          rowKey={(s) => s.subjectName}
-          error={error}
-          legend={
-            requiredAttendance != null
-              ? `Rates below the required ${requiredAttendance}% are shown in red. Arriving late still counts as attending.`
-              : null
-          }
-          emptyState={
-            <>
-              <p>No subject attendance recorded yet.</p>
-              <p>This fills in as each of your subject teachers takes attendance for their class.</p>
-            </>
-          }
-        />
-      </div>
     </div>
   )
 }

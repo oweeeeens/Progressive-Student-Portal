@@ -233,16 +233,14 @@ async function getHistoryForStudent(studentId, schoolYearId) {
   return result.rows;
 }
 
-// Subject-by-period detail of a student's FINALIZED grades only — the
-// report card's source data (official grades only, never a still-pending
-// submission). Same shape as getHistoryForStudent, just pre-filtered,
-// since the report card has no use for a grade that isn't official yet.
-// Scoped to one school year. The report card pivots these rows into a
-// subject x period grid keyed on sequence_number (see
-// reportCardController.pivotFinalizedGrades), so without the scope a
-// Grade-11 Q1 grade and a Grade-12 Q1 grade land in the same cell and the
-// last row silently wins — on a document the school hands to a parent, under
-// a heading naming a single school year.
+// Subject-by-period detail of a student's FINALIZED grades only (official
+// grades, never a still-pending submission) — what a student's own grade
+// view shows (see myProgressController). Same shape as getHistoryForStudent,
+// just pre-filtered. Scoped to one school year: the rows are pivoted into a
+// subject x term grid keyed on sequence_number, so without the scope a
+// Grade-11 Term 1 grade and a Grade-12 Term 1 grade would land in the same
+// cell and the last row would silently win. (This reader was written for the
+// printable report card, which was removed on 2026-11-11.)
 async function getFinalizedHistoryForStudent(studentId, schoolYearId) {
   const result = await pool.query(
     // subject_id as well as the name: callers used to key on the NAME,
