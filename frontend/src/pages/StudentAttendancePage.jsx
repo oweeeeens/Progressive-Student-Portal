@@ -9,6 +9,8 @@ import { DataTable } from '../components/table/DataTable'
 import { AttendanceCalendar } from '../components/AttendanceCalendar'
 import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
 import { humanize } from '../utils/humanize'
+import { formatRegisterDate } from '../utils/dateUtils'
+import { StatusPill } from '../components/StatusPill'
 
 // The student's attendance, on its own page: the official daily (SF2) record
 // per grading period and the month calendar. This is the figure the school
@@ -16,7 +18,8 @@ import { humanize } from '../utils/humanize'
 // per-subject record was shown here until subject-level attendance was
 // removed on 2026-11-11 to keep the System to its title.
 
-const ATTENDANCE_STATUSES = ['present', 'late', 'absent', 'excused']
+// The same status colours the staff Attendance tab uses (AttendanceHistory).
+const STATUS_VARIANTS = { present: 'positive', late: 'warning', absent: 'negative', excused: 'neutral' }
 // One panel serves all four figures, so one id covers every card's
 // aria-controls — they all point at the same region.
 const ATTENDANCE_EXPLAINER_ID = 'attendance-stat-explainer'
@@ -30,7 +33,9 @@ export function StudentAttendancePage() {
   const { student, loading: loadingStudent, error: studentError } = useOwnStudentRecord()
   const [attendanceDetail, setAttendanceDetail] = useState(null)
   const [requiredAttendance, setRequiredAttendance] = useState(null)
-  const [calendarRecords, setCalendarRecords] = useState(null)
+  // Every daily record on file (newest first), feeding both the calendar and
+  // the list of missed days beside it.
+  const [dailyRecords, setDailyRecords] = useState(null)
   // Open by default: this is the attendance page, and a month grid of
   // colour-coded days is the clearest thing on it. It was behind a click
   // only because it used to share the home page with everything else.
@@ -70,9 +75,17 @@ export function StudentAttendancePage() {
     if (!student) return
     api
       .get(`/students/${student.id}/attendance/daily`)
-      .then((data) => setCalendarRecords(data.records.map((r) => ({ date: r.attendance_date, status: r.status }))))
+      .then((data) => setDailyRecords(data.records))
       .catch((err) => setError(err.message))
   }, [student])
+
+  // Reshaped once per data change, not every render: AttendanceCalendar
+  // memoizes on this array's identity.
+  const calendarRecords = useMemo(
+    () => (dailyRecords ? dailyRecords.map((r) => ({ date: r.attendance_date, status: r.status })) : null),
+    [dailyRecords]
+  )
+  const missedDays = useMemo(() => (dailyRecords || []).filter((r) => r.status !== 'present'), [dailyRecords])
 
   // The page's headline figures, from the most recent grading period that
   // has any attendance — the same "latest period with data" rule the rest of
@@ -217,18 +230,33 @@ export function StudentAttendancePage() {
         {showCalendar && (
           <div className="panel mt-4">
             {calendarRecords && calendarRecords.length > 0 ? (
-              <AttendanceCalendar records={calendarRecords} />
+              // The compact month beside the days that need explaining. The
+              // calendar carries its own status legend, so none is repeated
+              // under it (there used to be two).
+              <div className="attendance-split">
+                <AttendanceCalendar records={calendarRecords} />
+                <div className="attendance-split__aside">
+                  <h3>Days you missed or were late</h3>
+                  {missedDays.length === 0 ? (
+                    <p className="attendance-split__note">None so far — every recorded day was present.</p>
+                  ) : (
+                    <ul className="attendance-split__list">
+                      {missedDays.map((r) => (
+                        <li key={r.id}>
+                          <span>
+                            {formatRegisterDate(r.attendance_date)}
+                            {r.notes && <span className="attendance-split__note">{r.notes}</span>}
+                          </span>
+                          <StatusPill label={humanize(r.status)} variant={STATUS_VARIANTS[r.status]} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
             ) : (
               <p className="form-note">No daily attendance has been recorded yet.</p>
             )}
-            <div className="chart-legend mt-3">
-              {ATTENDANCE_STATUSES.map((status) => (
-                <span key={status} className="chart-legend__item">
-                  <span className={`attendance-calendar__dot is-${status}`} />
-                  {humanize(status)}
-                </span>
-              ))}
-            </div>
           </div>
         )}
       </div>

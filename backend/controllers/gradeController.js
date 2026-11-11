@@ -8,6 +8,8 @@ const gradingPeriodModel = require('../models/gradingPeriodModel');
 const classOfferingModel = require('../models/classOfferingModel');
 const sectionModel = require('../models/sectionModel');
 const riskEngine = require('../services/riskEngine');
+const { todayInSchoolTimezone } = require('../utils/schoolDate');
+const { GRADE_AT_RISK_THRESHOLD } = require('../config/riskConfig');
 
 async function recordGrades(req, res) {
   const { classOfferingId, gradingPeriodId, entries } = req.body;
@@ -206,7 +208,26 @@ async function getHistoryForStudent(req, res) {
   // it (config/academicTerms.js).
   const gradingPeriods = await gradingPeriodModel.listBySchoolYear(schoolYearId);
 
-  res.json({ grades, periodAverages, gradingPeriods, schoolYearId });
+  // Which of those terms the school is in today, so the page can mark it.
+  // The school's own date, not the server's UTC one (utils/schoolDate.js).
+  // Null between terms — "the current term" then has no answer, and the page
+  // marks nothing rather than guessing.
+  const today = todayInSchoolTimezone();
+  const currentPeriod = gradingPeriods.find(
+    (p) => String(p.start_date).slice(0, 10) <= today && today <= String(p.end_date).slice(0, 10)
+  );
+
+  // The passing grade travels with the grades so every grade view colours
+  // the same marks red. It is the risk formula's own threshold (config/
+  // riskConfig.js), the same figure the student's My Grades page uses.
+  res.json({
+    grades,
+    periodAverages,
+    gradingPeriods,
+    schoolYearId,
+    currentPeriodId: currentPeriod ? currentPeriod.id : null,
+    passingGrade: GRADE_AT_RISK_THRESHOLD,
+  });
 }
 
 module.exports = {

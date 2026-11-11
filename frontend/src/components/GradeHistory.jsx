@@ -1,66 +1,57 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
-import { StatusPill } from './StatusPill'
 import { LineChart } from './charts/LineChart'
 import { ChartCard } from './charts/ChartCard'
-import { DataTable, fieldValue } from './table/DataTable'
 import { Alert } from './Alert'
 import { SkeletonTable } from './Skeleton'
-import { CLASS_TERM_SHORT } from '../utils/academicTerms'
+import { TermGradeTables } from './TermGradeTables'
+import { buildGradeMatrix } from '../utils/gradeMatrix'
 
-// The four statuses a grade can actually hold, as the approval chain
-// defines them: submitted → principal_verified → finalized, plus rejected.
+// The Grades tab on a student's record — what admin, registrar, principal,
+// adviser, guidance counselor and subject teacher see (each under their own
+// read scope, enforced server-side).
 //
-// This map still listed `draft`, a status removed when the chain was
-// introduced, and named only two of the four — so three of the four pills
-// rendered with an undefined variant, which is to say unstyled. A status
-// badge whose colour is missing is worse than plain text: it looks like the
-// one state nobody bothered to give a meaning.
-//
-// The colours are the non-risk status palette, never the risk ramp — a grade
-// awaiting verification is not an at-risk student (see CLAUDE.md).
-const STATUS_VARIANTS = {
-  submitted: 'info',
-  principal_verified: 'warning',
-  finalized: 'positive',
-  rejected: 'negative',
-}
-
-// The stored values carry underscores; a reader should not have to.
-const STATUS_LABELS = {
-  submitted: 'Submitted',
-  principal_verified: 'Verified by principal',
-  finalized: 'Finalized',
-  rejected: 'Returned to teacher',
-}
-
+// One table per term, stacked. This was a single list with Term 2 and Term 1
+// rows interleaved and the period as a column, so comparing a learner's two
+// terms meant reading the same subject twice in different parts of the table.
+// The shared TermGradeTables is also what the learner's own My Grades page
+// uses, so both readers see the marks grouped identically.
 export function GradeHistory({ studentId }) {
-  const [grades, setGrades] = useState(null)
-  const [periodAverages, setPeriodAverages] = useState([])
+  const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     api
       .get(`/students/${studentId}/grades`)
-      .then((data) => {
-        setGrades(data.grades)
-        setPeriodAverages(data.periodAverages || [])
-      })
+      .then(setData)
       .catch((err) => setError(err.message))
   }, [studentId])
 
+  const rows = useMemo(() => (data ? buildGradeMatrix({ grades: data.grades }) : []), [data])
+
+  // The chart's points are named after the school's own terms ("Term 1"),
+  // matched by sequence number, rather than a generic "Period 1".
+  const chartPoints = useMemo(() => {
+    if (!data) return []
+    const nameBySequence = new Map((data.gradingPeriods || []).map((p) => [p.sequence_number, p.name]))
+    return (data.periodAverages || []).map((p) => ({
+      label: nameBySequence.get(p.sequence_number) || `Period ${p.sequence_number}`,
+      value: Number(p.average_grade),
+    }))
+  }, [data])
+
   if (error) return <Alert>{error}</Alert>
-  if (!grades) return <SkeletonTable rows={4} columns={5} />
+  if (!data) return <SkeletonTable rows={4} columns={4} />
 
   return (
     <div className="record-section">
       <h2>Grades</h2>
 
-      {periodAverages.length >= 2 && (
+      {chartPoints.length >= 2 && (
         <div className="mb-5">
-          <ChartCard title="Average Grade Over Time" description={`Across ${periodAverages.length} finalized grading periods.`}>
+          <ChartCard title="Average Grade Over Time" description={`Across ${chartPoints.length} finalized grading periods.`}>
             <LineChart
-              points={periodAverages.map((p) => ({ label: `Period ${p.sequence_number}`, value: Number(p.average_grade) }))}
+              points={chartPoints}
               formatValue={(v) => String(Math.round(v * 10) / 10)}
               yMin={60}
               yMax={100}
@@ -70,40 +61,20 @@ export function GradeHistory({ studentId }) {
         </div>
       )}
 
-              <DataTable illustration="grades"
-          columns={[
-            { key: 'subject', header: 'Subject', render: (g) => g.subject_name },
-            { key: 'period', header: 'Period', render: (g) => g.grading_period_name },
-            {
-              key: 'term',
-              header: 'Runs for',
-              // Quiet for a whole-year class, which is every Grade 11 class
-              // — so the column only speaks up for a subject that runs in
-              // one term, which is the thing a reader would otherwise have
-              // to go to Academic Setup to find out.
-              uniformValue: (g) => g.term,
-              quietValue: 'full_year',
-              render: (g) => CLASS_TERM_SHORT[g.term] || fieldValue(g.term),
-            },
-            { key: 'grade', header: 'Grade', align: 'right', render: (g) => fieldValue(g.grade_value) },
-            {
-              key: 'status',
-              header: 'Status',
-              uniformValue: (g) => g.status,
-              render: (g) => (
-                <StatusPill label={STATUS_LABELS[g.status] || g.status} variant={STATUS_VARIANTS[g.status] || 'neutral'} />
-              ),
-            },
-          ]}
-          rows={grades}
-          rowKey={(g) => g.id}
-          emptyState={
-            <>
-              <p>No grades recorded yet.</p>
-              <p>Grades appear here once a subject teacher enters them for this student.</p>
-            </>
-          }
+      {data.grades.length === 0 ? (
+        <div className="empty-state">
+          <p>No grades recorded yet.</p>
+          <p>Grades appear here, one table per term, once a subject teacher enters them for this student.</p>
+        </div>
+      ) : (
+        <TermGradeTables
+          gradingPeriods={data.gradingPeriods || []}
+          rows={rows}
+          passingGrade={data.passingGrade ?? null}
+          currentPeriodId={data.currentPeriodId ?? null}
+          showStatus
         />
+      )}
     </div>
   )
 }

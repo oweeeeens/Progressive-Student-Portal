@@ -353,6 +353,18 @@ Grade 12 learner every subject they take at any point in the year with dashes
 where one was not running — and a dash meaning "not taught this term" looked
 exactly like one meaning "no mark recorded yet".
 
+**2026-11-11: one table per term, stacked, in BOTH grade views.** The tabs
+above became stacked tables (Term 1 → Term 3, all visible at once), and the
+staff Grades tab on a student's record (`GradeHistory`), which still printed
+every grade in one list with the terms interleaved, now uses the same
+component — `components/TermGradeTables.jsx`, fed by
+`utils/gradeMatrix.buildGradeMatrix` (cells keyed on `grading_period_id`).
+The staff view adds a Status column for the approval chain; the student view
+keeps the "Whole year at a glance" grid underneath. `GET /students/:id/grades`
+now also returns `passingGrade` and `currentPeriodId` (school timezone). The
+attendance calendar was shrunk at the same time — capped at 22rem with fixed
+2rem cells, the days missed or late listed beside it (`.attendance-split`).
+
 **The printed report card had the same flaw, and paper has no tabs.** It now
 prints `n/a` for a term a subject was not taught in and a dash for one taught
 with no final mark, with a one-line legend — and only where the data

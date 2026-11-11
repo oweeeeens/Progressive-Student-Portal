@@ -2680,7 +2680,17 @@ svg[data-chart-density='compact'] .chart-reference-label {
 /* Monthly attendance calendar (see components/AttendanceCalendar.jsx).
    Status colors reuse the app's general success/danger/warning/neutral
    tokens, not the separate risk palette — CLAUDE.md reserves risk colors
-   for actual risk indicators even where a hue looks similar. */
+   for actual risk indicators even where a hue looks similar.
+
+   Compact by design. The grid used to stretch across the whole 1360px page
+   column with cells at aspect-ratio 1.7 — about 190×110px per day, so one
+   month filled the screen to say "present" twenty times. It is now capped at
+   a width where a month reads at a glance, and the room beside it goes to
+   the days that actually need attention (.attendance-split below). */
+.attendance-calendar {
+  width: 100%;
+  max-width: 22rem;
+}
 .attendance-calendar__header {
   display: flex;
   align-items: center;
@@ -2715,10 +2725,10 @@ svg[data-chart-density='compact'] .chart-reference-label {
 .attendance-calendar__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: var(--space-1);
+  gap: 3px;
 }
 .attendance-calendar__weekdays {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 .attendance-calendar__weekdays span {
   text-align: center;
@@ -2726,17 +2736,17 @@ svg[data-chart-density='compact'] .chart-reference-label {
   font-weight: 500;
   color: var(--color-text-faint);
 }
-/* aspect-ratio 1.7 (wider than tall), not 1 — the cell only ever holds a
-   2-digit number plus a color wash, not enough content to justify a full
-   square at this grid's width. */
+/* A fixed height rather than an aspect ratio: the cell only ever holds a
+   2-digit number and a colour wash, so it never needs to grow with width. */
 .attendance-calendar__cell {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1.7;
+  height: 2rem;
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
   background: var(--color-bg);
 }
@@ -2782,9 +2792,9 @@ svg[data-chart-density='compact'] .chart-reference-label {
 .attendance-calendar__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--color-border);
 }
 .attendance-calendar__legend-item {
@@ -2810,6 +2820,83 @@ svg[data-chart-density='compact'] .chart-reference-label {
 }
 .attendance-calendar__dot.is-excused {
   background: var(--color-text-muted);
+}
+
+/* The compact calendar beside the list of days that need attention —
+   absences and lates in the period being viewed. Side by side wherever
+   there is room, stacked on a phone. */
+.attendance-split {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .attendance-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .attendance-calendar {
+    max-width: none;
+  }
+}
+/* Capped so a status pill stays beside its date rather than across the page. */
+.attendance-split__aside {
+  max-width: 30rem;
+}
+.attendance-split__aside h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-sm);
+}
+.attendance-split__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 20rem;
+  overflow-y: auto;
+}
+.attendance-split__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+.attendance-split__list li:last-child {
+  border-bottom: none;
+}
+.attendance-split__note {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+/* A day's note, on its own line under the date in the missed-days list. */
+.attendance-split__list .attendance-split__note {
+  display: block;
+  margin: 0;
+}
+
+/* Attendance tab controls (AttendanceHistory.jsx): the period picker and the
+   row of per-status totals. Classes rather than inline styles, per the UI
+   standards in CLAUDE.md. */
+.attendance-history__period {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+.attendance-history__totals {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.attendance-history__totals-period {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
 }
 
 /* Student Detail's profile header — sits above the tabs, stays visible
@@ -3601,6 +3688,45 @@ textarea[aria-invalid='true']:focus-visible {
 
 .grade-cell__empty {
   color: var(--color-text-faint);
+}
+
+/* One table per term, stacked Term 1 → Term 3 (components/TermGradeTables).
+   Each term is its own titled block so the period is a heading the eye
+   lands on, not a column it has to sort by. */
+.term-grades {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+/* The shared legend sits close under the last table, not a full gap away. */
+.term-grades > .help-text {
+  margin: calc(var(--space-4) * -1) 0 0;
+}
+.term-grades__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.term-grades__head h3 {
+  margin: 0;
+  font-size: var(--font-size-base);
+}
+.term-grades__meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+/* Brand navy on a pale wash: "you are here", not a status or a risk. */
+.term-grades__tag {
+  align-self: center;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
 }
 
 /* The namecard's second half: everything the school holds that a student

@@ -87,7 +87,7 @@ export function AttendanceHistory({ studentId, title }) {
       </div>
 
       {periodOptions.length > 1 && (
-        <label style={{ display: 'inline-flex', flexDirection: 'column', gap: 'var(--space-1)', marginBottom: 'var(--space-3)', fontSize: 'var(--font-size-sm)' }}>
+        <label className="attendance-history__period">
           Grading period
           <select value={periodId ?? ''} onChange={(e) => setPeriodId(Number(e.target.value))}>
             {periodOptions.map((p) => (
@@ -99,12 +99,12 @@ export function AttendanceHistory({ studentId, title }) {
         </label>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
+      <div className="attendance-history__totals">
         {Object.entries(periodSummary).map(([status, count]) => (
           <StatusPill key={status} label={`${count} ${status}`} variant={STATUS_VARIANTS[status]} />
         ))}
         {selectedPeriodName && (
-          <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-faint)' }}>({selectedPeriodName})</span>
+          <span className="attendance-history__totals-period">({selectedPeriodName})</span>
         )}
       </div>
 
@@ -119,7 +119,10 @@ export function AttendanceHistory({ studentId, title }) {
         // AttendanceCalendar's viewDate is state seeded once from `records`
         // on mount, so without a fresh key it would stay on whatever month
         // was last viewed even after the underlying data changes period.
-        <AttendanceCalendar key={periodId} records={calendarRecords} />
+        <div className="attendance-split">
+          <AttendanceCalendar key={periodId} records={calendarRecords} />
+          <MissedDays records={periodRecords} periodName={selectedPeriodName} />
+        </div>
       ) : (
         <DataTable illustration="calendar"
           columns={[
@@ -191,6 +194,36 @@ export function AttendanceHistory({ studentId, title }) {
             </>
           }
         />
+      )}
+    </div>
+  )
+}
+
+// Beside the calendar: the days in this period that were NOT a plain
+// "present", newest first. Twenty green squares say little; the three days
+// missed are what an adviser or counselor opens this tab to find, and in the
+// calendar alone they had to be hunted for month by month. Built from the
+// records already loaded — no second request, so it cannot disagree with the
+// calendar next to it.
+function MissedDays({ records, periodName }) {
+  const missed = records.filter((r) => r.status !== 'present')
+  return (
+    <div className="attendance-split__aside">
+      <h3>Days missed or late{periodName ? ` in ${periodName}` : ''}</h3>
+      {missed.length === 0 ? (
+        <p className="attendance-split__note">No absences or lates this period.</p>
+      ) : (
+        <ul className="attendance-split__list">
+          {missed.map((r) => (
+            <li key={r.id}>
+              <span>
+                {formatRegisterDate(r.attendance_date)}
+                {r.notes && <span className="attendance-split__note">{r.notes}</span>}
+              </span>
+              <StatusPill label={r.status} variant={STATUS_VARIANTS[r.status]} />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )

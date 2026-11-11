@@ -9,8 +9,8 @@ import { StatusPill } from '../components/StatusPill'
 import { ChartCard } from '../components/charts/ChartCard'
 import { ChangeBarChart } from '../components/charts/ChangeBarChart'
 import { DataTable } from '../components/table/DataTable'
-import { Tabs } from '../components/Tabs'
-import { offeringCoversPeriod, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
+import { TermGradeTables } from '../components/TermGradeTables'
+import { buildGradeMatrix, GRADE_STATUS_NOTES } from '../utils/gradeMatrix'
 import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
 
 // The student's grades, on their own page: the report-card matrix and the
@@ -21,14 +21,6 @@ import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
 // advice, the trends — and the detail they came looking for on purpose
 // lives here, one click away rather than four scrolls down.
 
-// How official a grade record is, used to pick ONE value per subject/period
-// cell when a period holds several (a rejected submission and the entry
-// that replaced it). Higher wins.
-const GRADE_STATUS_RANK = { rejected: 0, submitted: 1, principal_verified: 2, finalized: 3 }
-// Only a finalized mark is the official record (CLAUDE.md's approval
-// workflow), so anything earlier in the pipeline is labelled rather than
-// printed as if it were final.
-const GRADE_STATUS_NOTES = { submitted: 'In review', principal_verified: 'In review', rejected: 'Returned to teacher' }
 // One panel serves all four figures, so one id covers every card's
 // aria-controls — they all point at the same region.
 const GRADE_EXPLAINER_ID = 'grade-stat-explainer'
@@ -81,7 +73,7 @@ function describeMovement(changes) {
 // status attached, so an in-review mark is visibly not yet official, plus who
 // to ask about it.
 function SubjectDetail({ row, periods }) {
-  const marks = periods.map((period) => ({ period, cell: row.cells[period.name] })).filter((m) => m.cell)
+  const marks = periods.map((period) => ({ period, cell: row.cells[period.id] })).filter((m) => m.cell)
 
   return (
     <div className="subject-detail">
@@ -156,57 +148,11 @@ export function StudentGradesPage() {
 
   const passingGrade = subjects?.passingGrade ?? subjectGrades?.passingGrade ?? null
 
-  // One row per subject, one cell per grading period — the report-card shape
-  // the school already uses on paper. Rows start from the class list so a
-  // subject with no mark yet still appears (its absence is information too),
-  // and any subject with a mark but no active offering is added rather than
-  // dropped.
-  const gradeMatrix = useMemo(() => {
-    const rows = new Map()
-    for (const s of subjects?.subjects || []) {
-      // Keyed on subjectId, not the name. The name was used because "subject
-      // names are unique" — only `code` carries a UNIQUE constraint, so a
-      // Grade 11 and a Grade 12 subject sharing a name merged into one row
-      // and one of the two sets of marks was lost.
-      rows.set(s.subjectId, {
-        subjectId: s.subjectId,
-        subjectName: s.subjectName,
-        teacherName: s.teacherName,
-        // How long this class runs, and what kind of subject it is: together
-        // these decide which terms it belongs in.
-        term: s.term,
-        category: s.category,
-        cells: {},
-      })
-    }
-    for (const g of grades || []) {
-      if (!rows.has(g.subject_id)) {
-        rows.set(g.subject_id, {
-          subjectId: g.subject_id,
-          subjectName: g.subject_name,
-          teacherName: null,
-          term: g.term,
-          category: g.subject_category,
-          cells: {},
-        })
-      }
-      const row = rows.get(g.subject_id)
-      const existing = row.cells[g.grading_period_name]
-      if (!existing || GRADE_STATUS_RANK[g.status] > GRADE_STATUS_RANK[existing.status]) {
-        row.cells[g.grading_period_name] = { value: Number(g.grade_value), status: g.status }
-      }
-    }
-    return [...rows.values()].map((row) => {
-      // Finalized marks only — the same official-record rule the risk
-      // formula uses, so this average and the one on the home page can
-      // never disagree.
-      const finalized = Object.values(row.cells).filter((c) => c.status === 'finalized')
-      const average = finalized.length
-        ? Math.round((finalized.reduce((sum, c) => sum + c.value, 0) / finalized.length) * 10) / 10
-        : null
-      return { ...row, average }
-    })
-  }, [subjects, grades])
+  // One row per subject, one cell per grading period — built by the same
+  // utility the staff Grades tab uses (utils/gradeMatrix.js), so both views
+  // of this learner group the same marks the same way. Rows start from the
+  // class list so a subject with no mark yet still appears.
+  const gradeMatrix = useMemo(() => buildGradeMatrix({ grades, subjects: subjects?.subjects }), [subjects, grades])
 
   // How each subject MOVED between its last two finalized marks — the one
   // thing the table above cannot show without the reader doing arithmetic
@@ -217,12 +163,11 @@ export function StudentGradesPage() {
   // the one worth reading first, the same "most urgent at the top" ordering
   // the rest of the student view uses.
   const subjectChanges = useMemo(() => {
-    const periodOrder = gradingPeriods.map((p) => p.name)
     return gradeMatrix
       .map((row) => {
-        const marked = periodOrder
-          .filter((name) => row.cells[name]?.status === 'finalized')
-          .map((name) => ({ name, value: row.cells[name].value }))
+        const marked = gradingPeriods
+          .filter((p) => row.cells[p.id]?.status === 'finalized')
+          .map((p) => ({ name: p.name, value: row.cells[p.id].value }))
         if (marked.length < 2) return null
         const latest = marked[marked.length - 1]
         const previous = marked[marked.length - 2]
@@ -262,66 +207,14 @@ export function StudentGradesPage() {
     }
   }, [subjectGrades, passingGrade])
 
-  // One tab per term, plus the whole-year grid.
-  //
-  // Which subjects belong in a term is decided per row, not per table: a
-  // class running for one term appears only in that one, while a specialized
-  // subject runs all three in both grade levels. The rule itself lives in
-  // utils/academicTerms.js and mirrors the server's.
-  //
-  // A term with no subjects in it still gets a tab. Hiding it would turn
-  // "nothing is scheduled for you in Term 3" — which a learner needs to be
-  // able to see and ask about — into a term that appears not to exist.
-  const termTabs = useMemo(() => {
-    const perTerm = gradingPeriods.map((period, index) => ({
-      key: `period-${period.id}`,
-      label: period.name,
-      content: (
-        <TermTable
-          period={period}
-          previousPeriod={gradingPeriods[index - 1] || null}
-          rows={gradeMatrix.filter((row) =>
-            offeringCoversPeriod({
-              term: row.term,
-              subjectCategory: row.category,
-              periodSequenceNumber: period.sequence_number,
-            })
-          )}
-          passingGrade={passingGrade}
-          error={error}
-        />
-      ),
-    }))
-
-    return [
-      ...perTerm,
-      {
-        key: 'all',
-        label: 'Whole year',
-        content: (
-          <WholeYearGrid
-            gradeMatrix={gradeMatrix}
-            gradingPeriods={gradingPeriods}
-            passingGrade={passingGrade}
-            error={error}
-            expandedSubject={expandedSubject}
-            setExpandedSubject={setExpandedSubject}
-          />
-        ),
-      },
-    ]
-  }, [gradingPeriods, gradeMatrix, passingGrade, error, expandedSubject])
-
-  // Open on the term the school is actually in, falling back to the whole
-  // year when today is outside every term — the long break, when "the
-  // current term" has no answer and the year as a whole is what there is
-  // to look at. `periodName` comes from the server's own current-period
-  // resolution (school timezone, not the server's — see utils/schoolDate.js),
-  // so this does not re-derive "what term is it" on the client.
-  const defaultTermTab = useMemo(() => {
-    const current = gradingPeriods.find((p) => p.name === subjectGrades?.periodName)
-    return current ? `period-${current.id}` : 'all'
-  }, [gradingPeriods, subjectGrades])
+  // The term the school is actually in, tagged on its table. `periodName`
+  // comes from the server's own current-period resolution (school timezone,
+  // not the server's — see utils/schoolDate.js), so this does not re-derive
+  // "what term is it" on the client. Null between terms.
+  const currentPeriodId = useMemo(
+    () => gradingPeriods.find((p) => p.name === subjectGrades?.periodName)?.id ?? null,
+    [gradingPeriods, subjectGrades]
+  )
 
   function toggleStat(key) {
     setOpenStat((current) => (current === key ? null : key))
@@ -413,18 +306,37 @@ export function StudentGradesPage() {
 
       <div className="record-section">
         <h2>Your Subjects &amp; Grades</h2>
-        {/* One view per term, plus the whole-year grid.
+        {/* One table per term, stacked Term 1 → Term 3, so every term is
+            visible at once. A Grade 12 learner does not take the same
+            subjects all year — core and applied subjects change every term —
+            so each table lists only the subjects running in it, and a dash
+            there can only mean "no mark recorded yet". Which term a class
+            runs in comes from its own term setting; a specialized subject
+            runs all three (utils/academicTerms.js). The same component is
+            the staff Grades tab on this learner's record. */}
+        <TermGradeTables
+          gradingPeriods={gradingPeriods}
+          rows={gradeMatrix}
+          passingGrade={passingGrade}
+          currentPeriodId={currentPeriodId}
+          error={error}
+        />
+      </div>
 
-            A Grade 12 learner does not take the same subjects all year: core
-            and applied subjects change every term, so a single wide table
-            showed them every subject they take at any point in the year with
-            dashes where a subject was not running — a dash that means "not
-            taught this term" looked exactly like one that means "no mark
-            recorded yet". Which term a class runs in comes from its own term
-            setting, matched to the period's sequence number; a specialized
-            subject ignores that and runs all three. See
-            utils/academicTerms.js. */}
-        <Tabs defaultTab={defaultTermTab} tabs={termTabs} />
+      <div className="record-section">
+        <h2>Whole Year at a Glance</h2>
+        <p className="record-section__note">
+          Every subject against every term, the shape of the paper report card. Select a subject to see each of its
+          marks and who to ask about them.
+        </p>
+        <WholeYearGrid
+          gradeMatrix={gradeMatrix}
+          gradingPeriods={gradingPeriods}
+          passingGrade={passingGrade}
+          error={error}
+          expandedSubject={expandedSubject}
+          setExpandedSubject={setExpandedSubject}
+        />
       </div>
 
       <div className="record-section">
@@ -447,10 +359,10 @@ export function StudentGradesPage() {
 }
 
 // The whole-year grid: every subject down the side, every term across the
-// top. This is the report-card shape the school already uses on paper, and it
-// stays available as its own tab because a parent reading a card wants the
-// year at once — the per-term tabs answer "what am I taking now", which is
-// a different question.
+// top. This is the report-card shape the school already uses on paper, kept
+// under the per-term tables because a parent reading a card wants the year
+// in one grid — the per-term tables answer "what am I taking each term",
+// which is a different question.
 function WholeYearGrid({
   gradeMatrix,
   gradingPeriods,
@@ -477,7 +389,7 @@ function WholeYearGrid({
               header: period.name,
               align: 'right',
               render: (r) => {
-                const cell = r.cells[period.name]
+                const cell = r.cells[period.id]
                 if (!cell) return <span className="grade-cell__empty">—</span>
                 const note = GRADE_STATUS_NOTES[cell.status]
                 return (
@@ -525,111 +437,6 @@ function WholeYearGrid({
               <p>Your subjects appear here once the registrar assigns you to a section with classes.</p>
             </>
           }
-    />
-  )
-}
-
-// One term: only the subjects actually running in it, with that term's mark.
-// No columns of dashes for subjects that are not taught this term — a dash
-// here means "no mark recorded yet", and nothing else.
-// `previousPeriod` is the term immediately before this one, or null for the
-// first term of the year — it is what the change column compares against and
-// what names that column's header.
-function TermTable({ period, previousPeriod, rows, passingGrade, error }) {
-  return (
-    <DataTable illustration="grades"
-      columns={[
-        {
-          key: 'subject',
-          header: 'Subject',
-          render: (r) => (
-            <>
-              <span className="cell-primary">{r.subjectName}</span>
-              <span className="cell-secondary">{r.teacherName || 'No teacher assigned'}</span>
-            </>
-          ),
-        },
-        {
-          key: 'type',
-          header: 'Type',
-          // Quiet for a core subject, which is most of them — so the column
-          // only draws attention to the specialized subject that is the
-          // reason this one appears in every term.
-          uniformValue: (r) => r.category,
-          quietValue: 'core',
-          render: (r) => SUBJECT_CATEGORY_LABELS[r.category] || '—',
-        },
-        {
-          key: 'mark',
-          header: `${period.name} mark`,
-          align: 'right',
-          render: (r) => {
-            const cell = r.cells[period.name]
-            if (!cell) return <span className="grade-cell__empty">—</span>
-            const note = GRADE_STATUS_NOTES[cell.status]
-            return (
-              <>
-                <span className={`cell-primary${passingGrade != null && cell.value < passingGrade ? ' is-below' : ''}`}>
-                  {cell.value}
-                </span>
-                {note && <span className="cell-secondary">{note}</span>}
-              </>
-            )
-          },
-        },
-        // HOW THIS SUBJECT MOVED, on the row rather than only in the chart
-        // below. The table had three columns and used 39% of the page, while
-        // the one question a learner brings to a single subject — "is this
-        // getting better or worse" — meant scrolling to a chart and finding
-        // the right bar. The chart stays: it ranks every subject at a glance,
-        // which a column cannot.
-        //
-        // Only FINALIZED marks are compared on both sides. This page's own
-        // legend says only a finalized mark is official, so comparing an
-        // in-review one would produce a movement that is not yet real.
-        ...(previousPeriod
-          ? [
-              {
-                key: 'change',
-                header: `vs ${previousPeriod.name}`,
-                align: 'right',
-                render: (r) => {
-                  const now = r.cells[period.name]
-                  const before = r.cells[previousPeriod.name]
-                  if (now?.status !== 'finalized' || before?.status !== 'finalized') {
-                    return <span className="grade-cell__empty">—</span>
-                  }
-                  const delta = Math.round((now.value - before.value) * 10) / 10
-                  if (delta === 0) return <span className="cell-secondary">no change</span>
-                  const Icon = delta > 0 ? ArrowUp : ArrowDown
-                  return (
-                    <span className={`grade-change grade-change--${delta > 0 ? 'up' : 'down'}`}>
-                      <Icon size={14} strokeWidth={2} aria-hidden="true" />
-                      {delta > 0 ? `+${delta}` : delta}
-                    </span>
-                  )
-                },
-              },
-            ]
-          : []),
-      ]}
-      rows={rows}
-      rowKey={(r) => r.subjectId}
-      error={error}
-      legend={
-        passingGrade != null
-          ? `Marks below the passing grade of ${passingGrade} are shown in red. Only a finalized mark is official — anything still in review is labelled as such.`
-          : null
-      }
-      emptyState={
-        <>
-          <p>No subjects running in {period.name}.</p>
-          <p>
-            A class that runs for a single term appears in that term only. Ask the registrar if you expected a
-            subject here.
-          </p>
-        </>
-      }
     />
   )
 }
