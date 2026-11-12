@@ -22,10 +22,11 @@ before(async () => {
     { name: 'Term 1', sequenceNumber: 1, startDate: '2032-06-01', endDate: '2032-09-15' },
     { name: 'Term 2', sequenceNumber: 2, startDate: '2032-09-16', endDate: '2032-12-20' },
   ]);
-  const [teacher, otherTeacher, adviser] = await Promise.all([
+  const [teacher, otherTeacher, adviser, admin] = await Promise.all([
     fixtures.createStaffUser('subject_teacher', 'ec-teacher'),
     fixtures.createStaffUser('subject_teacher', 'ec-other'),
     fixtures.createStaffUser('adviser', 'ec-adviser'),
+    fixtures.createStaffUser('admin', 'ec-admin'),
   ]);
   const section = await fixtures.createTestSection({ schoolYearId, adviserId: adviser.id, label: 'ec-section' });
   const subject = await fixtures.createTestSubject('ec-subject');
@@ -34,14 +35,14 @@ before(async () => {
     fixtures.createTestStudent({ sectionId: section.id, label: 'ec-a' }),
     fixtures.createTestStudent({ sectionId: section.id, label: 'ec-b' }),
   ]);
-  ctx = { schoolYearId, periods, teacher, otherTeacher, adviser, section, subject, offering, learnerA, learnerB };
+  ctx = { schoolYearId, periods, teacher, otherTeacher, adviser, admin, section, subject, offering, learnerA, learnerB };
 });
 
 after(async () => {
   await fixtures.teardown({
     schoolYearId: ctx.schoolYearId,
     ownSchoolYear: true,
-    userIds: [ctx.teacher.id, ctx.otherTeacher.id, ctx.adviser.id],
+    userIds: [ctx.teacher.id, ctx.otherTeacher.id, ctx.adviser.id, ctx.admin.id],
     studentIds: [ctx.learnerA.id, ctx.learnerB.id],
     subjectIds: [ctx.subject.id],
     sectionIds: [ctx.section.id],
@@ -206,4 +207,19 @@ test('the downloadable template carries the roster, and a filled copy imports wi
   assert.equal(t2.status, 'ready');
   assert.equal(t2.unmatched.length, 0, 'nobody unmatched');
   assert.ok(t2.learners.every((l) => l.matchedBy === 'LRN'), 'every learner matched by LRN');
+});
+
+test('the class picker offers the admin every class, and a teacher only their own', async () => {
+  // The picker on the Class Record and import pages. The admin teaches
+  // nothing, so a "my classes" list left them nothing to pick — and the
+  // Download template button never enabled. The fixture school year is not
+  // the current one, so the admin's list is compared with the teacher's
+  // rather than expected to contain this test's class.
+  const asAdmin = await api.get('/api/class-offerings/recordable', { token: ctx.admin.token });
+  const asTeacher = await api.get('/api/class-offerings/recordable', { token: ctx.teacher.token });
+  const asOther = await api.get('/api/class-offerings/recordable', { token: ctx.otherTeacher.token });
+  assert.equal(asAdmin.status, 200);
+  assert.ok(Array.isArray(asAdmin.body.classOfferings));
+  assert.ok(asAdmin.body.classOfferings.length >= asTeacher.body.classOfferings.length, 'the admin sees at least every class a teacher sees');
+  assert.ok(!asOther.body.classOfferings.some((o) => o.id === ctx.offering.id), "another teacher does not get this teacher's class");
 });

@@ -3,6 +3,18 @@ const { CLASS_TERMS } = require('../config/academicTerms');
 
 // For a subject teacher building the subject-attendance input sheet: which
 // classes do they actually teach, this school year.
+// The classes this user may record scores for — the pickers on the Class
+// Record and the e-Class Record import. A teacher gets the classes they
+// teach; the ADMIN gets every class this year, because the server lets the
+// admin act on any class (classRecordController.canWrite). Kept separate
+// from /mine, which means "what I teach" (Profile, sidebar counts) and must
+// not claim the admin teaches the whole school.
+async function listRecordableClassOfferings(req, res) {
+  const offerings =
+    req.user.role === 'admin' ? await classOfferingModel.listAllCurrent() : await classOfferingModel.listByTeacher(req.user.id);
+  res.json({ classOfferings: offerings });
+}
+
 async function listMyClassOfferings(req, res) {
   const offerings = await classOfferingModel.listByTeacher(req.user.id);
   res.json({ classOfferings: offerings });
@@ -114,6 +126,7 @@ async function reactivateClassOffering(req, res) {
 }
 
 module.exports = {
+  listRecordableClassOfferings,
   listMyClassOfferings,
   getRoster,
   listClassOfferingsForAdmin,

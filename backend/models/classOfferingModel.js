@@ -16,6 +16,22 @@ async function getById(id) {
   return result.rows[0] || null;
 }
 
+// Every active class this school year — the classes the ADMIN may record
+// scores for (the server already lets the admin act on any class).
+async function listAllCurrent() {
+  const result = await pool.query(
+    `SELECT co.id, co.term, subj.name AS subject_name, subj.category AS subject_category,
+            sec.name AS section_name, sec.grade_level
+     FROM class_offerings co
+     JOIN subjects subj ON subj.id = co.subject_id
+     JOIN sections sec ON sec.id = co.section_id
+     JOIN school_years sy ON sy.id = co.school_year_id
+     WHERE sy.is_current = TRUE AND co.is_active = TRUE
+     ORDER BY sec.grade_level, sec.name, subj.name`
+  );
+  return result.rows;
+}
+
 async function listByTeacher(teacherId) {
   const result = await pool.query(
     `SELECT co.id, co.term, subj.name AS subject_name, subj.category AS subject_category,
@@ -167,6 +183,7 @@ async function setClassOfferingActive(id, isActive) {
 }
 
 module.exports = {
+  listAllCurrent,
   getById,
   listByTeacher,
   listBySection,

@@ -35,6 +35,7 @@ export function ClassRecordImportPage() {
   const [searchParams] = useSearchParams()
   const [offerings, setOfferings] = useState([])
   const [offeringsError, setOfferingsError] = useState(null)
+  const [offeringsLoaded, setOfferingsLoaded] = useState(false)
   const [classOfferingId, setClassOfferingId] = useState(searchParams.get('classOfferingId') || '')
   const [file, setFile] = useState(null)
   const [step, setStep] = useState('upload')
@@ -49,8 +50,9 @@ export function ClassRecordImportPage() {
 
   useEffect(() => {
     api
-      .get('/class-offerings/mine')
+      .get('/class-offerings/recordable')
       .then((data) => {
+        setOfferingsLoaded(true)
         setOfferings(data.classOfferings)
         setClassOfferingId((current) => current || defaultSelection(data.classOfferings, true))
       })
@@ -191,6 +193,16 @@ export function ClassRecordImportPage() {
                 <Upload size={16} strokeWidth={1.75} /> {busy ? 'Reading…' : 'Read workbook'}
               </button>
             </div>
+            {/* A disabled control says why (UI Standard 10). */}
+            <p className="help-text" aria-live="polite">
+              {offeringsLoaded && offerings.length === 0
+                ? 'You have no classes to import into. Classes are assigned to teachers in Academic Setup → Class Offerings.'
+                : !classOfferingId
+                  ? "Choose the class first — the template comes with that class's learners already listed."
+                  : !file
+                    ? 'Choose the filled-in e-Class Record file to read it.'
+                    : ''}
+            </p>
           </div>
         </form>
       )}

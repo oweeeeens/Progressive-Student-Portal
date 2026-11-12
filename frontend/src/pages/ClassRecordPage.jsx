@@ -75,7 +75,7 @@ export function ClassRecordPage() {
 
   useEffect(() => {
     api
-      .get('/class-offerings/mine')
+      .get('/class-offerings/recordable')
       .then((data) => {
         setOfferings(data.classOfferings)
         setClassOfferingId((current) => current || defaultSelection(data.classOfferings, true))

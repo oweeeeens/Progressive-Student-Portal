@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   listMyClassOfferings,
+  listRecordableClassOfferings,
   getRoster,
   listClassOfferingsForAdmin,
   createClassOffering,
@@ -22,6 +23,7 @@ const router = express.Router();
 // the real check. See getRoster's ownership check for the actual security
 // boundary.
 router.get('/mine', requireAuth, listMyClassOfferings);
+router.get('/recordable', requireAuth, listRecordableClassOfferings);
 router.get('/:id/roster', requireAuth, getRoster);
 
 // Academic Setup — admin only.
