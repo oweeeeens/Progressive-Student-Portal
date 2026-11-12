@@ -444,6 +444,23 @@ grades**: the teacher still reviews the record and clicks Submit.
 - `scripts/lib/eclassWorkbook.js` builds ECR-shaped workbooks for the
   tests.
 
+### One "Import Data" page (2026-11-13)
+
+Every spreadsheet import lives on **`/import`** (`pages/ImportHubPage.jsx`),
+reached from one sidebar link, "Import Data". It replaces two identical
+"Bulk Import" links. The e-Class Record import had been only a button on the
+Class Record page, where the group couldn't find it.
+
+**Three cards**, each shown only to whoever may use it
+(`utils/permissions.js`):
+- **e-Class Record** (class scores);
+- **Student records**;
+- **Attendance (SF2).**
+
+**The SF2 import stays on purpose:** DepEd's e-Class Record holds **no
+attendance**, only WW/PT/ST/TE. The daily register is what feeds the risk
+score's attendance rate and the 12-absence alert.
+
 ### The learner's full record
 
 A **Class Record tab** on the student page, and a **"Your Scores"** section

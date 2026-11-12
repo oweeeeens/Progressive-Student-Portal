@@ -6126,3 +6126,57 @@ textarea[aria-invalid='true']:focus-visible {
   font-size: var(--font-size-xl);
   line-height: 1.2;
 }
+
+/* Import Data hub (pages/ImportHubPage.jsx): one card per import. */
+.import-hub {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: var(--space-4);
+}
+.import-hub__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.import-hub__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.import-hub__head h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+.import-hub__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xl);
+  background: var(--color-primary-light-2);
+  color: var(--color-primary);
+}
+.import-hub__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.import-hub__facts dt {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.import-hub__facts dd {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+.import-hub__go {
+  align-self: flex-start;
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

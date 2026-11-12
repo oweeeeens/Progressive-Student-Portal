@@ -228,7 +228,7 @@ export function BulkImportStudentsPage() {
 
   return (
     <div>
-      <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Students', to: '/students' }, { label: 'Bulk Import' }]} />
+      <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Import Data', to: '/import' }, { label: 'Student records' }]} />
 
       <div className="page-header">
         <h1>Bulk Import Students</h1>

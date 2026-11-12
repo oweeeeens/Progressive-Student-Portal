@@ -353,7 +353,7 @@ export function BulkImportAttendancePage() {
 
   return (
     <div>
-      <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Attendance' }, { label: 'Bulk Import' }]} />
+      <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Import Data', to: '/import' }, { label: 'Attendance (SF2)' }]} />
 
       <div className="page-header">
         <h1>Bulk Import Attendance</h1>

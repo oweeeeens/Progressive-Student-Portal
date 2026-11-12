@@ -24,3 +24,30 @@ export function canViewAcademicSetup(role) {
 export function canManageAcademicSetup(role) {
   return role === 'admin'
 }
+
+// --- Imports (the Import Data page and its sidebar link) -------------------
+//
+// `has` is AuthContext's assignment counts ({ sections, offerings }), or null
+// while they load / if they failed — then the role alone decides, failing
+// open exactly like the sidebar does (the server is the real boundary).
+const advisesAny = (has) => has == null || has.sections > 0
+const teachesAny = (has) => has == null || has.offerings > 0
+
+// The school's student information spreadsheet → student records.
+export function canImportStudents(role) {
+  return ['admin', 'registrar'].includes(role)
+}
+
+// SF2 attendance sheets → the daily register: whoever may mark it.
+export function canImportAttendance(role, has) {
+  return ['admin', 'registrar'].includes(role) || (['adviser', 'subject_teacher'].includes(role) && advisesAny(has))
+}
+
+// A subject's DepEd e-Class Record → its class record: whoever teaches it.
+export function canImportClassRecord(role, has) {
+  return role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && teachesAny(has))
+}
+
+export function canImportAnything(role, has) {
+  return canImportStudents(role) || canImportAttendance(role, has) || canImportClassRecord(role, has)
+}

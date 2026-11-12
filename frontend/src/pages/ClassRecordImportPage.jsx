@@ -113,7 +113,7 @@ export function ClassRecordImportPage() {
 
   return (
     <div>
-      <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Grades' }, { label: 'Class Record', to: '/grades/entry' }, { label: 'Import' }]} />
+      <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Import Data', to: '/import' }, { label: 'e-Class Record' }]} />
       <div className="page-header">
         <h1>Import e-Class Record</h1>
       </div>

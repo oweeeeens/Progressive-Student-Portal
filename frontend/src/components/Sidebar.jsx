@@ -27,7 +27,7 @@ import { useAuth } from '../context/AuthContext'
 import { confirmLeave, hasUnsavedChanges } from '../utils/unsavedChangesGuard'
 import { useConfirm } from '../hooks/useConfirm'
 import { roleLabel } from '../utils/roleLabel'
-import { canViewAcademicSetup } from '../utils/permissions'
+import { canViewAcademicSetup, canImportAnything } from '../utils/permissions'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import './Sidebar.css'
 
@@ -62,9 +62,6 @@ const teaches = (has) => has === null || has.offerings > 0
 
 const canMarkDaily = (role, has) =>
   ['admin', 'registrar'].includes(role) || (['adviser', 'subject_teacher'].includes(role) && advises(has))
-// The importer writes the daily register only (subject attendance was
-// removed on 2026-11-11), so it is offered to exactly who may mark it.
-const canImportAttendance = canMarkDaily
 const canEnterGrades = (role, has) =>
   role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && teaches(has))
 const canFinalizeGrades = (role, has) =>
@@ -123,14 +120,18 @@ function getNavSections(role, has) {
         // all for them.
         { to: '/students', label: 'Students', icon: Users, show: role !== 'student' },
         { to: '/students/new', label: 'New Student', icon: UserPlus, show: canWrite(role) },
-        { to: '/students/bulk-import', label: 'Bulk Import', icon: FileUp, show: canWrite(role) },
+        // ONE link for every spreadsheet import — the e-Class Record (scores),
+        // student records, and SF2 attendance — on the Import Data page
+        // (pages/ImportHubPage.jsx). There used to be two identical "Bulk
+        // Import" links, and the most important import (the class record)
+        // was only a button on the Class Record page, where nobody found it.
+        { to: '/import', label: 'Import Data', icon: FileUp, show: canImportAnything(role, has) },
       ],
     },
     {
       label: 'Attendance',
       items: [
         { to: '/attendance/daily', label: 'Daily Attendance', icon: CalendarCheck, show: canMarkDaily(role, has) },
-        { to: '/attendance/bulk-import', label: 'Bulk Import', icon: FileUp, show: canImportAttendance(role, has) },
       ],
     },
     {
