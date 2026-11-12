@@ -7,7 +7,7 @@ const { pool } = require('../config/db');
 // Reused so "which interventions can this user see" follows the exact same
 // rule as "which students can this user see" — an adviser's list is
 // narrowed to their own section the same way the roster and dashboard are.
-const { appendAdviserOnlyClause, BASE_FROM } = require('./studentModel');
+const { appendInterventionScopeClause, BASE_FROM } = require('./studentModel');
 
 // The vocabulary itself lives in config/interventions.js, alongside the
 // display labels the Analytics export renders — re-exported here unchanged
@@ -85,7 +85,7 @@ async function findOpenOrMonitoringBeforePeriod(studentId, gradingPeriodSequence
 async function listAll(user, { search, status, interventionType, page = 1, pageSize = 20 } = {}) {
   const clauses = ['s.is_active = TRUE'];
   const params = [];
-  appendAdviserOnlyClause(user, clauses, params); // advisory learners only
+  appendInterventionScopeClause(user, clauses, params); // advisory learners only
 
   if (search) {
     params.push(`%${search}%`);
@@ -166,7 +166,7 @@ async function listAll(user, { search, status, interventionType, page = 1, pageS
 async function countsByStatus(user) {
   const clauses = ['s.is_active = TRUE'];
   const params = [];
-  appendAdviserOnlyClause(user, clauses, params); // advisory learners only
+  appendInterventionScopeClause(user, clauses, params); // advisory learners only
 
   const result = await pool.query(
     `SELECT i.status, COUNT(*)::int AS count

@@ -118,6 +118,15 @@ function appendAdviserOnlyClause(user, clauses, params) {
   clauses.push(`sec.adviser_id = $${params.length}`);
 }
 
+// The intervention scope as a whole: the admin (the system's administrator)
+// sees every learner's interventions; everyone else only their advisory
+// learners. No other school-wide role — principal and guidance counselor
+// see anonymous totals on Analytics instead.
+function appendInterventionScopeClause(user, clauses, params) {
+  if (user.role === 'admin') return;
+  appendAdviserOnlyClause(user, clauses, params);
+}
+
 // True when `userId` advises the section `studentId` is currently in.
 async function isAdvisedBy(userId, studentId) {
   const result = await pool.query(
@@ -395,6 +404,7 @@ async function resolveSchoolYearId(studentId) {
 
 module.exports = {
   appendAdviserOnlyClause,
+  appendInterventionScopeClause,
   isAdvisedBy,
   resolveSchoolYearId,
   listStudents,

@@ -1,9 +1,10 @@
 // Handlers for logging and tracking interventions (CLAUDE.md Part B).
 //
-// ADVISER ONLY (2026-11-12). A learner's interventions — logging one,
-// changing its status, reading it and its notes — belong to the adviser of
-// the section the learner is in (sections.adviser_id), and to nobody else.
-// Not the admin, not the principal, not the guidance counselor, and not a
+// ADVISER AND ADMIN ONLY (2026-11-12, admin restored 2026-11-13). A
+// learner's interventions — logging one, changing its status, reading it and
+// its notes — belong to the adviser of the section the learner is in
+// (sections.adviser_id), plus the admin as the system's administrator, and to
+// nobody else: not the principal, not the guidance counselor, and not a
 // teacher who only teaches the section. The research adviser and instructor
 // asked for "no third parties", and it matches:
 //   - DepEd's Homeroom Guidance Program, where the class adviser follows up
@@ -23,7 +24,7 @@ const riskAssessmentModel = require('../models/riskAssessmentModel');
 const studentModel = require('../models/studentModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 
-const ADVISER_ONLY_MESSAGE = "Only this learner's adviser can see or record their interventions.";
+const ADVISER_ONLY_MESSAGE = "Only this learner's adviser (or the admin) can see or record their interventions.";
 
 // The learner, if the signed-in user advises their section. Answers 404 for
 // a learner who does not exist and 403 for one who is not theirs.
@@ -33,7 +34,9 @@ async function resolveAdvisedStudent(req, res, studentId) {
     res.status(404).json({ error: 'Student not found.' });
     return null;
   }
-  if (!(await studentModel.isAdvisedBy(req.user.id, studentId))) {
+  // The admin, as the system's administrator, has full access; everyone
+  // else must advise this learner's section.
+  if (req.user.role !== 'admin' && !(await studentModel.isAdvisedBy(req.user.id, studentId))) {
     res.status(403).json({ error: ADVISER_ONLY_MESSAGE });
     return null;
   }

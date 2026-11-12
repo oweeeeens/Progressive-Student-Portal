@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Upload, CheckCircle2, AlertTriangle, Check } from 'lucide-react'
+import { Upload, CheckCircle2, AlertTriangle, Check, Download } from 'lucide-react'
 import { api } from '../api/client'
 import { defaultSelection } from '../utils/defaultSelection'
 import { useConfirm } from '../hooks/useConfirm'
@@ -42,6 +42,7 @@ export function ClassRecordImportPage() {
   const [decisions, setDecisions] = useState({})
   const [result, setResult] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState(null)
   const [confirm, confirmDialog] = useConfirm()
   const { showToast } = useToast()
@@ -55,6 +56,24 @@ export function ClassRecordImportPage() {
       })
       .catch((err) => setOfferingsError(`Couldn't load your classes: ${err.message}`))
   }, [])
+
+  // A blank DepEd e-Class Record for the chosen class, roster pre-filled.
+  async function handleTemplate() {
+    const offering = offerings.find((o) => String(o.id) === String(classOfferingId))
+    const slug = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    setDownloading(true)
+    setError(null)
+    try {
+      await api.downloadFile(
+        `/class-record/import/template?classOfferingId=${classOfferingId}`,
+        `e-class-record-${slug(offering?.subject_name)}-${slug(offering?.section_name)}.xlsx`
+      )
+    } catch (err) {
+      setError(`Couldn't download the template: ${err.message}`)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   async function handleRead(e) {
     e.preventDefault()
@@ -160,7 +179,14 @@ export function ClassRecordImportPage() {
               e-Class Record file (.xlsx)
               <input type="file" accept=".xlsx" onChange={(e) => setFile(e.target.files?.[0] || null)} required />
             </label>
+            <p className="help-text">
+              No workbook yet? Download a blank e-Class Record for this class — its INPUT DATA already lists every
+              learner&apos;s LRN and name, so the scores you fill in match the right learners when you import it back.
+            </p>
             <div className="button-row">
+              <button type="button" onClick={handleTemplate} disabled={downloading || !classOfferingId}>
+                <Download size={16} strokeWidth={1.75} /> {downloading ? 'Preparing…' : 'Download template'}
+              </button>
               <button type="submit" className="btn-primary" disabled={busy || !file || !classOfferingId}>
                 <Upload size={16} strokeWidth={1.75} /> {busy ? 'Reading…' : 'Read workbook'}
               </button>

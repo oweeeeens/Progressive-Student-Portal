@@ -16,7 +16,7 @@ const {
 } = require('../controllers/classRecordController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { uploadSpreadsheet } = require('../middleware/bulkImportUploadMiddleware');
-const { parseImport, commitImport } = require('../controllers/classRecordImportController');
+const { parseImport, commitImport, downloadTemplate } = require('../controllers/classRecordImportController');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -31,5 +31,6 @@ router.post('/submit', submitClassRecord);
 // Importing the school's DepEd e-Class Record workbook (classRecordImportController.js).
 router.post('/import/parse', uploadSpreadsheet, parseImport);
 router.post('/import/commit', commitImport);
+router.get('/import/template', downloadTemplate);
 
 module.exports = router;

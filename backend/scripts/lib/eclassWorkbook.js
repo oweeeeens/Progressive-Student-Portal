@@ -33,8 +33,24 @@ async function buildEclassWorkbook(spec) {
     ws.getCell(LAYOUT.subjectCell).value = spec.subject;
     ws.getCell(LAYOUT.teacherCell).value = spec.teacher;
     ws.getCell(`B${LAYOUT.hpsRow}`).value = 'HIGHEST POSSIBLE SCORE';
+    // Readable headers, as in DepEd's own workbook: the component names on
+    // row 11 and the item numbers on row 13. The importer does not read them.
+    ws.getCell('D11').value = 'WRITTEN / ORAL WORKS (WWs)';
+    ws.getCell('Q11').value = 'PRODUCT / PERFORMANCE TASKS (PTs)';
+    ws.getCell('AD11').value = 'EXAMINATIONS (EXs)';
+    ws.getCell('AL11').value = 'INITIAL GRADE';
+    ws.getCell('AM11').value = 'TERM GRADE';
     for (const column of ITEM_COLUMNS) {
-      if (term.hps[column.key] !== undefined) ws.getCell(`${column.col}${LAYOUT.hpsRow}`).value = term.hps[column.key];
+      ws.getCell(`${column.col}13`).value = column.component === 'ex' ? column.examPart.toUpperCase().replace('ST', 'ST ') : Number(column.key.replace(/\D/g, ''));
+    }
+    ws.getCell('B15').value = "LEARNERS' NAMES";
+    ws.getCell(`B${LAYOUT.blocks[0].firstRow - 1}`).value = 'MALE';
+    ws.getCell(`B${LAYOUT.blocks[1].firstRow - 1}`).value = 'FEMALE';
+    ws.getCell('J9').value = 'SECTION';
+    ws.getCell('Q9').value = 'SUBJECT';
+    ws.getCell('D10').value = 'TEACHER';
+    for (const column of ITEM_COLUMNS) {
+      if ((term.hps || {})[column.key] !== undefined) ws.getCell(`${column.col}${LAYOUT.hpsRow}`).value = term.hps[column.key];
     }
     for (const block of LAYOUT.blocks) {
       slots[block.gender].forEach((learner, index) => {

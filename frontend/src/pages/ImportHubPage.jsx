@@ -25,7 +25,7 @@ const IMPORTS = [
     to: '/grades/entry/import',
     icon: ClipboardList,
     title: 'e-Class Record (class scores)',
-    file: "The subject's DepEd e-Class Record workbook (.xlsx) — the one with the INPUT DATA and Term 1–3 sheets.",
+    file: "The subject's DepEd e-Class Record workbook (.xlsx) — the one with the INPUT DATA and Term 1–3 sheets. No workbook yet? Download a blank one for the class, roster already filled in, on the next page.",
     fills:
       'Every written work, performance task, summative test and term exam score, for every learner. The System computes each term grade from them, and you check them against the workbook before anything is saved.',
     who: 'The teacher of the class',

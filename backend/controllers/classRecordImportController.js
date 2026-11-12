@@ -12,6 +12,8 @@
 const assessmentModel = require('../models/assessmentModel');
 const { parseEclassRecord } = require('../services/eclassRecordParser');
 const { buildImportPlan, commitImportPlan, DECISIONS } = require('../services/eclassRecordImport');
+const { buildEclassWorkbook } = require('../scripts/lib/eclassWorkbook');
+const { pool } = require('../config/db');
 
 async function loadWritableOffering(req, res, classOfferingId) {
   const id = Number(classOfferingId);
@@ -72,4 +74,39 @@ async function commitImport(req, res) {
   res.status(201).json(result);
 }
 
-module.exports = { parseImport, commitImport };
+// GET /api/class-record/import/template?classOfferingId=
+// A blank DepEd e-Class Record for this class, already carrying its roster:
+// INPUT DATA lists every learner's LRN and name (male and female, as DepEd
+// splits them), and each Term sheet has the section and subject, the
+// HIGHEST POSSIBLE SCORE row and the learners' names in the official rows.
+// The teacher fills in the highest possible scores and the scores, then
+// imports it back — and because the LRNs came from the System, every
+// learner matches.
+async function downloadTemplate(req, res) {
+  const offering = await loadWritableOffering(req, res, req.query.classOfferingId);
+  if (!offering) return;
+  const roster = (
+    await pool.query(
+      `SELECT lrn, first_name, middle_name, last_name, sex FROM students
+       WHERE current_section_id = $1 AND is_active = TRUE ORDER BY last_name, first_name`,
+      [offering.section_id]
+    )
+  ).rows;
+  const buffer = await buildEclassWorkbook({
+    section: `Grade ${offering.grade_level} - ${offering.section_name}`,
+    subject: offering.subject_name,
+    teacher: '',
+    learners: roster.map((s) => ({
+      lrn: s.lrn,
+      name: `${s.last_name}, ${s.first_name}${s.middle_name ? ` ${s.middle_name}` : ''}`,
+      gender: s.sex === 'F' ? 'female' : 'male',
+    })),
+    terms: [1, 2, 3].map((sequence) => ({ sequence, hps: {}, scores: {} })),
+  });
+  const slug = (v) => String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="e-class-record-${slug(offering.subject_name)}-${slug(offering.section_name)}.xlsx"`);
+  res.send(buffer);
+}
+
+module.exports = { parseImport, commitImport, downloadTemplate };

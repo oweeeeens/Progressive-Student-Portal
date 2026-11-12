@@ -169,12 +169,14 @@ Advisory/encouragement/recognition text is **rule-based** (a fixed message per t
 
 ## Intervention Tracking Logic (Part B — the closed loop)
 
-**Adviser only, no third parties (2026-11-12).** The instructor and research
+**Adviser (and admin) only, no third parties (2026-11-12; admin restored 2026-11-13 at the group's request).** The instructor and research
 adviser ruled that a learner's interventions involve **only that learner's
 adviser**: the person in `sections.adviser_id` for the learner's current
 section. Logging, changing status, and reading the record and its notes are
 all theirs alone.
-- **Refused:** admin, principal, guidance counselor, and a teacher who only
+- **Also allowed:** the **admin**, with full access as the system's
+  administrator (school-wide list, notes, log and update).
+- **Refused:** principal, guidance counselor, and a teacher who only
   teaches the section. All get 403, or an empty list and zero counts.
 - **Still allowed:** everyone else sees **anonymous totals** on Analytics.
   The learner still sees their own on My Progress, because they are the
@@ -437,6 +439,11 @@ It reads cached values only.
 
 The plan is rebuilt on the server at commit. Importing **never submits
 grades**: the teacher still reviews the record and clicks Submit.
+
+**Template:** "Download template" on the import page
+(`GET /api/class-record/import/template`) gives a blank ECR for the class
+with its roster's LRNs and names already in INPUT DATA, so a filled copy
+matches every learner on import.
 
 **Samples:**
 - `npm run sample:eclass-record` writes a filled sample, from demo data, to

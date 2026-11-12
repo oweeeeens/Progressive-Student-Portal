@@ -17,6 +17,7 @@ import { DataTable, fieldValue } from '../components/table/DataTable'
 import { TableToolbar, TableFilter } from '../components/table/TableToolbar'
 import { Alert } from '../components/Alert'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
+import { useAuth } from '../context/AuthContext'
 
 const PAGE_SIZE = 15
 
@@ -123,6 +124,7 @@ function interventionStatDetails(counts) {
 }
 
 export function InterventionsPage() {
+  const { user } = useAuth()
   const [interventions, setInterventions] = useState(null)
   // True while ANY load is in flight, not just the first. `!interventions`
   // only covered the first load, so changing a filter left the old rows on
@@ -223,7 +225,9 @@ export function InterventionsPage() {
       {/* Adviser only (no third parties): this lists the learners in the
           reader's own advisory section, and nobody else's. */}
       <p className="help-text mb-3">
-        Learners in your advisory section. Only a learner&apos;s adviser can see, log or update their interventions.
+        {user?.role === 'admin'
+          ? 'All learners. Interventions are seen and recorded only by each learner’s adviser and the admin.'
+          : 'Learners in your advisory section. Only a learner’s adviser (and the admin) can see, log or update their interventions.'}
       </p>
 
       {/* Every status here is a distinct stage of the closed loop, so each

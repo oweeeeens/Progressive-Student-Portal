@@ -138,7 +138,7 @@ const QUEUE_ITEMS = {
 // Students appear nowhere: nothing in this list is a learner's job.
 const ROLE_ITEMS = {
   principal: ['verify_grades'],
-  admin: ['verify_grades', 'pending_student_accounts', 'temporary_passwords'],
+  admin: ['verify_grades', 'pending_student_accounts', 'temporary_passwords', 'flagged_without_support', 'stale_interventions'],
   registrar: ['pending_student_accounts'],
 };
 

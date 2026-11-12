@@ -74,9 +74,9 @@ const canSeeAcademicProgress = (role) => ['admin', 'principal', 'adviser', 'guid
 // Interventions belong to the learner's ADVISER only (2026-11-12, "no third
 // parties" — see backend/controllers/interventionController.js). That is an
 // assignment, not a role, so the link is earned by advising a section,
-// exactly like Finalize Grades. No admin, principal or guidance counselor
-// link: the server would answer them with an empty list.
-const canSeeInterventions = (role, has) => role !== 'student' && advises(has)
+// exactly like Finalize Grades — plus the admin (full access, restored
+// 2026-11-13). No principal or guidance counselor link.
+const canSeeInterventions = (role, has) => role === 'admin' || (role !== 'student' && advises(has))
 // Deliberately NOT advisers — they keep the per-section Academic Progress
 // Tracking view above; this is the school-wide rollup, admin/principal/
 // guidance_counselor only, matching routes/analyticsRoutes.js's server-side gate.

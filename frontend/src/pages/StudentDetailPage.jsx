@@ -44,7 +44,7 @@ const canSeeAcademicProgress = (role) => ['admin', 'principal', 'adviser', 'guid
 // Interventions are the learner's ADVISER's alone (no third parties — see
 // backend/controllers/interventionController.js): the tab appears only for
 // the person who advises this learner's section, whatever their role.
-const canSeeInterventions = (user, student) => Boolean(user && student && student.adviser_id === user.id)
+const canSeeInterventions = (user, student) => Boolean(user && student && (user.role === 'admin' || student.adviser_id === user.id))
 
 const STATUS_VARIANTS = { enrolled: 'positive', pending: 'warning', dropped: 'negative', transferred: 'neutral', graduated: 'info' }
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }

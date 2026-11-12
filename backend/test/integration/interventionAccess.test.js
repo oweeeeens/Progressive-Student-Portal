@@ -73,42 +73,51 @@ test("the learner's adviser can log an intervention", async () => {
   interventionId = res.body.intervention.id;
 });
 
-test('nobody else can log one — not admin, principal, guidance, or a teacher of the section', async () => {
-  for (const who of ['admin', 'principal', 'guidance', 'teachingAdviser']) {
+test('nobody else can log one — not the principal, guidance, or a teacher of the section', async () => {
+  for (const who of ['principal', 'guidance', 'teachingAdviser']) {
     const res = await api.post(learnerUrl(), { token: ctx[who].token, body: { interventionType: 'other', notes: 'x' } });
     assert.equal(res.status, 403, `${who} must be refused`);
   }
 });
 
-test("only the adviser can read the learner's interventions and their notes", async () => {
+test("only the adviser and the admin can read the learner's interventions and their notes", async () => {
   const own = await api.get(learnerUrl(), { token: ctx.adviser.token });
   assert.equal(own.status, 200);
   assert.equal(own.body.interventions.length, 1);
   assert.match(own.body.interventions[0].notes, /guidance office/);
 
-  for (const who of ['admin', 'principal', 'guidance', 'teachingAdviser']) {
+  const asAdmin = await api.get(learnerUrl(), { token: ctx.admin.token });
+  assert.equal(asAdmin.status, 200, 'the admin has full access (restored 2026-11-13)');
+  assert.equal(asAdmin.body.interventions.length, 1);
+
+  for (const who of ['principal', 'guidance', 'teachingAdviser']) {
     assert.equal((await api.get(learnerUrl(), { token: ctx[who].token })).status, 403, `${who} cannot read them`);
   }
 });
 
-test('the Interventions list and its counts show only advisory learners', async () => {
+test('the Interventions list shows advisory learners to an adviser, everyone to the admin', async () => {
   const mine = await api.get('/api/interventions', { token: ctx.adviser.token });
   assert.ok(mine.body.interventions.some((i) => i.id === interventionId), 'the adviser sees it');
 
-  for (const who of ['admin', 'guidance', 'teachingAdviser']) {
+  const adminList = await api.get('/api/interventions', { token: ctx.admin.token });
+  assert.ok(adminList.body.interventions.some((i) => i.id === interventionId), 'the admin sees it');
+
+  for (const who of ['guidance', 'teachingAdviser']) {
     const list = await api.get('/api/interventions', { token: ctx[who].token });
     assert.equal(list.status, 200);
     assert.ok(!list.body.interventions.some((i) => i.id === interventionId), `${who} does not see it`);
   }
 });
 
-test('only the adviser can change its status', async () => {
-  for (const who of ['admin', 'guidance', 'teachingAdviser']) {
+test('only the adviser and the admin can change its status', async () => {
+  for (const who of ['guidance', 'teachingAdviser']) {
     const res = await api.patch(`/api/interventions/${interventionId}/status`, { token: ctx[who].token, body: { status: 'monitoring' } });
     assert.equal(res.status, 403, `${who} must be refused`);
   }
   const ok = await api.patch(`/api/interventions/${interventionId}/status`, { token: ctx.adviser.token, body: { status: 'monitoring' } });
   assert.equal(ok.status, 200);
+  const byAdmin = await api.patch(`/api/interventions/${interventionId}/status`, { token: ctx.admin.token, body: { status: 'open' } });
+  assert.equal(byAdmin.status, 200, 'the admin can update it too');
 });
 
 test('the principal and guidance counselor still get the anonymous totals on Analytics', async () => {

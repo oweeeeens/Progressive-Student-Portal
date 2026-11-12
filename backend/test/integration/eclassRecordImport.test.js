@@ -171,3 +171,39 @@ test("the learner's own record shows the imported scores", async () => {
   assert.equal(term.computed.termGrade, 88);
   assert.equal(term.provisional, true, 'computed but not yet submitted');
 });
+
+test('the downloadable template carries the roster, and a filled copy imports with every learner matched by LRN', async () => {
+  const res = await fetch(`${server.baseUrl}/api/class-record/import/template?classOfferingId=${ctx.offering.id}`, {
+    headers: { Authorization: `Bearer ${ctx.teacher.token}` },
+  });
+  assert.equal(res.status, 200);
+  const ExcelJS = require('exceljs');
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(Buffer.from(await res.arrayBuffer()));
+  const input = wb.getWorksheet('INPUT DATA');
+  const lrns = [input.getCell('N11').value, input.getCell('N12').value, input.getCell('R11').value, input.getCell('R12').value].filter(Boolean).map(String);
+  assert.ok(lrns.includes(ctx.learnerA.lrn) && lrns.includes(ctx.learnerB.lrn), 'both learners are listed with their LRN');
+
+  // Fill Term 2 (empty so far) as a teacher would, then import it back.
+  const term2 = wb.getWorksheet('Term 2');
+  term2.getCell('D14').value = 20;
+  term2.getCell('Q14').value = 50;
+  term2.getCell('AD14').value = 30;
+  term2.getCell('AE14').value = 30;
+  term2.getCell('AF14').value = 50;
+  for (const row of [17, 18, 68, 69]) {
+    if (!term2.getCell(`C${row}`).value) continue;
+    term2.getCell(`D${row}`).value = 18;
+    term2.getCell(`Q${row}`).value = 45;
+    term2.getCell(`AD${row}`).value = 27;
+    term2.getCell(`AE${row}`).value = 25;
+    term2.getCell(`AF${row}`).value = 44;
+  }
+  const filled = Buffer.from(await wb.xlsx.writeBuffer());
+  const parsed = await api.upload('/api/class-record/import/parse', { token: ctx.teacher.token, buffer: filled, fields: { classOfferingId: ctx.offering.id } });
+  assert.equal(parsed.status, 200);
+  const t2 = parsed.body.plan.terms.find((t) => t.sequence === 2);
+  assert.equal(t2.status, 'ready');
+  assert.equal(t2.unmatched.length, 0, 'nobody unmatched');
+  assert.ok(t2.learners.every((l) => l.matchedBy === 'LRN'), 'every learner matched by LRN');
+});

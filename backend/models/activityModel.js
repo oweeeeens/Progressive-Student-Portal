@@ -12,7 +12,7 @@
 //   2. Within an eligible type, the same appendScopeClause rule every
 //      other student-scoped query in this app already uses.
 const { pool } = require('../config/db');
-const { appendScopeClause, appendAdviserOnlyClause, BASE_FROM } = require('./studentModel');
+const { appendScopeClause, appendInterventionScopeClause, BASE_FROM } = require('./studentModel');
 
 const ROLES_BY_TYPE = {
   grade: ['admin', 'adviser', 'subject_teacher', 'guidance_counselor'],
@@ -54,7 +54,7 @@ async function recentGradeFinalizations(user, limit) {
 async function recentInterventionEvents(user, limit) {
   const clauses = ['s.is_active = TRUE'];
   const params = [];
-  appendAdviserOnlyClause(user, clauses, params);
+  appendInterventionScopeClause(user, clauses, params);
   params.push(limit);
 
   const result = await pool.query(
