@@ -17,6 +17,7 @@
     "seed:sample": "node scripts/seedSampleData.js",
     "seed:demo-data": "node scripts/seedDemoAcademicData.js",
     "backfill:class-records": "node scripts/backfillClassRecords.js",
+    "fill:demo-class-records": "node scripts/fillDemoClassRecords.js",
     "sample:eclass-record": "node scripts/makeSampleEclassRecord.js",
     "test:risk-calculator": "node scripts/testRiskCalculator.js",
     "test:grade-calculator": "node scripts/testGradeCalculator.js",

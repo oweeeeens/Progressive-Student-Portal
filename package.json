@@ -11,7 +11,7 @@
     "start": "node backend/server.js",
     "migrate:up": "npm --prefix backend run migrate:up",
     "migrate:down": "npm --prefix backend run migrate:down",
-    "deploy:prepare": "npm run migrate:up && npm --prefix backend run backfill:class-records -- --on-deploy",
+    "deploy:prepare": "npm run migrate:up && npm --prefix backend run backfill:class-records -- --on-deploy && npm --prefix backend run fill:demo-class-records -- --on-deploy",
     "seed:admin": "npm --prefix backend run seed:admin",
     "reset:password": "npm --prefix backend run reset:password --",
     "check:email": "npm --prefix backend run check:email --",

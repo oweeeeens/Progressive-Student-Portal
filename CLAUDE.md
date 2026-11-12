@@ -406,6 +406,27 @@ without anyone running a script by hand.
   the System with real learners. Real grades get real scores, not generated
   ones.
 
+**Then every current learner gets a record** —
+`scripts/fillDemoClassRecords.js` (`npm run fill:demo-class-records`), the
+next step of `deploy:prepare`. The backfill only builds a record behind an
+existing grade, and on the live demo many learners had no grade in many
+classes, so their Class Record stayed empty. For each active class this
+school year, each term that has started, and each active learner with no
+score yet:
+- **Scores:** on the class's own items, or on DepEd-shaped demo items if the
+  class has none for that term.
+- **A term that has ended,** where the learner has no grade: the computed
+  grade is entered as **Finalized**, with its breakdown, and risk is
+  recalculated.
+- **The current term:** scores only, so the grade is provisional and the
+  teacher still submits it.
+- **Never touched:** an existing grade or its approval trail. A second run
+  does nothing.
+- **Grades are deterministic:** near the learner's own average, otherwise
+  about 70–95, with roughly one in six below 75.
+- **Same rules as the backfill:** the same off switch, and the same "never
+  blocks a deploy" behaviour.
+
 **Tests:** `testGradeCalculator.js` (109 checks) and
 `test/integration/classRecord.test.js`. The other suites now create grades
 through `test/integration/helpers/classRecord.js`, which records scores that
