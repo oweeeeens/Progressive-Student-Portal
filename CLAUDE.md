@@ -445,6 +445,37 @@ grades**: the teacher still reviews the record and clicks Submit.
 with its roster's LRNs and names already in INPUT DATA, so a filled copy
 matches every learner on import.
 
+**The template looks and computes like DepEd's own (2026-11-13).** The first
+version wrote bare values into the right cells, and the group rightly asked
+whether it was the real template. It now copies the official workbook's
+look, read from DepEd's file:
+- the same column widths, merged component bands and colours (grey bands,
+  light-blue item numbers, grey TOTAL/PS/WS columns, blue/gold MALE/FEMALE
+  numbers, a dark LEARNERS' NAMES bar);
+- frozen headers and no gridlines;
+- the school's name (`SCHOOL` in `services/analyticsReport.js`), the class's
+  teacher and the school year.
+
+It also **computes live in Excel** with the class's own DO 015 weight group:
+- Total, PS and WS per component, the exam parts, the Initial Grade, and
+  the Term Grade from a hidden HELPER transmutation table.
+- The same steps and rounding as `services/gradeCalculator.js`, and a blank
+  is not a zero.
+- A Term Grade below 75 is shaded red, a score above its HPS is refused, and
+  FINAL GRADES summarises the terms.
+
+It is Excel 2013-safe on purpose (VLOOKUP, not XLOOKUP), because that is the
+school's Excel. The import still reads only HPS, scores and the cached Term
+Grade, in the same cells, so nothing about importing changed.
+
+**Verified:**
+- in Excel 2013 itself: 12 of 12 Term Grades equal the System's, DepEd's
+  Table 5 example gives 88, and an Excel-saved copy imports with the
+  cross-check agreeing;
+- with a formula engine across all seven weight groups;
+- `scripts/testEclassTemplate.js` (31 checks, part of `npm test`) guards the
+  structure. Builder: `scripts/lib/eclassWorkbook.js`.
+
 **Samples:**
 - `npm run sample:eclass-record` writes a filled sample, from demo data, to
   `samples/`.

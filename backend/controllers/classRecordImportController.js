@@ -14,6 +14,9 @@ const { parseEclassRecord } = require('../services/eclassRecordParser');
 const { buildImportPlan, commitImportPlan, DECISIONS } = require('../services/eclassRecordImport');
 const { buildEclassWorkbook } = require('../scripts/lib/eclassWorkbook');
 const { pool } = require('../config/db');
+// The school's name and address, defined once for every document the System
+// produces (the Analytics report uses the same object).
+const { SCHOOL } = require('../services/analyticsReport');
 
 async function loadWritableOffering(req, res, classOfferingId) {
   const id = Number(classOfferingId);
@@ -92,10 +95,20 @@ async function downloadTemplate(req, res) {
       [offering.section_id]
     )
   ).rows;
+  const schoolYear = (await pool.query('SELECT label FROM school_years WHERE id = $1', [offering.school_year_id])).rows[0];
+  const teacher = offering.teacher_id
+    ? (await pool.query('SELECT full_name FROM users WHERE id = $1', [offering.teacher_id])).rows[0]
+    : null;
   const buffer = await buildEclassWorkbook({
     section: `Grade ${offering.grade_level} - ${offering.section_name}`,
     subject: offering.subject_name,
-    teacher: '',
+    teacher: teacher ? teacher.full_name : '',
+    gradeLevel: offering.grade_level,
+    schoolYear: schoolYear ? schoolYear.label : '',
+    school: SCHOOL,
+    // The class's DepEd weight group, so the template's formulas compute
+    // with the same weights the System does.
+    weightGroup: offering.weight_group,
     learners: roster.map((s) => ({
       lrn: s.lrn,
       name: `${s.last_name}, ${s.first_name}${s.middle_name ? ` ${s.middle_name}` : ''}`,

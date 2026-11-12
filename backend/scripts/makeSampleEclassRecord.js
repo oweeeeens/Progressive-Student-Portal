@@ -71,6 +71,8 @@ async function main() {
     section: `Grade ${offering.grade_level} - ${offering.section_name}`,
     subject: offering.subject_name,
     teacher: '',
+    gradeLevel: offering.grade_level,
+    weightGroup: offering.weight_group,
     learners: learners.map((l) => ({
       lrn: l.lrn,
       name: `${l.last_name}, ${l.first_name}`,

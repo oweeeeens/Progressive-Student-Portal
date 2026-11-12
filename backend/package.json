@@ -22,7 +22,8 @@
     "test:grade-calculator": "node scripts/testGradeCalculator.js",
     "test:outlook-calculator": "node scripts/testOutlookCalculator.js",
     "test:integration": "node --test test/integration/gradeApproval.test.js test/integration/riskRecalculation.test.js test/integration/interventionAutoResolve.test.js test/integration/attendanceImport.test.js test/integration/schoolYearIsolation.test.js test/integration/academicProgressBands.test.js test/integration/accountSecurity.test.js test/integration/passwordReset.test.js test/integration/dualRoleScoping.test.js test/integration/profileSelfService.test.js test/integration/subjectTerms.test.js test/integration/emailConfig.test.js test/integration/dashboardQueue.test.js test/integration/classRecord.test.js test/integration/interventionAccess.test.js test/integration/eclassRecordImport.test.js test/integration/learnerOutlook.test.js",
-    "test": "npm run test:risk-calculator && npm run test:grade-calculator && npm run test:outlook-calculator && npm run test:integration"
+    "test": "npm run test:risk-calculator && npm run test:grade-calculator && npm run test:outlook-calculator && npm run test:eclass-template && npm run test:integration",
+    "test:eclass-template": "node scripts/testEclassTemplate.js"
   },
   "keywords": [],
   "author": "",
