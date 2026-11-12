@@ -391,8 +391,20 @@ grade and its snapshot through the unchanged `gradeModel.upsertSubmittedGrades`.
 demo grades a class record. Its scores compute exactly to the grade each
 learner already had: 0 failures, and no value or status changed.
 `seedDemoAcademicData.js` now seeds through the Class Record API, using
-`scripts/lib/demoClassRecord.js`. **Never run the backfill on real
-learners**: real grades get real scores.
+`scripts/lib/demoClassRecord.js`.
+
+**The backfill runs on every Railway deploy (2026-11-13).** It is run with
+`--on-deploy` from `npm run deploy:prepare`, railway.json's pre-deploy step,
+straight after migrations. That way the live demo shows class records
+without anyone running a script by hand.
+- **Safe to repeat:** it only touches grades whose `computation` is empty.
+  Those can only be grades typed in before the Class Record existed, which
+  are the demo grades. Every grade submitted since carries its breakdown, so
+  after the first run each deploy is a no-op.
+- **In deploy mode:** a failure is logged and the deploy continues.
+- **Switch it off** with `BACKFILL_CLASS_RECORDS=false` once the school runs
+  the System with real learners. Real grades get real scores, not generated
+  ones.
 
 **Tests:** `testGradeCalculator.js` (109 checks) and
 `test/integration/classRecord.test.js`. The other suites now create grades

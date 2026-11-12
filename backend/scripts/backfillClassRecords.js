@@ -16,7 +16,23 @@
 //
 // Do not run this against real learners' data: real grades should get real
 // scores, through the Class Record page or the spreadsheet import.
+//
+// RUN ON EVERY DEPLOY (`--on-deploy`, from railway.json's pre-deploy step)
+// so the live demo shows class records without anyone running a script by
+// hand. That is safe to repeat because of what it selects: only grades whose
+// `computation` is empty. A grade can only be empty there if it was TYPED
+// before the Class Record existed — POST /api/grades was removed on
+// 2026-11-12, and every grade submitted since (Class Record or e-Class
+// Record import) is stored with its breakdown. So after the first run every
+// deploy finds nothing to do, and a real learner's computed grade is never
+// touched. In this mode:
+//   - an error is logged and the deploy carries on (exit 0) — sample data
+//     must never stop the app from deploying;
+//   - BACKFILL_CLASS_RECORDS=false switches it off entirely, for when the
+//     school runs the System with real learners.
 require('dotenv').config();
+
+const ON_DEPLOY = process.argv.includes('--on-deploy');
 const { pool } = require('../config/db');
 const { computeTermGrade } = require('../services/gradeCalculator');
 const { GRADING_MODE } = require('../config/gradingPolicy');
@@ -101,7 +117,17 @@ async function main() {
   await pool.end();
 }
 
-main().catch((err) => {
+if (ON_DEPLOY && String(process.env.BACKFILL_CLASS_RECORDS).toLowerCase() === 'false') {
+  console.log('Class-record backfill skipped: BACKFILL_CLASS_RECORDS=false.');
+  process.exit(0);
+}
+
+main().catch(async (err) => {
   console.error(err);
+  await pool.end().catch(() => {});
+  if (ON_DEPLOY) {
+    console.error('Class-record backfill failed; the deploy continues without it.');
+    process.exit(0);
+  }
   process.exit(1);
 });

@@ -5,7 +5,9 @@
   },
   "deploy": {
     "startCommand": "npm start",
-    "preDeployCommand": ["npm run migrate:up"],
+    "preDeployCommand": [
+      "npm run deploy:prepare"
+    ],
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE"
