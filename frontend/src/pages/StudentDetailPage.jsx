@@ -12,6 +12,8 @@ import {
   GraduationCap,
   CalendarCheck,
   HeartHandshake,
+  ClipboardList,
+  Compass,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -27,6 +29,8 @@ import { useWriteFeedback } from '../hooks/useWriteFeedback'
 import { useConfirm } from '../hooks/useConfirm'
 import { LoadingAnnouncement, Skeleton, SkeletonTable } from '../components/Skeleton'
 import { humanize } from '../utils/humanize'
+import { StudentClassRecord } from '../components/StudentClassRecord'
+import { LearnerInsights } from '../components/LearnerInsights'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
 // Academic standing is more sensitive than a roster entry, so both of
@@ -429,6 +433,11 @@ export function StudentDetailPage() {
   const tabs = [
     { key: 'overview', label: 'Overview', icon: User, content: overviewTab },
     { key: 'grades', label: 'Grades', icon: GraduationCap, content: <GradeHistory studentId={id} /> },
+    // Every score behind every grade — the learner's full class record.
+    { key: 'class-record', label: 'Class Record', icon: ClipboardList, content: <StudentClassRecord studentId={id} /> },
+    // Analytics for this one learner: outlook, weak subjects and components,
+    // this term so far, and absences (DO 015 ¶67/¶68/¶70).
+    { key: 'insights', label: 'Learner Insights', icon: Compass, content: <LearnerInsights studentId={id} /> },
     {
       key: 'attendance',
       label: 'Attendance',

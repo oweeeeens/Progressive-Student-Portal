@@ -201,3 +201,37 @@ thead .class-record__name {
     position: sticky;
   }
 }
+
+/* e-Class Record import (pages/ClassRecordImportPage.jsx). */
+.class-record-import__upload {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-4);
+  max-width: 40rem;
+}
+.class-record-import__upload p {
+  margin: 0;
+}
+.class-record-import__upload .class-record__form {
+  width: 100%;
+}
+.class-record-import__decision {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 32rem;
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+}
+.class-record-import__ok,
+.class-record-import__bad {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+.class-record-import__ok {
+  color: var(--color-success);
+}
+.class-record-import__bad {
+  color: var(--color-warning);
+}

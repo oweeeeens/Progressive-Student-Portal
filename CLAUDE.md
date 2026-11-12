@@ -402,6 +402,114 @@ spreadsheet. It is waiting on a copy of the school's actual file, so that it
 reads that exact layout and can cross-check the sheet's own computed grades
 against ours.
 
+## e-Class Record Import, the Learner's Full Record, and Learner Outlook (2026-11-13)
+
+**The study's flow, in the group's words:** the school keeps its class
+records in DepEd's e-Class Record spreadsheet. The System takes that file
+in, translates it, and shows it. The analytics then say who is at risk of
+failing, in what, and why.
+
+### Importing the e-Class Record
+
+The page is Class Record → **Import e-Class Record**
+(`/grades/entry/import`); the teacher of the class or admin can use it.
+
+**Parser:** `services/eclassRecordParser.js` reads DepEd's official
+**SY 2026–27 SHS ECR** workbook, whose layout was read cell by cell from
+DepEd's own file:
+- `INPUT DATA` holds LRN and name: males in N/O and females in R/S, from
+  row 11.
+- Each `Term 1–3` sheet has the highest possible scores in row 14:
+  - WW 1–10 in D–M, PT 1–10 in Q–Z;
+  - ST1/ST2/TE in AD/AE/AF;
+  - the workbook's own Initial Grade in AL and Term Grade in AM;
+  - male learners in rows 17–66 and female learners in rows 68–117.
+
+It reads cached values only.
+
+**The plan:** `services/eclassRecordImport.js` builds the plan:
+- learners are matched to the section **by LRN**, falling back to "Last,
+  First";
+- a term that already has items needs **replace or skip**;
+- a term with finalized grades is **locked**;
+- the **cross-check** puts the System's DO 015 grade beside the workbook's
+  AM.
+
+The plan is rebuilt on the server at commit. Importing **never submits
+grades**: the teacher still reviews the record and clicks Submit.
+
+**Samples:**
+- `npm run sample:eclass-record` writes a filled sample, from demo data, to
+  `samples/`.
+- `scripts/lib/eclassWorkbook.js` builds ECR-shaped workbooks for the
+  tests.
+
+### The learner's full record
+
+A **Class Record tab** on the student page, and a **"Your Scores"** section
+on the learner's own My Grades (`components/StudentClassRecord.jsx`,
+`GET /api/students/:id/class-record`, scoped like the learner's grades).
+- For every term and subject it shows every score out of its highest
+  possible score, PS per component, the Initial Grade, the Term Grade and
+  the status.
+- A computed grade not yet submitted is labeled **provisional**.
+
+### Analytics → Learner Outlook (first tab)
+
+The service is `services/outlookCalculator.js`, with thresholds in
+`config/outlookConfig.js`, served at `GET /api/analytics/learner-outlook`.
+Each view comes from the signed DO 015:
+- **Promotion outlook (¶67):**
+  - on track (no subject below 75);
+  - summer remedial (1–2 below 75);
+  - retention risk (3 or more below 75).
+
+  It uses each subject's average of finalized term grades so far.
+- **Subjects causing failure:** learners below 75 per class, worst first.
+- **Where learners lose points (¶68):** the WW / PT / EX average per class
+  from the class record.
+- **Early warning (¶68):** *provisional* term grades below 75, and missing
+  scores, computed from the class record before anything is final. These
+  never touch the official risk score, which still reads finalized grades
+  only.
+- **Absence alert (¶70):** 12 or more absences this school year, from the
+  SF2 register counting absent and excused, with "approaching" from 9.
+  ¶70's figure is "approximately twelve (12) absences". A "20% =
+  failing" rule appeared only in a secondary summary and is **not** used.
+
+**Advisers now open Analytics, scoped to the sections they advise**
+(`middleware/analyticsScope.js` sets `sectionIds`, and
+`analyticsCalculator.filterRows` applies it to every tab and export).
+Admin, principal and guidance counselor still see the whole school. The
+sidebar link is earned by advising a section.
+
+**Tests:**
+- `testOutlookCalculator.js` (19 checks);
+- `eclassRecordImport.test.js` and `learnerOutlook.test.js`.
+
+### Analytics for one learner: Learner Insights
+
+The same views, applied to a single learner, live on the **learner's
+record**: a "Learner Insights" tab, and "How You're Doing" on the learner's
+own home. They are served by `GET /api/students/:id/insights` with
+`components/LearnerInsights.jsx`. They show:
+- the promotion outlook as a sentence;
+- subject standing with the term-by-term trend;
+- the strongest and weakest components;
+- this term's provisional grades and missing scores;
+- absences against 12.
+
+**Why it lives on the record, not as a filter on Analytics:** Analytics is a
+rollup across learners, while the record is already scoped correctly
+(`loadScopedStudent`). So nobody sees insights for a learner they couldn't
+already open.
+
+**No new formulas:** it reuses `outlookCalculator`.
+
+**Provisional means not finalized:** a grade already finalized this term
+is excluded from every early-warning list, on the record and on Analytics,
+because it is official.
+
 ## Subjects Per Term, Grades Per Term
 
 **Corrected by the school on 2026-11-04.** Their words:

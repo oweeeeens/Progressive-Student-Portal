@@ -1,11 +1,12 @@
-// Mounted at /api/analytics. Admin, principal, and guidance_counselor only
-// — not adviser or subject_teacher (they keep their existing, narrower,
-// per-section/per-class views) and not registrar (manages records/
-// accounts, not academic outcomes).
+// Mounted at /api/analytics. Admin, principal and guidance counselor see the
+// whole school; a section's ADVISER sees the same views narrowed to the
+// sections they advise (middleware/analyticsScope.js). Nobody else — not a
+// teacher who advises nothing, not the registrar, not students.
 const express = require('express');
 const { requireAuth } = require('../middleware/authMiddleware');
-const { requireRole } = require('../middleware/roleMiddleware');
+const { scopeAnalytics } = require('../middleware/analyticsScope');
 const {
+  getLearnerOutlook,
   getRiskDistribution,
   getRiskTrend,
   getInterventionEffectiveness,
@@ -18,11 +19,12 @@ const {
 } = require('../controllers/analyticsController');
 
 const router = express.Router();
-router.use(requireAuth, requireRole('admin', 'principal', 'guidance_counselor'));
+router.use(requireAuth, scopeAnalytics);
 
 // Every route here accepts the same four optional filter params —
 // sectionId, gradeLevel, strand, riskBand (see parseFilters/filterRows) —
 // plus gradingPeriodId on the single-period ones.
+router.get('/learner-outlook', getLearnerOutlook);
 router.get('/risk-distribution', getRiskDistribution);
 router.get('/risk-trend', getRiskTrend);
 router.get('/intervention-effectiveness', getInterventionEffectiveness);

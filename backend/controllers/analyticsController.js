@@ -18,6 +18,18 @@ const analyticsModel = require('../models/analyticsModel');
 const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const { ATTENDANCE_RISK_THRESHOLD } = require('../config/riskConfig');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
+const outlookModel = require('../models/outlookModel');
+const outlookConfig = require('../config/outlookConfig');
+const { computeTermGrade } = require('../services/gradeCalculator');
+const { GRADING_MODE } = require('../config/gradingPolicy');
+const { offeringCoversPeriod } = require('../config/academicTerms');
+const {
+  promotionOutlook,
+  subjectsCausingFailure,
+  componentProfile,
+  earlyWarning,
+  absenceAlert,
+} = require('../services/outlookCalculator');
 const { buildAnalyticsReportData } = require('../services/analyticsReport');
 const { buildAnalyticsReportPdf } = require('../services/analyticsReportPdf');
 const { buildAnalyticsReportWorkbook } = require('../services/analyticsReportWorkbook');
@@ -48,6 +60,9 @@ async function resolveGradingPeriodId(gradingPeriodId) {
 // behaves exactly as it did before filtering existed.
 function parseFilters(req) {
   return {
+    // Set only for an adviser (middleware/analyticsScope.js): the sections
+    // they advise. School-wide roles leave it undefined — no restriction.
+    sectionIds: req.analyticsScope ? req.analyticsScope.sectionIds : undefined,
     sectionId: req.query.sectionId ? Number(req.query.sectionId) : undefined,
     gradeLevel: req.query.gradeLevel ? Number(req.query.gradeLevel) : undefined,
     strand: req.query.strand || undefined,
@@ -189,7 +204,77 @@ async function exportExcel(req, res) {
   res.send(buffer);
 }
 
+// The "Learner Outlook" tab: who is at risk of failing, in what, and why —
+// promotion outlook (DO 015 ¶67), subjects causing failure, where learners
+// lose points and the early warning from the class record (¶68), and the
+// absence alert (¶70). One request, so the five views always describe the
+// same learners under the same filters.
+async function getLearnerOutlook(req, res) {
+  const periodId = await resolveGradingPeriodId(req.query.gradingPeriodId);
+  if (!periodId) return res.status(400).json({ error: 'No grading period is configured for today. Pass gradingPeriodId explicitly.' });
+  const period = await gradingPeriodModel.getById(periodId);
+  // The risk-band filter describes a risk assessment, which these rows are
+  // not; the other filters and the adviser scope apply as everywhere else.
+  const filters = { ...parseFilters(req), riskBand: undefined };
+
+  const gradeRows = filterRows(await outlookModel.getFinalizedGradesForYear(period.school_year_id), filters);
+  const absenceRows = filterRows(await outlookModel.getAbsenceCountsForYear(period.school_year_id), filters);
+
+  // Every learner's class record for this term, computed with the DepEd
+  // formula — the source of the early warning and where-points-are-lost.
+  const data = await outlookModel.getClassRecordDataForPeriod(periodId);
+  const itemsByOffering = new Map();
+  for (const row of data.items) {
+    if (!itemsByOffering.has(row.class_offering_id)) itemsByOffering.set(row.class_offering_id, []);
+    itemsByOffering.get(row.class_offering_id).push({
+      id: row.id,
+      component: row.component,
+      examPart: row.exam_part,
+      title: row.title,
+      highestPossibleScore: Number(row.highest_possible_score),
+    });
+  }
+  const scores = new Map(data.scores.map((r) => [`${r.student_id}|${r.assessment_item_id}`, Number(r.raw_score)]));
+  const finalizedPairs = new Set(data.finalized.map((r) => `${r.student_id}|${r.class_offering_id}`));
+  const computations = [];
+  for (const offering of data.offerings) {
+    const items = itemsByOffering.get(offering.id);
+    if (!items) continue;
+    if (!offeringCoversPeriod({ term: offering.term, subjectCategory: offering.subject_category, periodSequenceNumber: period.sequence_number })) continue;
+    const roster = filterRows(data.students.filter((st) => st.current_section_id === offering.section_id), filters);
+    for (const student of roster) {
+      const studentScores = new Map();
+      for (const item of items) {
+        const key = `${student.student_id}|${item.id}`;
+        if (scores.has(key)) studentScores.set(item.id, scores.get(key));
+      }
+      computations.push({
+        studentId: student.student_id,
+        name: `${student.last_name}, ${student.first_name}`,
+        sectionName: offering.section_name,
+        classOfferingId: offering.id,
+        subjectName: offering.subject_name,
+        computed: computeTermGrade({ items, scores: studentScores, weightGroup: offering.weight_group, mode: GRADING_MODE }),
+      });
+    }
+  }
+
+  res.json({
+    gradingPeriodId: periodId,
+    periodName: period.name,
+    thresholds: outlookConfig,
+    promotion: promotionOutlook(gradeRows),
+    subjects: subjectsCausingFailure(gradeRows),
+    components: componentProfile(computations),
+    // Provisional only: a grade already finalized this term is official and
+    // is counted in the promotion outlook instead.
+    earlyWarning: earlyWarning(computations.filter((c) => !finalizedPairs.has(`${c.studentId}|${c.classOfferingId}`))),
+    absences: absenceAlert(absenceRows),
+  });
+}
+
 module.exports = {
+  getLearnerOutlook,
   getRiskDistribution,
   getRiskTrend,
   getInterventionEffectiveness,

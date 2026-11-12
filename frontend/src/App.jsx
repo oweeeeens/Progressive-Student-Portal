@@ -12,6 +12,7 @@ import { BulkImportStudentsPage } from './pages/BulkImportStudentsPage'
 import { DailyAttendancePage } from './pages/DailyAttendancePage'
 import { BulkImportAttendancePage } from './pages/BulkImportAttendancePage'
 import { ClassRecordPage } from './pages/ClassRecordPage'
+import { ClassRecordImportPage } from './pages/ClassRecordImportPage'
 import { VerifyGradesPage } from './pages/VerifyGradesPage'
 import { GradeFinalizationPage } from './pages/GradeFinalizationPage'
 import { AcademicProgressPage } from './pages/AcademicProgressPage'
@@ -92,6 +93,7 @@ function App() {
                 <Route path="/attendance/daily" element={<DailyAttendancePage />} />
                 <Route path="/attendance/bulk-import" element={<BulkImportAttendancePage />} />
                 <Route path="/grades/entry" element={<ClassRecordPage />} />
+                <Route path="/grades/entry/import" element={<ClassRecordImportPage />} />
                 <Route path="/grades/verify" element={<VerifyGradesPage />} />
                 <Route path="/grades/finalize" element={<GradeFinalizationPage />} />
                 <Route path="/academic-progress" element={<AcademicProgressPage />} />

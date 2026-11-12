@@ -83,7 +83,10 @@ const canSeeInterventions = (role, has) => role !== 'student' && advises(has)
 // Deliberately NOT advisers — they keep the per-section Academic Progress
 // Tracking view above; this is the school-wide rollup, admin/principal/
 // guidance_counselor only, matching routes/analyticsRoutes.js's server-side gate.
-const canSeeAnalytics = (role) => ['admin', 'principal', 'guidance_counselor'].includes(role)
+// Advisers too since 2026-11-12, scoped to their own sections on the server
+// (middleware/analyticsScope.js) — the person who acts on "who is at risk of
+// failing" is the learner's adviser. Earned by advising, like Finalize Grades.
+const canSeeAnalytics = (role, has) => ['admin', 'principal', 'guidance_counselor'].includes(role) || (role !== 'student' && has !== null && has.sections > 0)
 // Imported rather than written here, so this cannot drift from what the
 // routes allow — a sidebar predicate widened on its own once handed the
 // principal a link the server answered 403. The principal reads
@@ -148,7 +151,7 @@ function getNavSections(role, has) {
         // name the client and the manuscript use.
         { to: '/academic-progress', label: 'Progress Tracking', icon: TrendingUp, show: canSeeAcademicProgress(role) },
         { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeInterventions(role, has) },
-        { to: '/analytics', label: 'Analytics', icon: BarChart3, show: canSeeAnalytics(role) },
+        { to: '/analytics', label: 'Analytics', icon: BarChart3, show: canSeeAnalytics(role, has) },
       ],
     },
     {

@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   SlidersHorizontal,
   ChevronDown,
+  Compass,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useMediaQuery, PHONE_QUERY } from '../hooks/useMediaQuery'
@@ -35,6 +36,8 @@ import { INTERVENTION_TYPE_LABELS } from '../components/InterventionDetailPanel'
 import { describeTrend, describeTrendAgainstThreshold, describeLargestShare, describeGap } from '../utils/chartInterpretation'
 import { BUCKET_ORDER, BUCKET_LABELS, SEGMENT_SPEC, BAND_SEGMENT_SPEC } from '../utils/performanceBands'
 import { Alert } from '../components/Alert'
+import { LearnerOutlookTab } from '../components/analytics/LearnerOutlookTab'
+import { useAuth } from '../context/AuthContext'
 
 // The band order, labels and colours now live in one place shared with the
 // home page's own band chart (utils/performanceBands.js) — two copies of
@@ -326,6 +329,10 @@ export function AnalyticsPage() {
   const [periods, setPeriods] = useState([])
   const [sections, setSections] = useState([])
   const [filters, setFilters] = useState(EMPTY_FILTERS)
+  // An adviser's Analytics is scoped to the sections they advise (server:
+  // middleware/analyticsScope.js), so their section filter lists only those.
+  const { user } = useAuth()
+  const schoolWide = ['admin', 'principal', 'guidance_counselor'].includes(user?.role)
   const [groupBy, setGroupBy] = useState('')
   // Phone only: the six filter selects start collapsed behind a disclosure.
   const isPhone = useMediaQuery(PHONE_QUERY)
@@ -367,10 +374,10 @@ export function AnalyticsPage() {
       .then((data) => setPeriods(data.gradingPeriods))
       .catch((err) => setLookupError(`Couldn't load the grading-period filter: ${err.message}`))
     api
-      .get('/sections')
+      .get(schoolWide ? '/sections' : '/sections/mine')
       .then((data) => setSections(data.sections))
       .catch((err) => setLookupError(`Couldn't load the section filter: ${err.message}`))
-  }, [])
+  }, [schoolWide])
 
   // One effect for every chart on the page: all seven endpoints take the
   // same filters, so they're refetched together and can never end up showing
@@ -1477,6 +1484,22 @@ export function AnalyticsPage() {
           {error && <Alert>{error}</Alert>}
           <Tabs
         tabs={[
+          // First: who is at risk of failing, in what, and why (DO 015).
+          {
+            key: 'outlook',
+            label: 'Learner Outlook',
+            icon: Compass,
+            content: (
+              <LearnerOutlookTab
+                query={buildQuery({
+                  gradingPeriodId: filters.gradingPeriodId,
+                  sectionId: filters.sectionId,
+                  gradeLevel: filters.gradeLevel,
+                  strand: filters.strand,
+                })}
+              />
+            ),
+          },
           { key: 'overview', label: 'Overview', icon: LayoutGrid, content: overviewTab },
           { key: 'trends', label: 'Trends', icon: TrendingUp, content: trendsTab },
           { key: 'attendance', label: 'Attendance', icon: CalendarCheck, content: attendanceTab },

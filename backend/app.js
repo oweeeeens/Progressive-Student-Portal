@@ -20,6 +20,8 @@ const attendanceImportRoutes = require('./routes/attendanceImportRoutes');
 const studentAttendanceRoutes = require('./routes/studentAttendanceRoutes');
 const gradeRoutes = require('./routes/gradeRoutes');
 const classRecordRoutes = require('./routes/classRecordRoutes');
+const studentClassRecordRoutes = require('./routes/studentClassRecordRoutes');
+const studentInsightsRoutes = require('./routes/studentInsightsRoutes');
 const studentGradeRoutes = require('./routes/studentGradeRoutes');
 const academicProgressRoutes = require('./routes/academicProgressRoutes');
 const myProgressRoutes = require('./routes/myProgressRoutes');
@@ -62,7 +64,9 @@ if (process.env.ALLOWED_ORIGIN) {
   app.use(cors());
 }
 
-app.use(express.json());
+// 2 MB: an imported e-Class Record (three terms, up to 100 learners, up to
+// 23 scores each) is sent back as JSON at commit and exceeds the 100 KB default.
+app.use(express.json({ limit: '2mb' }));
 
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
@@ -77,6 +81,8 @@ app.use('/api/attendance/daily', dailyAttendanceRoutes);
 // Bulk import of SF2-shaped attendance grids into the daily register.
 app.use('/api/attendance/bulk-import', attendanceImportRoutes);
 app.use('/api/students/:studentId/grades', studentGradeRoutes);
+app.use('/api/students/:studentId/class-record', studentClassRecordRoutes);
+app.use('/api/students/:studentId/insights', studentInsightsRoutes);
 app.use('/api/grades', gradeRoutes);
 app.use('/api/class-record', classRecordRoutes);
 app.use('/api/academic-progress', academicProgressRoutes);

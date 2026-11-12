@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Pencil, Calculator } from 'lucide-react'
+import { Plus, Pencil, Calculator, FileUp } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { defaultSelection } from '../utils/defaultSelection'
 import { useGradingPeriods } from '../hooks/useGradingPeriods'
@@ -70,6 +71,7 @@ export function ClassRecordPage() {
   const [confirm, confirmDialog] = useConfirm()
   const [showBreakdown, breakdownDialog] = useGradeBreakdown()
   const { showToast } = useToast()
+  const navigate = useNavigate()
 
   useEffect(() => {
     api
@@ -333,6 +335,11 @@ export function ClassRecordPage() {
 
           {canEdit && (
             <div className="button-row mb-3">
+              {/* The school's own DepEd e-Class Record workbook can be read in
+                  instead of re-typing every score (ClassRecordImportPage). */}
+              <button type="button" onClick={() => navigate(`/grades/entry/import?classOfferingId=${classOfferingId}`)}>
+                <FileUp size={16} strokeWidth={1.75} /> Import e-Class Record
+              </button>
               <button type="button" onClick={() => openNewItem('ww')}>
                 <Plus size={16} strokeWidth={1.75} /> Written work
               </button>

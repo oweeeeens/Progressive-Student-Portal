@@ -5940,3 +5940,189 @@ textarea[aria-invalid='true']:focus-visible {
   margin-top: var(--space-4);
 }
 
+
+/* StudentClassRecord (components/StudentClassRecord.jsx): a learner's full
+   class record — every score behind every grade, term by term. */
+.student-cr__term + .student-cr__term {
+  margin-top: var(--space-6);
+}
+.student-cr__term h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+}
+.student-cr__current {
+  font-size: var(--font-size-xs);
+}
+.student-cr__scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+.student-cr__table {
+  min-width: 52rem;
+}
+.student-cr__table th[scope='row'] {
+  min-width: 11rem;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+.student-cr__teacher {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+.student-cr__table td {
+  vertical-align: top;
+}
+.student-cr__table .is-right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.student-cr__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.student-cr__chip {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-bg);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.student-cr__chip.is-missing {
+  border-style: dashed;
+  color: var(--color-text-faint);
+  background: transparent;
+}
+.student-cr__ps {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.student-cr__grade {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+.student-cr__grade.is-below {
+  color: var(--color-danger);
+}
+.student-cr__provisional {
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+}
+/* At phone width the app turns every .table-card table into stacked cards;
+   this one stays a table and scrolls inside its card, so a subject's scores
+   stay on one row next to their grade. */
+@media (max-width: 560px) {
+  .table-card.student-cr__scroll {
+    overflow-x: auto;
+  }
+  .student-cr__scroll thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    display: table-header-group;
+  }
+  .student-cr__scroll table {
+    display: table;
+  }
+  .student-cr__scroll tbody {
+    display: table-row-group;
+  }
+  .student-cr__scroll tbody tr,
+  .student-cr__scroll thead tr {
+    display: table-row;
+    position: static;
+    padding: 0;
+  }
+  .student-cr__scroll tbody td,
+  .student-cr__scroll tbody th,
+  .student-cr__scroll thead th {
+    display: table-cell;
+    padding: var(--space-2);
+  }
+  .student-cr__scroll tbody td::before {
+    content: none;
+  }
+}
+
+/* Learner Outlook: a list of subjects or missing items inside a table cell
+   wraps instead of running off the card (table cells are nowrap by default). */
+.outlook-wrap {
+  display: block;
+  min-width: 16rem;
+  white-space: normal;
+  line-height: 1.45;
+}
+
+/* LearnerInsights (components/LearnerInsights.jsx): analytics for one learner. */
+.learner-insights__lead {
+  margin: var(--space-4) 0;
+  max-width: 78ch;
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+  line-height: 1.55;
+}
+.learner-insights__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+.learner-insights__grid h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+.learner-insights__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+.learner-insights__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.learner-insights__meter {
+  height: 10px;
+  margin: var(--space-2) 0 var(--space-3);
+  border-radius: 999px;
+  background: var(--color-neutral-bg);
+  overflow: hidden;
+}
+.learner-insights__meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-success);
+}
+.learner-insights__meter-fill.is-approaching {
+  background: var(--color-warning);
+}
+.learner-insights__meter-fill.is-alert {
+  background: var(--color-danger);
+}
+/* Two of the five figures are words ("Retention risk", "Written Works"),
+   which at the stat row's number size wrapped into giant two-line blocks.
+   One smaller size for all five keeps the row even. */
+.learner-insights .stat-card__value {
+  font-size: var(--font-size-xl);
+  line-height: 1.2;
+}

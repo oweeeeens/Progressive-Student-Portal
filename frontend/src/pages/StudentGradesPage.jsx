@@ -12,6 +12,7 @@ import { DataTable } from '../components/table/DataTable'
 import { TermGradeTables } from '../components/TermGradeTables'
 import { buildGradeMatrix, GRADE_STATUS_NOTES } from '../utils/gradeMatrix'
 import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
+import { StudentClassRecord } from '../components/StudentClassRecord'
 
 // The student's grades, on their own page: the report-card matrix and the
 // per-subject comparison for the current period.
@@ -322,6 +323,15 @@ export function StudentGradesPage() {
           error={error}
         />
       </div>
+
+      {/* Every score behind each grade, so the learner can see exactly
+          what their grade was computed from. */}
+      {student && (
+        <div className="record-section">
+          <h2>Your Scores</h2>
+          <StudentClassRecord studentId={student.id} />
+        </div>
+      )}
 
       <div className="record-section">
         <h2>Whole Year at a Glance</h2>

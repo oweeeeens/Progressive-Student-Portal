@@ -32,6 +32,7 @@ import { describeTrendAgainstThreshold } from '../utils/chartInterpretation'
 import './StudentHomePage.css'
 import { Alert } from '../components/Alert'
 import { humanize } from '../utils/humanize'
+import { LearnerInsights } from '../components/LearnerInsights'
 
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
 const RISK_LABELS = { low: 'Low', medium: 'Medium', high: 'High' }
@@ -534,6 +535,16 @@ export function StudentHomePage() {
           <ChevronRight size={16} strokeWidth={2} />
         </Link>
       </div>
+
+      {/* 5b. Analytics for this one learner, addressed to them: their outlook,
+          subjects, strongest and weakest components, this term so far, and
+          absences (components/LearnerInsights.jsx, DO 015 ¶67/¶68/¶70). */}
+      {student && (
+        <section className="record-section">
+          <h2>How You&apos;re Doing</h2>
+          <LearnerInsights studentId={student.id} audience="learner" />
+        </section>
+      )}
 
       {/* 6. Reference: the record the school holds. It was above the fold
           before, which put a student's own guardian contact number ahead of

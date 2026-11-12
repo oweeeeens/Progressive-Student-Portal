@@ -46,8 +46,12 @@ function emptyBucketCounts() {
 // SQL. 'at_risk_any' is a convenience that matches all three At Risk
 // levels at once, since "show me every at-risk student" is the question
 // guidance staff actually ask; any other value matches one exact bucket.
-function filterRows(rows, { sectionId, gradeLevel, strand, riskBand } = {}) {
+// `sectionIds` is the adviser scope (middleware/analyticsScope.js): an
+// adviser's Analytics covers only the sections they advise, and this one
+// line applies that to every view and export at once.
+function filterRows(rows, { sectionId, sectionIds, gradeLevel, strand, riskBand } = {}) {
   return rows.filter((row) => {
+    if (sectionIds && !sectionIds.includes(row.current_section_id)) return false;
     if (sectionId && row.current_section_id !== sectionId) return false;
     if (gradeLevel && row.grade_level !== gradeLevel) return false;
     if (strand && row.strand !== strand) return false;
