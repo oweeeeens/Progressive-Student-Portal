@@ -18,6 +18,13 @@ export function setUnsavedChanges(isDirty, customMessage) {
   if (customMessage) message = customMessage;
 }
 
+// Read-only check, for a caller that asks its own question (the log-out
+// confirmation folds the warning into its dialog instead of stacking a
+// second browser box on top of it).
+export function hasUnsavedChanges() {
+  return dirty;
+}
+
 // Call before any in-app navigation (a Link/NavLink click, a logout button,
 // etc.) — returns true if it's fine to proceed, false if the user chose to
 // stay. Always true when nothing is dirty, so pages that never set this flag

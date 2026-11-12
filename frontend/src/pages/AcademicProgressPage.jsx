@@ -17,6 +17,7 @@ import { BAND_RANK } from '../utils/performanceBands'
 import { INTERVENTION_TYPE_LABELS } from '../components/InterventionDetailPanel'
 import { Alert } from '../components/Alert'
 import { SkeletonTable } from '../components/Skeleton'
+import { useConfirm } from '../hooks/useConfirm'
 
 const BAND_PAGE_SIZE = 15
 const LEVEL_VARIANTS = { high: 'risk-high', medium: 'risk-medium', low: 'risk-low' }
@@ -116,6 +117,7 @@ export function AcademicProgressPage() {
   const [interventionType, setInterventionType] = useState('parent_conference')
   const [interventionNotes, setInterventionNotes] = useState('')
   const [loggingSubmitting, setLoggingSubmitting] = useState(false)
+  const [confirm, confirmDialog] = useConfirm()
   const [loggingError, setLoggingError] = useState(null)
   // Each band paginates independently — they're three separate tables, not
   // one list, so "page 2" means something different in each. Reset together
@@ -337,6 +339,18 @@ export function AcademicProgressPage() {
 
   async function handleLogIntervention(e, studentId) {
     e.preventDefault()
+    // An intervention is a permanent entry on a named learner's record, and
+    // it is what the next term's recalculation will resolve or escalate —
+    // so it asks first, naming the learner and the type.
+    const learner = students.find((x) => x.studentId === studentId)
+    const typeLabel = INTERVENTION_TYPE_LABELS[interventionType] || 'intervention'
+    const ok = await confirm({
+      title: 'Log this intervention?',
+      message: `A ${typeLabel.toLowerCase()} will be added to ${learner ? `${learner.firstName} ${learner.lastName}'s` : "this student's"} record as Open. At the next term's risk recalculation it is marked Resolved if their risk level improved, or Escalated if it did not.`,
+      details: interventionNotes.trim() ? <p className="confirm-dialog__quote">{interventionNotes.trim()}</p> : null,
+      confirmLabel: 'Log intervention',
+    })
+    if (!ok) return
     setLoggingError(null)
     setLoggingSubmitting(true)
     try {
@@ -344,7 +358,6 @@ export function AcademicProgressPage() {
       setLoggingForId(null)
       // The form just closing was the only sign it had worked. A receipt
       // names who it was for, the way every other write in the System does.
-      const learner = students.find((x) => x.studentId === studentId)
       showToast(
         learner
           ? `Intervention logged for ${learner.firstName} ${learner.lastName}.`
@@ -549,7 +562,10 @@ export function AcademicProgressPage() {
                 icon: expandedId === s.studentId ? ChevronUp : ChevronRight,
                 onSelect: () => toggleExpandedById(s.studentId),
               },
+              // Only the learner's own adviser logs interventions (no third
+              // parties); the server marks which rows that is for this reader.
               viewingCurrentPeriod &&
+                s.canLogIntervention &&
                 (s.riskLevel === 'medium' || s.riskLevel === 'high') && {
                   key: 'log',
                   label: 'Log intervention',
@@ -788,6 +804,7 @@ export function AcademicProgressPage() {
           )}
         </>
       )}
+      {confirmDialog}
     </div>
   )
 }

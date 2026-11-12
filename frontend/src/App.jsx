@@ -11,7 +11,7 @@ import { StudentFormPage } from './pages/StudentFormPage'
 import { BulkImportStudentsPage } from './pages/BulkImportStudentsPage'
 import { DailyAttendancePage } from './pages/DailyAttendancePage'
 import { BulkImportAttendancePage } from './pages/BulkImportAttendancePage'
-import { GradeEntryPage } from './pages/GradeEntryPage'
+import { ClassRecordPage } from './pages/ClassRecordPage'
 import { VerifyGradesPage } from './pages/VerifyGradesPage'
 import { GradeFinalizationPage } from './pages/GradeFinalizationPage'
 import { AcademicProgressPage } from './pages/AcademicProgressPage'
@@ -91,7 +91,7 @@ function App() {
                 <Route path="/my-progress/*" element={<Navigate to="/" replace />} />
                 <Route path="/attendance/daily" element={<DailyAttendancePage />} />
                 <Route path="/attendance/bulk-import" element={<BulkImportAttendancePage />} />
-                <Route path="/grades/entry" element={<GradeEntryPage />} />
+                <Route path="/grades/entry" element={<ClassRecordPage />} />
                 <Route path="/grades/verify" element={<VerifyGradesPage />} />
                 <Route path="/grades/finalize" element={<GradeFinalizationPage />} />
                 <Route path="/academic-progress" element={<AcademicProgressPage />} />

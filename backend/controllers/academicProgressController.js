@@ -87,6 +87,11 @@ async function getAcademicProgress(req, res) {
       lastName: row.last_name,
       sectionName: row.section_name,
       gradeLevel: row.grade_level,
+      // Whether THIS reader may log an intervention for the learner: only
+      // the adviser of their section may (interventionController.js — no
+      // third parties). Sent so the page offers the action only where the
+      // server will accept it; the server still checks on its own.
+      canLogIntervention: row.adviser_id === req.user.id,
       riskLevel: hasAssessment ? row.risk_level : 'not_yet_calculated',
       riskScore: hasAssessment ? row.risk_score : null,
       averageGrade: row.average_grade,

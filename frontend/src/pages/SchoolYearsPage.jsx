@@ -11,6 +11,7 @@ import { StatusPill } from '../components/StatusPill'
 import { Alert } from '../components/Alert'
 import { Modal } from '../components/Modal'
 import { SkeletonTable } from '../components/Skeleton'
+import { useConfirm } from '../hooks/useConfirm'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
 const emptySchoolYearForm = { label: '', startDate: '', endDate: '' }
@@ -107,6 +108,7 @@ export function SchoolYearsPage() {
   // school year the whole app reads by default, and used to report that by
   // refetching a table whose only visible difference is one pill.
   const { error, setError, busyKey, runWrite } = useWriteFeedback()
+  const [confirm, confirmDialog] = useConfirm()
   const { openFor, close: closeStat, cardProps } = useStatExplainer('schoolyear-stat-detail')
 
   const [selectedYearId, setSelectedYearId] = useState('')
@@ -182,6 +184,14 @@ export function SchoolYearsPage() {
   }
 
   async function handleSetCurrent(sy) {
+    // One click here changes what the whole System treats as "this year".
+    const current = (schoolYears || []).find((y) => y.is_current)
+    const ok = await confirm({
+      title: `Make ${sy.label} the current school year?`,
+      message: `${current ? `${current.label} will no longer be the current year. ` : ''}Everywhere the System works from the current school year will use ${sy.label} from now on.`,
+      confirmLabel: `Make ${sy.label} current`,
+    })
+    if (!ok) return
     await runWrite(
       `set-current-${sy.id}`,
       async () => {
@@ -506,6 +516,7 @@ export function SchoolYearsPage() {
           </div>
         )}
       </div>
+      {confirmDialog}
     </div>
   )
 }

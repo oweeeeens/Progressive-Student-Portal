@@ -1,4 +1,5 @@
 import { StatusPill } from './StatusPill'
+import { useConfirm } from '../hooks/useConfirm'
 
 export const INTERVENTION_TYPE_LABELS = {
   parent_conference: 'Parent Conference',
@@ -23,7 +24,32 @@ export const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'ri
 // second change made before the first has landed — which would race two
 // writes against the same row and leave the dropdown showing whichever
 // refetch answered last.
+const STATUS_WORDS = { open: 'Open', monitoring: 'Monitoring', resolved: 'Resolved', escalated: 'Escalated' }
+
 export function InterventionDetailPanel({ intervention, studentName, onStatusChange, busy = false }) {
+  // A status change is a record about a named learner, made from a dropdown
+  // where the wrong option is one arrow-key away — so it asks first. The
+  // confirmation lives here, in the one panel both entry points share, so the
+  // Interventions page and the Student Detail page cannot drift apart.
+  const [confirm, confirmDialog] = useConfirm()
+  async function requestStatusChange(newStatus) {
+    if (newStatus === intervention.status) return
+    const closing = newStatus === 'resolved' || newStatus === 'escalated'
+    const typeLabel = INTERVENTION_TYPE_LABELS[intervention.intervention_type] || 'intervention'
+    const ok = await confirm({
+      title: `Mark as ${STATUS_WORDS[newStatus]}?`,
+      message: `This ${typeLabel.toLowerCase()}${studentName ? ` for ${studentName}` : ''} will change from ${STATUS_WORDS[intervention.status]} to ${STATUS_WORDS[newStatus]}.${
+        closing
+          ? " Resolved and Escalated are normally set automatically at the next term's risk recalculation; setting it now means it will no longer be re-evaluated automatically."
+          : ''
+      }`,
+      confirmLabel: `Mark ${STATUS_WORDS[newStatus]}`,
+    })
+    // Cancelling leaves the select on its old value: it is controlled by
+    // `intervention.status`, which only changes after a successful write.
+    if (ok) onStatusChange(intervention.id, newStatus)
+  }
+
   return (
     <div className="intervention-detail">
       <dl className="field-grid">
@@ -65,7 +91,7 @@ export function InterventionDetailPanel({ intervention, studentName, onStatusCha
         <select
           value={intervention.status}
           disabled={busy}
-          onChange={(e) => onStatusChange(intervention.id, e.target.value)}
+          onChange={(e) => requestStatusChange(e.target.value)}
         >
           {Object.keys(INTERVENTION_STATUS_VARIANTS).map((s) => (
             <option key={s} value={s}>
@@ -74,6 +100,7 @@ export function InterventionDetailPanel({ intervention, studentName, onStatusCha
           ))}
         </select>
       </label>
+      {confirmDialog}
     </div>
   )
 }

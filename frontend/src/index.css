@@ -5635,6 +5635,55 @@ textarea[aria-invalid='true']:focus-visible {
   color: var(--color-text);
   line-height: 1.55;
 }
+/* The summary a confirmation can carry under its sentence: which class, how
+   many, the note being sent. Pulled up into the message's bottom margin so
+   the two read as one statement, then the buttons. */
+.confirm-dialog__details {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-bg);
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+.confirm-dialog__details ul {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+.confirm-dialog__details p {
+  margin: 0;
+}
+.confirm-dialog__details p + p,
+.confirm-dialog__details p + ul,
+.confirm-dialog__details ul + p {
+  margin-top: var(--space-2);
+}
+.confirm-dialog__quote {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Suggested remarks above the rejection note: a wrapping row of small
+   buttons, so on a phone they stack into lines rather than scrolling. */
+.remark-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.remark-suggestions__label {
+  flex-basis: 100%;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.remark-suggestions button {
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-3);
+  text-align: left;
+  white-space: normal;
+  max-width: 100%;
+}
 /* The confirming action on the right, where the eye ends — the same order
    as every form's Save beside Cancel, reversed so the safe choice is met
    first when tabbing from the message. */
@@ -5871,3 +5920,23 @@ textarea[aria-invalid='true']:focus-visible {
 .mb-3 { margin-bottom: var(--space-3); }
 .mb-4 { margin-bottom: var(--space-4); }
 .mb-5 { margin-bottom: var(--space-5); }
+
+/* GradeBreakdown (components/GradeBreakdown.jsx): how a term grade was
+   computed, shown on Verify, Finalize, a learner's record and My Grades. */
+.grade-breakdown__component h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-md);
+}
+.grade-breakdown__component + .grade-breakdown__component {
+  margin-top: var(--space-4);
+}
+.grade-breakdown__items {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.grade-breakdown__result {
+  margin-top: var(--space-4);
+}
+

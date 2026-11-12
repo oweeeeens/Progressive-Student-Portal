@@ -194,7 +194,21 @@ async function deleteFixtures({
   sectionIds = [],
   offeringIds = [],
 }) {
+  // Class Record rows (assessment_items / assessment_scores) reference
+  // offerings, periods, students and users, all ON DELETE RESTRICT, so they
+  // go first — whichever of those this suite is about to delete.
+  if (offeringIds.length > 0) {
+    await pool.query('DELETE FROM assessment_items WHERE class_offering_id = ANY($1::int[])', [offeringIds]);
+  }
+  if (gradingPeriodIds.length > 0) {
+    await pool.query('DELETE FROM assessment_items WHERE grading_period_id = ANY($1::int[])', [gradingPeriodIds]);
+  }
+  if (userIds.length > 0) {
+    await pool.query('DELETE FROM assessment_items WHERE created_by = ANY($1::int[])', [userIds]);
+    await pool.query('DELETE FROM assessment_scores WHERE recorded_by = ANY($1::int[])', [userIds]);
+  }
   if (studentIds.length > 0) {
+    await pool.query('DELETE FROM assessment_scores WHERE student_id = ANY($1::int[])', [studentIds]);
     await pool.query('DELETE FROM interventions WHERE student_id = ANY($1::int[])', [studentIds]);
     await pool.query('DELETE FROM risk_assessments WHERE student_id = ANY($1::int[])', [studentIds]);
     await pool.query('DELETE FROM grades WHERE student_id = ANY($1::int[])', [studentIds]);

@@ -12,11 +12,10 @@
 //   2. Within an eligible type, the same appendScopeClause rule every
 //      other student-scoped query in this app already uses.
 const { pool } = require('../config/db');
-const { appendScopeClause, BASE_FROM } = require('./studentModel');
+const { appendScopeClause, appendAdviserOnlyClause, BASE_FROM } = require('./studentModel');
 
 const ROLES_BY_TYPE = {
   grade: ['admin', 'adviser', 'subject_teacher', 'guidance_counselor'],
-  intervention: ['admin', 'adviser', 'guidance_counselor'],
   attendance: ['admin', 'adviser', 'registrar'],
 };
 
@@ -49,10 +48,13 @@ async function recentGradeFinalizations(user, limit) {
 // One row per intervention, not per status change (there's no separate
 // status-change log) — created_at vs updated_at tells us whether the most
 // recent thing that happened to it was "logged" or "status updated".
+// Intervention events name a learner, so they follow the intervention rule:
+// only the adviser of that learner's section sees them — no role-based
+// school-wide view (see interventionController.js).
 async function recentInterventionEvents(user, limit) {
   const clauses = ['s.is_active = TRUE'];
   const params = [];
-  appendScopeClause(user, clauses, params);
+  appendAdviserOnlyClause(user, clauses, params);
   params.push(limit);
 
   const result = await pool.query(
@@ -111,7 +113,7 @@ async function recentAttendanceSubmissions(user, limit) {
 async function getRecentActivity(user, limit = 10) {
   const tasks = [];
   if (ROLES_BY_TYPE.grade.includes(user.role)) tasks.push(recentGradeFinalizations(user, limit));
-  if (ROLES_BY_TYPE.intervention.includes(user.role)) tasks.push(recentInterventionEvents(user, limit));
+  if (user.role !== 'student') tasks.push(recentInterventionEvents(user, limit)); // scoped to advisory learners
   if (ROLES_BY_TYPE.attendance.includes(user.role)) tasks.push(recentAttendanceSubmissions(user, limit));
 
   if (tasks.length === 0) return [];

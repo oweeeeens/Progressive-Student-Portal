@@ -43,6 +43,7 @@ const assert = require('node:assert/strict');
 
 const { startTestServer } = require('./helpers/testServer');
 const { createClient } = require('./helpers/client');
+const { submitGrades } = require('./helpers/classRecord');
 const fixtures = require('./helpers/fixtures');
 
 let server;
@@ -117,7 +118,7 @@ after(async () => {
 // at the given rate (just enough days to hit an exact percentage) — both of
 // which trigger a risk recalculation, same mechanism as riskRecalculation.test.js.
 async function setGradeAndAttendance(studentId, periodId, gradeValue, attendancePattern) {
-  const submitRes = await api.post('/api/grades', {
+  const submitRes = await submitGrades(api, {
     token: ctx.teacher.token,
     body: {
       classOfferingId: ctx.offering.id,

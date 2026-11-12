@@ -52,6 +52,10 @@ export function useConfirm() {
       {request && (
         <div className="confirm-dialog">
           <p className="confirm-dialog__message">{request.message}</p>
+          {/* Optional summary under the sentence — counts, the class and
+              term, the note being sent. A <div>, not inside the <p>, so it
+              can hold a list. */}
+          {request.details && <div className="confirm-dialog__details">{request.details}</div>}
           <div className="button-row confirm-dialog__actions">
             <button type="button" onClick={() => answer(false)} autoFocus>
               Cancel

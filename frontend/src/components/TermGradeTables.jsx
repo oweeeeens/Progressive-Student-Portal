@@ -3,6 +3,7 @@ import { DataTable } from './table/DataTable'
 import { StatusPill } from './StatusPill'
 import { offeringCoversPeriod, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
 import { GRADE_STATUS_NOTES, finalizedAverageForPeriod } from '../utils/gradeMatrix'
+import { useGradeBreakdown } from './GradeBreakdown'
 
 // One learner's grades as ONE TABLE PER TERM, stacked Term 1 → Term 3.
 //
@@ -47,6 +48,8 @@ const GRADE_STATUS_LABELS = {
 //   error           — the request behind the rows failed
 export function TermGradeTables({ gradingPeriods, rows, passingGrade, showStatus = false, currentPeriodId = null, error }) {
   const periods = [...gradingPeriods].sort((a, b) => a.sequence_number - b.sequence_number)
+  // One breakdown dialog for every grade in every term table.
+  const [showBreakdown, breakdownDialog] = useGradeBreakdown()
 
   if (periods.length === 0) {
     return (
@@ -77,6 +80,7 @@ export function TermGradeTables({ gradingPeriods, rows, passingGrade, showStatus
             showStatus={showStatus}
             isCurrent={period.id === currentPeriodId}
             error={error}
+            showBreakdown={showBreakdown}
           />
         )
       })}
@@ -86,16 +90,17 @@ export function TermGradeTables({ gradingPeriods, rows, passingGrade, showStatus
       {passingGrade != null && (
         <p className="help-text">
           Marks below the passing grade of {passingGrade} are shown in red. Only a finalized mark is official and counts
-          towards an average.
+          towards an average. Select a mark to see how it was computed.
         </p>
       )}
+      {breakdownDialog}
     </div>
   )
 }
 
 // One term: its heading (name, finalized average, how many subjects have a
 // mark) and its table.
-function TermBlock({ period, previousPeriod, rows, passingGrade, showStatus, isCurrent, error }) {
+function TermBlock({ period, previousPeriod, rows, passingGrade, showStatus, isCurrent, error, showBreakdown }) {
   const average = finalizedAverageForPeriod(rows, period.id)
   const markedCount = rows.filter((r) => r.cells[period.id]).length
   const headingId = `term-grades-${period.id}`
@@ -141,7 +146,16 @@ function TermBlock({ period, previousPeriod, rows, passingGrade, showStatus, isC
         const note = showStatus ? null : GRADE_STATUS_NOTES[cell.status]
         return (
           <>
-            <span className={`cell-primary${below ? ' is-below' : ''}`}>{cell.value.toFixed(2)}</span>
+            {/* The grade opens the arithmetic it was computed from — the
+                adviser's point that a grade must show its breakdown. */}
+            <button
+              type="button"
+              className={`link-button cell-primary${below ? ' is-below' : ''}`}
+              title="How this grade was computed"
+              onClick={() => showBreakdown(`${r.subjectName} — ${period.name}`, cell.computation, cell.value)}
+            >
+              {cell.value.toFixed(2)}
+            </button>
             {note && <span className="cell-secondary">{note}</span>}
           </>
         )

@@ -108,6 +108,27 @@ function appendScopeClause(user, clauses, params) {
   clauses.push(`(${scopes.join(' OR ')})`);
 }
 
+// The intervention rule (CLAUDE.md, "Interventions: adviser only"): a
+// learner's interventions belong to the adviser of the section they are in
+// now, and to nobody else — no school-wide role, no teacher who only
+// teaches the section. Narrower on purpose than appendScopeClause, which
+// also admits taught sections and the school-wide reading roles.
+function appendAdviserOnlyClause(user, clauses, params) {
+  params.push(user.id);
+  clauses.push(`sec.adviser_id = $${params.length}`);
+}
+
+// True when `userId` advises the section `studentId` is currently in.
+async function isAdvisedBy(userId, studentId) {
+  const result = await pool.query(
+    `SELECT 1 FROM students s
+     JOIN sections sec ON sec.id = s.current_section_id
+     WHERE s.id = $1 AND sec.adviser_id = $2`,
+    [studentId, userId]
+  );
+  return result.rowCount > 0;
+}
+
 // Request-key -> column, for the learner-status reporting filters below.
 const LEARNER_STATUS_COLUMNS = { isPwd: 'is_pwd', is4ps: 'is_4ps', isAlsGraduate: 'is_als_graduate' };
 
@@ -204,7 +225,7 @@ async function findById(user, studentId) {
   appendScopeClause(user, clauses, params);
 
   const result = await pool.query(
-    `SELECT ${LIST_COLUMNS}, adviser.full_name AS adviser_name
+    `SELECT ${LIST_COLUMNS}, adviser.full_name AS adviser_name, sec.adviser_id
      ${BASE_FROM}
      LEFT JOIN users adviser ON adviser.id = sec.adviser_id
      WHERE ${clauses.join(' AND ')}`,
@@ -373,6 +394,8 @@ async function resolveSchoolYearId(studentId) {
 }
 
 module.exports = {
+  appendAdviserOnlyClause,
+  isAdvisedBy,
   resolveSchoolYearId,
   listStudents,
   findById,

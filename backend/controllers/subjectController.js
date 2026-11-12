@@ -1,5 +1,6 @@
 const subjectModel = require('../models/subjectModel');
 const { SUBJECT_CATEGORIES } = require('../config/academicTerms');
+const { WEIGHT_GROUPS } = require('../config/gradingPolicy');
 
 // The picker used when assigning a subject to a class offering.
 async function listActiveSubjects(req, res) {
@@ -25,6 +26,9 @@ function validateSubjectBody(body) {
   if (body.gradeLevel && ![11, 12].includes(Number(body.gradeLevel))) return 'gradeLevel must be 11 or 12.';
   // Checked here as well as by the column's CHECK constraint, so a bad value
   // comes back as a sentence rather than a 500 from the driver.
+  if (body.weightGroup && !WEIGHT_GROUPS[body.weightGroup]) {
+    return `weightGroup must be one of: ${Object.keys(WEIGHT_GROUPS).join(', ')}.`;
+  }
   if (body.category && !SUBJECT_CATEGORIES.includes(body.category)) {
     return `category must be one of: ${SUBJECT_CATEGORIES.join(', ')}.`;
   }
@@ -35,9 +39,9 @@ async function createSubject(req, res) {
   const validationError = validateSubjectBody(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
-  const { name, code, gradeLevel, category } = req.body;
+  const { name, code, gradeLevel, category, weightGroup } = req.body;
   try {
-    const subject = await subjectModel.createSubject({ name: name.trim(), code, gradeLevel, category });
+    const subject = await subjectModel.createSubject({ name: name.trim(), code, gradeLevel, category, weightGroup });
     res.status(201).json({ subject });
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'A subject with this code already exists.' });
@@ -49,9 +53,9 @@ async function updateSubject(req, res) {
   const validationError = validateSubjectBody(req.body);
   if (validationError) return res.status(400).json({ error: validationError });
 
-  const { name, code, gradeLevel, category } = req.body;
+  const { name, code, gradeLevel, category, weightGroup } = req.body;
   try {
-    const subject = await subjectModel.updateSubject(Number(req.params.id), { name: name.trim(), code, gradeLevel, category });
+    const subject = await subjectModel.updateSubject(Number(req.params.id), { name: name.trim(), code, gradeLevel, category, weightGroup });
     if (!subject) return res.status(404).json({ error: 'Subject not found.' });
     res.json({ subject });
   } catch (err) {

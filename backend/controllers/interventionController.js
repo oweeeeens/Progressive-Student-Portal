@@ -1,21 +1,42 @@
 // Handlers for logging and tracking interventions (CLAUDE.md Part B).
-// Visibility is narrower than general Student Records: only admin,
-// guidance_counselor (unrestricted), and the student's own adviser — not
-// subject_teacher, registrar, or the student themselves. Counseling/
-// intervention notes are sensitive, so this reuses studentModel.findById
-// purely for its scoping rule (adviser -> own section only, admin/
-// guidance_counselor -> unrestricted), gated by route-level requireRole so
-// subject_teacher/student never reach it even though that function would
-// also allow them through for other purposes.
+//
+// ADVISER ONLY (2026-11-12). A learner's interventions — logging one,
+// changing its status, reading it and its notes — belong to the adviser of
+// the section the learner is in (sections.adviser_id), and to nobody else.
+// Not the admin, not the principal, not the guidance counselor, and not a
+// teacher who only teaches the section. The research adviser and instructor
+// asked for "no third parties", and it matches:
+//   - DepEd's Homeroom Guidance Program, where the class adviser follows up
+//     their own learners and refers to the guidance counselor only when
+//     counseling is needed — recorded here as a "Counseling Referral";
+//   - the Data Privacy Act's proportionality principle (RA 10173, Sec. 11):
+//     notes about a minor go to the one person whose purpose needs them.
+// Everyone else sees anonymous totals on Analytics. The learner still sees
+// their own (myProgressController.getMyInterventions) — they are the data
+// subject, not a third party.
+//
+// Decided by ASSIGNMENT, not role: a person advising a section may hold the
+// subject_teacher role, so there is no requireRole on these routes.
 const interventionModel = require('../models/interventionModel');
 const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
 const studentModel = require('../models/studentModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 
-async function resolveAuthorizedStudent(req, res, studentId) {
-  const student = await studentModel.findById(req.user, studentId);
-  if (!student) res.status(404).json({ error: 'Student not found.' });
+const ADVISER_ONLY_MESSAGE = "Only this learner's adviser can see or record their interventions.";
+
+// The learner, if the signed-in user advises their section. Answers 404 for
+// a learner who does not exist and 403 for one who is not theirs.
+async function resolveAdvisedStudent(req, res, studentId) {
+  const student = await studentModel.findByIdUnscoped(studentId);
+  if (!student) {
+    res.status(404).json({ error: 'Student not found.' });
+    return null;
+  }
+  if (!(await studentModel.isAdvisedBy(req.user.id, studentId))) {
+    res.status(403).json({ error: ADVISER_ONLY_MESSAGE });
+    return null;
+  }
   return student;
 }
 
@@ -27,7 +48,7 @@ async function createIntervention(req, res) {
     return res.status(400).json({ error: `interventionType must be one of: ${interventionModel.VALID_TYPES.join(', ')}` });
   }
 
-  const student = await resolveAuthorizedStudent(req, res, studentId);
+  const student = await resolveAdvisedStudent(req, res, studentId);
   if (!student) return;
 
   // Scoped to the student's own school year. This is a WRITE — the resulting
@@ -67,7 +88,7 @@ async function createIntervention(req, res) {
 
 async function listForStudent(req, res) {
   const studentId = Number(req.params.studentId);
-  const student = await resolveAuthorizedStudent(req, res, studentId);
+  const student = await resolveAdvisedStudent(req, res, studentId);
   if (!student) return;
 
   const interventions = await interventionModel.listForStudent(studentId);
@@ -105,7 +126,7 @@ async function updateStatus(req, res) {
   const existing = await interventionModel.getById(Number(req.params.id));
   if (!existing) return res.status(404).json({ error: 'Intervention not found.' });
 
-  const student = await resolveAuthorizedStudent(req, res, existing.student_id);
+  const student = await resolveAdvisedStudent(req, res, existing.student_id);
   if (!student) return;
 
   const intervention = await interventionModel.updateStatus(existing.id, status);

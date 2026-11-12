@@ -5,6 +5,7 @@ import { defaultSelection } from '../utils/defaultSelection'
 import { useAuth } from '../context/AuthContext'
 import { AttendanceRosterPanel } from '../components/AttendanceRosterPanel'
 import { todayDateString } from '../utils/dateUtils'
+import { useConfirm } from '../hooks/useConfirm'
 
 // The daily/homeroom register (DepEd SF2). admin/registrar can record for
 // any section; anyone else only sees sections they actually advise in the
@@ -26,6 +27,7 @@ export function DailyAttendancePage() {
   const [message, setMessage] = useState(null)
   const { showToast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [confirm, confirmDialog] = useConfirm()
   // Bumped every time a genuinely fresh roster lands — either just fetched
   // from the server or just saved — so AttendanceRosterPanel knows exactly
   // when to treat the current roster as its new "unsaved changes" baseline.
@@ -93,6 +95,27 @@ export function DailyAttendancePage() {
   }, [sectionId, date])
 
   async function handleSave() {
+    // Saving writes the official SF2 register for that day and recalculates
+    // risk, so it asks first — naming the section and the date, the two
+    // things most easily left on the wrong value — with the day's counts.
+    const section = sections.find((s) => String(s.id) === String(sectionId))
+    const counts = { present: 0, absent: 0, late: 0, excused: 0 }
+    for (const r of roster) if (counts[r.status] !== undefined) counts[r.status] += 1
+    const dayLabel = new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    const ok = await confirm({
+      title: recorded ? 'Update this attendance?' : 'Save attendance?',
+      message: `${section ? `Grade ${section.grade_level} - ${section.name}` : 'This section'}, ${dayLabel}.${
+        recorded ? ' Attendance was already recorded for this day; saving replaces it.' : ''
+      } Each student's risk level for this term is recalculated.`,
+      details: (
+        <p>
+          {counts.present} present · {counts.absent} absent · {counts.late} late · {counts.excused} excused
+        </p>
+      ),
+      confirmLabel: recorded ? 'Update attendance' : 'Save attendance',
+    })
+    if (!ok) return
+
     setError(null)
     setMessage(null)
     setSaving(true)
@@ -117,6 +140,7 @@ export function DailyAttendancePage() {
   }
 
   return (
+    <>
     <AttendanceRosterPanel
       breadcrumbItems={[{ label: 'Home', to: '/' }, { label: 'Attendance' }, { label: 'Daily (SF2)' }]}
       title="Daily Attendance (SF2)"
@@ -137,5 +161,7 @@ export function DailyAttendancePage() {
       onSave={handleSave}
       saving={saving}
     />
+    {confirmDialog}
+    </>
   )
 }

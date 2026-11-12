@@ -24,7 +24,8 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { confirmLeave } from '../utils/unsavedChangesGuard'
+import { confirmLeave, hasUnsavedChanges } from '../utils/unsavedChangesGuard'
+import { useConfirm } from '../hooks/useConfirm'
 import { roleLabel } from '../utils/roleLabel'
 import { canViewAcademicSetup } from '../utils/permissions'
 import { useFocusTrap } from '../hooks/useFocusTrap'
@@ -73,19 +74,19 @@ const canFinalizeGrades = (role, has) =>
 // check is the correct and only boundary (unlike the four above).
 const canVerifyGrades = (role) => ['admin', 'principal'].includes(role)
 const canSeeAcademicProgress = (role) => ['admin', 'principal', 'adviser', 'guidance_counselor'].includes(role)
-// NOT the same list. The principal reads the progress dashboard but does not
-// log interventions — that is the adviser's and the guidance counselor's
-// work (CLAUDE.md), and interventionRoutes.js enforces it. These two links
-// shared one predicate until the principal was added to the first, which
-// silently handed them an Interventions link that the server answers 403.
-const canSeeInterventions = (role) => ['admin', 'adviser', 'guidance_counselor'].includes(role)
+// Interventions belong to the learner's ADVISER only (2026-11-12, "no third
+// parties" — see backend/controllers/interventionController.js). That is an
+// assignment, not a role, so the link is earned by advising a section,
+// exactly like Finalize Grades. No admin, principal or guidance counselor
+// link: the server would answer them with an empty list.
+const canSeeInterventions = (role, has) => role !== 'student' && advises(has)
 // Deliberately NOT advisers — they keep the per-section Academic Progress
 // Tracking view above; this is the school-wide rollup, admin/principal/
 // guidance_counselor only, matching routes/analyticsRoutes.js's server-side gate.
 const canSeeAnalytics = (role) => ['admin', 'principal', 'guidance_counselor'].includes(role)
 // Imported rather than written here, so this cannot drift from what the
-// routes allow — the comment above canSeeInterventions records what happened
-// last time a sidebar predicate was widened on its own. The principal reads
+// routes allow — a sidebar predicate widened on its own once handed the
+// principal a link the server answered 403. The principal reads
 // Academic Setup; the pages hide their write controls for them.
 const canSeeAcademicSetup = canViewAcademicSetup
 
@@ -132,7 +133,7 @@ function getNavSections(role, has) {
     {
       label: 'Grades',
       items: [
-        { to: '/grades/entry', label: 'Enter Grades', icon: PenLine, show: canEnterGrades(role, has) },
+        { to: '/grades/entry', label: 'Class Record', icon: PenLine, show: canEnterGrades(role, has) },
         { to: '/grades/verify', label: 'Verify Grades', icon: ShieldCheck, show: canVerifyGrades(role) },
         { to: '/grades/finalize', label: 'Finalize Grades', icon: CheckCircle2, show: canFinalizeGrades(role, has) },
       ],
@@ -146,7 +147,7 @@ function getNavSections(role, has) {
         // that cannot say what it is. The page title still shows the full
         // name the client and the manuscript use.
         { to: '/academic-progress', label: 'Progress Tracking', icon: TrendingUp, show: canSeeAcademicProgress(role) },
-        { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeInterventions(role) },
+        { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeInterventions(role, has) },
         { to: '/analytics', label: 'Analytics', icon: BarChart3, show: canSeeAnalytics(role) },
       ],
     },
@@ -260,6 +261,27 @@ export function Sidebar({ collapsed = false, isDrawer = false, open = false, onC
   const isModal = isDrawer && open
   useFocusTrap(asideRef, isModal, onClose)
 
+  // Log out asks first: the button sits directly under the profile link at
+  // the bottom of the sidebar, where a slip ends the session and throws away
+  // whatever the page had open. Unsaved changes are named in the same dialog
+  // rather than in a second browser box.
+  const [confirm, confirmDialog] = useConfirm()
+  async function handleLogout() {
+    const unsaved = hasUnsavedChanges()
+    // Close the phone drawer first so the dialog is not opened from inside
+    // another modal surface that is trapping focus.
+    if (isDrawer && open) onClose()
+    const ok = await confirm({
+      title: 'Log out?',
+      message: unsaved
+        ? 'You have unsaved changes on this page. Logging out now will discard them.'
+        : 'You will need your email and password to sign in again.',
+      confirmLabel: unsaved ? 'Discard and log out' : 'Log out',
+      danger: unsaved,
+    })
+    if (ok) logout()
+  }
+
   function toggleSection(label) {
     setCollapsedLabels((prev) => {
       const next = new Set(prev)
@@ -270,6 +292,7 @@ export function Sidebar({ collapsed = false, isDrawer = false, open = false, onC
   }
 
   return (
+    <>
     <aside
       ref={asideRef}
       id="app-sidebar"
@@ -408,9 +431,7 @@ export function Sidebar({ collapsed = false, isDrawer = false, open = false, onC
         </NavLink>
         <button
           type="button"
-          onClick={() => {
-            if (confirmLeave()) logout()
-          }}
+          onClick={handleLogout}
           className="sidebar__logout"
           title="Log out"
         >
@@ -419,5 +440,9 @@ export function Sidebar({ collapsed = false, isDrawer = false, open = false, onC
         </button>
       </div>
     </aside>
+    {/* Outside the <aside> on purpose: a closed drawer is `inert`, and an
+        inert ancestor would make the dialog unclickable. */}
+    {confirmDialog}
+    </>
   )
 }

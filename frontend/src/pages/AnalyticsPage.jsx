@@ -1032,6 +1032,11 @@ export function AnalyticsPage() {
     <div>
       <div className="record-section">
         <h2>Intervention Effectiveness</h2>
+        {/* Interventions are adviser-only; this tab is the one view of them
+            anyone else gets, and it is deliberately counts only. */}
+        <p className="help-text mb-3">
+          Anonymous totals only. Each learner&apos;s interventions and notes are seen only by their adviser.
+        </p>
         {!effectiveness ? (
           <>
             <SkeletonTable rows={4} columns={4} />

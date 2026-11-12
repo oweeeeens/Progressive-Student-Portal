@@ -5,85 +5,10 @@
 const gradeModel = require('../models/gradeModel');
 const studentModel = require('../models/studentModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
-const classOfferingModel = require('../models/classOfferingModel');
 const sectionModel = require('../models/sectionModel');
 const riskEngine = require('../services/riskEngine');
 const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const { GRADE_AT_RISK_THRESHOLD } = require('../config/riskConfig');
-
-async function recordGrades(req, res) {
-  const { classOfferingId, gradingPeriodId, entries } = req.body;
-
-  if (!classOfferingId || !gradingPeriodId || !Array.isArray(entries) || entries.length === 0) {
-    return res.status(400).json({ error: 'classOfferingId, gradingPeriodId, and a non-empty entries array are required.' });
-  }
-  const invalidValue = entries.find((e) => typeof e.gradeValue !== 'number' || e.gradeValue < 60 || e.gradeValue > 100);
-  if (invalidValue) {
-    return res.status(400).json({ error: 'Each gradeValue must be a number between 60 and 100.' });
-  }
-
-  const offering = await classOfferingModel.getById(classOfferingId);
-  if (!offering) {
-    return res.status(400).json({ error: 'classOfferingId does not refer to an existing class.' });
-  }
-  // Ownership by assignment (teacher_id), not by role label — see
-  // classOfferingController.getRoster's matching comment.
-  if (req.user.role !== 'admin' && offering.teacher_id !== req.user.id) {
-    return res.status(403).json({ error: 'You can only record grades for classes you teach.' });
-  }
-
-  const roster = await gradeModel.getActiveStudentsInOffering(classOfferingId);
-  const rosterIds = new Set(roster.map((s) => s.id));
-  const unknownStudent = entries.find((e) => !rosterIds.has(e.studentId));
-  if (unknownStudent) {
-    return res.status(400).json({ error: `Student ${unknownStudent.studentId} is not currently in this class.` });
-  }
-
-  const saved = await gradeModel.upsertSubmittedGrades({
-    classOfferingId,
-    gradingPeriodId,
-    recordedBy: req.user.id,
-    entries,
-  });
-
-  // Entries the upsert refused because that grade is already finalized —
-  // the adviser has put it into the official record, so it is no longer the
-  // subject teacher's to change. Reported rather than dropped silently: a
-  // teacher who thinks they just corrected a mark needs to know they did not.
-  const savedStudentIds = new Set(saved.map((row) => row.student_id));
-  const skipped = entries
-    .filter((entry) => !savedStudentIds.has(entry.studentId))
-    .map((entry) => entry.studentId);
-
-  res.status(201).json({
-    grades: saved,
-    skippedFinalizedStudentIds: skipped,
-    ...(skipped.length > 0 && {
-      message:
-        `${skipped.length} grade${skipped.length === 1 ? ' was' : 's were'} already finalized by the adviser ` +
-        'and left unchanged. Ask them to reopen it if it needs correcting.',
-    }),
-  });
-}
-
-// Lets the entry page reopen a class+period it already submitted: prefill
-// existing values and surface the current status (and rejection note, if
-// any) per student, instead of always starting from a blank sheet.
-async function getSubmissionsForOffering(req, res) {
-  const { classOfferingId, gradingPeriodId } = req.query;
-  if (!classOfferingId || !gradingPeriodId) {
-    return res.status(400).json({ error: 'classOfferingId and gradingPeriodId query params are required.' });
-  }
-
-  const offering = await classOfferingModel.getById(Number(classOfferingId));
-  if (!offering) return res.status(404).json({ error: 'Class not found.' });
-  if (req.user.role !== 'admin' && offering.teacher_id !== req.user.id) {
-    return res.status(403).json({ error: 'You can only view grades for classes you teach.' });
-  }
-
-  const submissions = await gradeModel.getSubmissionsForOffering(Number(classOfferingId), Number(gradingPeriodId));
-  res.json({ submissions });
-}
 
 // The principal's review queue — school-wide, not scoped to one section,
 // since there is only one principal for the whole school.
@@ -234,8 +159,6 @@ async function getHistoryForStudent(req, res) {
 }
 
 module.exports = {
-  recordGrades,
-  getSubmissionsForOffering,
   listSubmittedGrades,
   verifyGrades,
   rejectGrades,

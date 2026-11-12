@@ -399,7 +399,7 @@ export function ProfilePage() {
                     </ul>
                     <p className="profile-page__links">
                       <Link to="/grades/entry">
-                        <BookOpen size={14} strokeWidth={1.75} aria-hidden="true" /> Enter grades
+                        <BookOpen size={14} strokeWidth={1.75} aria-hidden="true" /> Class Record
                       </Link>
                     </p>
                   </div>

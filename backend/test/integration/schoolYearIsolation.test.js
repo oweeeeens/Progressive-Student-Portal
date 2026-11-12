@@ -23,6 +23,7 @@ const assert = require('node:assert/strict');
 
 const { startTestServer } = require('./helpers/testServer');
 const { createClient } = require('./helpers/client');
+const { submitGrades } = require('./helpers/classRecord');
 const fixtures = require('./helpers/fixtures');
 const { pool } = require('../../config/db');
 
@@ -133,7 +134,7 @@ after(async () => {
 // Submit -> verify -> finalize through the real endpoints, since only a
 // finalized grade feeds the risk formula.
 async function finalizeGrade(offeringId, periodId, gradeValue) {
-  const submitRes = await api.post('/api/grades', {
+  const submitRes = await submitGrades(api, {
     token: ctx.teacher.token,
     body: {
       classOfferingId: offeringId,
@@ -263,7 +264,7 @@ test("a teacher cannot un-finalize a grade by resubmitting it", async () => {
   assert.equal(before.rows[0].status, 'finalized');
   assert.ok(before.rows[0].finalized_by, 'precondition: it carries who finalized it');
 
-  const res = await api.post('/api/grades', {
+  const res = await submitGrades(api, {
     token: ctx.teacher.token,
     body: {
       classOfferingId: ctx.currentOffering.id,
@@ -292,7 +293,7 @@ test("a teacher cannot un-finalize a grade by resubmitting it", async () => {
 test('a rejected grade can still be resubmitted — the guard is only about finalized', async () => {
   // Q2 of the current year: take it back to submitted via a rejection, then
   // resubmit. This is the path the guard must NOT break.
-  const submitRes = await api.post('/api/grades', {
+  const submitRes = await submitGrades(api, {
     token: ctx.teacher.token,
     body: {
       classOfferingId: ctx.currentOffering.id,
@@ -308,7 +309,7 @@ test('a rejected grade can still be resubmitted — the guard is only about fina
   const freshPeriod = ctx.current.periods[0];
   const other = await fixtures.createTestStudent({ sectionId: ctx.currentSection.id, label: 'sy-fresh' });
   try {
-    const first = await api.post('/api/grades', {
+    const first = await submitGrades(api, {
       token: ctx.teacher.token,
       body: {
         classOfferingId: ctx.currentOffering.id,
@@ -328,7 +329,7 @@ test('a rejected grade can still be resubmitted — the guard is only about fina
     });
     assert.equal(rejectRes.status, 200, JSON.stringify(rejectRes.body));
 
-    const resubmit = await api.post('/api/grades', {
+    const resubmit = await submitGrades(api, {
       token: ctx.teacher.token,
       body: {
         classOfferingId: ctx.currentOffering.id,
@@ -342,6 +343,7 @@ test('a rejected grade can still be resubmitted — the guard is only about fina
   } finally {
     await pool.query('DELETE FROM risk_assessments WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM grades WHERE student_id = $1', [other.id]);
+    await pool.query('DELETE FROM assessment_scores WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM students WHERE id = $1', [other.id]);
   }
 });
@@ -350,7 +352,7 @@ test('a bulk verify cannot reach outside the grading period it was given', async
   // A grade in the PRIOR year, re-submitted so it is verifiable again.
   const other = await fixtures.createTestStudent({ sectionId: ctx.currentSection.id, label: 'sy-scope' });
   try {
-    const mine = await api.post('/api/grades', {
+    const mine = await submitGrades(api, {
       token: ctx.teacher.token,
       body: {
         classOfferingId: ctx.currentOffering.id,
@@ -381,6 +383,7 @@ test('a bulk verify cannot reach outside the grading period it was given', async
   } finally {
     await pool.query('DELETE FROM risk_assessments WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM grades WHERE student_id = $1', [other.id]);
+    await pool.query('DELETE FROM assessment_scores WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM students WHERE id = $1', [other.id]);
   }
 });

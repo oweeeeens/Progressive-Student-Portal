@@ -1,0 +1,29 @@
+// Mounted at /api/class-record.
+//
+// No role gate here on purpose: who may read or change a class record is
+// decided by assignment (class_offerings.teacher_id, sections.adviser_id)
+// inside the controller — the same reasoning as gradeRoutes.js. A role
+// check would lock out an adviser who also teaches, the school's ordinary
+// case.
+const express = require('express');
+const {
+  getClassRecord,
+  createItem,
+  updateItem,
+  deleteItem,
+  saveScores,
+  submitClassRecord,
+} = require('../controllers/classRecordController');
+const { requireAuth } = require('../middleware/authMiddleware');
+
+const router = express.Router();
+router.use(requireAuth);
+
+router.get('/', getClassRecord);
+router.post('/items', createItem);
+router.patch('/items/:id', updateItem);
+router.delete('/items/:id', deleteItem);
+router.put('/scores', saveScores);
+router.post('/submit', submitClassRecord);
+
+module.exports = router;

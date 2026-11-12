@@ -7,6 +7,7 @@ import { InterventionDetailPanel, INTERVENTION_TYPE_LABELS, INTERVENTION_STATUS_
 import { Alert } from './Alert'
 import { SkeletonTable } from './Skeleton'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
+import { useConfirm } from '../hooks/useConfirm'
 
 // Resolved/Escalated are normally set automatically by the risk engine on
 // the next recalculation (see riskEngine.js) — Open/Monitoring are the two
@@ -23,6 +24,7 @@ export function InterventionHistory({ studentId }) {
   // same hook — logging an intervention is a record about a named minor, so
   // "did that save?" should not be answered by inference.
   const { error, setError, busyKey, runWrite } = useWriteFeedback()
+  const [confirm, confirmDialog] = useConfirm()
 
   function load() {
     api
@@ -36,6 +38,13 @@ export function InterventionHistory({ studentId }) {
   async function handleLog(e) {
     e.preventDefault()
     const typeLabel = INTERVENTION_TYPE_LABELS[type] || type
+    const ok = await confirm({
+      title: 'Log this intervention?',
+      message: `A ${typeLabel.toLowerCase()} will be added to this student's record as Open. At the next term's risk recalculation it is marked Resolved if their risk level improved, or Escalated if it did not.`,
+      details: notes.trim() ? <p className="confirm-dialog__quote">{notes.trim()}</p> : null,
+      confirmLabel: 'Log intervention',
+    })
+    if (!ok) return
     await runWrite(
       'log',
       async () => {
@@ -135,6 +144,7 @@ export function InterventionHistory({ studentId }) {
             </>
           }
         />
+      {confirmDialog}
     </div>
   )
 }

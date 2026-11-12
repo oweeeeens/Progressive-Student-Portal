@@ -12,12 +12,13 @@ import { TableToolbar } from '../components/table/TableToolbar'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 import { useConfirm } from '../hooks/useConfirm'
 import { SUBJECT_CATEGORIES, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
+import { WEIGHT_GROUPS, weightSplit, DEPED_SOURCE } from '../utils/gradingPolicy'
 
 const PAGE_SIZE = 15
 // 'core' rather than blank: it is the largest group, and the column is NOT
 // NULL — a blank would just become 'core' on the server anyway, so the form
 // may as well say so.
-const emptyForm = { name: '', code: '', gradeLevel: '', category: 'core' }
+const emptyForm = { name: '', code: '', gradeLevel: '', category: 'core', weightGroup: 'core' }
 
 // Admin-only Academic Setup page for subjects. Like sections, subjects are
 // soft-deactivated, never hard-deleted — one with grades recorded against
@@ -83,7 +84,7 @@ export function SubjectsPage() {
 
   function startEdit(row) {
     setEditingId(row.id)
-    setForm({ name: row.name, code: row.code || '', gradeLevel: row.grade_level || '', category: row.category || 'core' })
+    setForm({ name: row.name, code: row.code || '', gradeLevel: row.grade_level || '', category: row.category || 'core', weightGroup: row.weight_group || 'core' })
     setShowForm(true)
   }
 
@@ -94,6 +95,7 @@ export function SubjectsPage() {
       code: form.code || null,
       gradeLevel: form.gradeLevel ? Number(form.gradeLevel) : null,
       category: form.category,
+      weightGroup: form.weightGroup,
     }
     const wasEdit = Boolean(editingId)
 
@@ -235,6 +237,25 @@ export function SubjectsPage() {
                 : 'Core and applied subjects run for as long as their class offering says — the whole year, or one term.'}
             </p>
 
+            {/* Which DepEd weight set this subject's term grades are computed
+                with — the Class Record reads it (DO 015, Annex D Table 2). */}
+            <label htmlFor="subject-weight-group">Grading weights</label>
+            <select
+              id="subject-weight-group"
+              value={form.weightGroup}
+              onChange={(e) => setForm((f) => ({ ...f, weightGroup: e.target.value }))}
+            >
+              {Object.entries(WEIGHT_GROUPS).map(([value, group]) => (
+                <option key={value} value={value}>
+                  {group.label} — {weightSplit(value)}
+                </option>
+              ))}
+            </select>
+            <p className="form-note">
+              Term grades are computed with this split of Written/Oral Works, Performance Tasks and Examinations, as set
+              by {DEPED_SOURCE}.
+            </p>
+
             <label htmlFor="subject-grade-level">Grade Level (optional)</label>
             <select id="subject-grade-level" value={form.gradeLevel} onChange={(e) => setForm((f) => ({ ...f, gradeLevel: e.target.value }))}>
               <option value="">Offered in both grade levels</option>
@@ -265,6 +286,12 @@ export function SubjectsPage() {
             uniformValue: (r) => r.category,
             quietValue: 'core',
             render: (r) => SUBJECT_CATEGORY_LABELS[r.category] || fieldValue(r.category),
+          },
+          {
+            key: 'weights',
+            header: 'Grading weights',
+            plainText: (r) => weightSplit(r.weight_group),
+            render: (r) => <span title={WEIGHT_GROUPS[r.weight_group]?.label}>{weightSplit(r.weight_group)}</span>,
           },
           { key: 'level', header: 'Grade Level', render: (r) => r.grade_level || 'Both' },
           {

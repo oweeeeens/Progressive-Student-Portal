@@ -34,12 +34,13 @@ const canWrite = (role) => role === 'admin' || role === 'registrar'
 //
 // They used to be the same predicate. They aren't any more: the principal
 // can READ a student's standing (they already see the school-wide version
-// on Analytics) but has no part in the intervention workflow — logging and
-// status changes stay with admin/adviser/guidance_counselor, matching
-// routes/interventionRoutes.js. Aliasing them would have surfaced an
-// Interventions tab that 403s on open.
+// on Analytics) but has no part in the intervention workflow, which is the
+// learner's adviser's alone.
 const canSeeAcademicProgress = (role) => ['admin', 'principal', 'adviser', 'guidance_counselor'].includes(role)
-const canSeeInterventions = (role) => ['admin', 'adviser', 'guidance_counselor'].includes(role)
+// Interventions are the learner's ADVISER's alone (no third parties — see
+// backend/controllers/interventionController.js): the tab appears only for
+// the person who advises this learner's section, whatever their role.
+const canSeeInterventions = (user, student) => Boolean(user && student && student.adviser_id === user.id)
 
 const STATUS_VARIANTS = { enrolled: 'positive', pending: 'warning', dropped: 'negative', transferred: 'neutral', graduated: 'info' }
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
@@ -435,7 +436,7 @@ export function StudentDetailPage() {
       content: <AttendanceHistory studentId={id} title="Daily Attendance (SF2)" />,
     },
   ]
-  if (canSeeInterventions(user?.role)) {
+  if (canSeeInterventions(user, student)) {
     tabs.push({
       key: 'interventions',
       label: 'Interventions',

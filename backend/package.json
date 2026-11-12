@@ -16,9 +16,11 @@
     "rename:terms": "node scripts/renameQuartersToTerms.js",
     "seed:sample": "node scripts/seedSampleData.js",
     "seed:demo-data": "node scripts/seedDemoAcademicData.js",
+    "backfill:class-records": "node scripts/backfillClassRecords.js",
     "test:risk-calculator": "node scripts/testRiskCalculator.js",
-    "test:integration": "node --test test/integration/gradeApproval.test.js test/integration/riskRecalculation.test.js test/integration/interventionAutoResolve.test.js test/integration/attendanceImport.test.js test/integration/schoolYearIsolation.test.js test/integration/academicProgressBands.test.js test/integration/accountSecurity.test.js test/integration/passwordReset.test.js test/integration/dualRoleScoping.test.js test/integration/profileSelfService.test.js test/integration/subjectTerms.test.js test/integration/emailConfig.test.js test/integration/dashboardQueue.test.js",
-    "test": "npm run test:risk-calculator && npm run test:integration"
+    "test:grade-calculator": "node scripts/testGradeCalculator.js",
+    "test:integration": "node --test test/integration/gradeApproval.test.js test/integration/riskRecalculation.test.js test/integration/interventionAutoResolve.test.js test/integration/attendanceImport.test.js test/integration/schoolYearIsolation.test.js test/integration/academicProgressBands.test.js test/integration/accountSecurity.test.js test/integration/passwordReset.test.js test/integration/dualRoleScoping.test.js test/integration/profileSelfService.test.js test/integration/subjectTerms.test.js test/integration/emailConfig.test.js test/integration/dashboardQueue.test.js test/integration/classRecord.test.js test/integration/interventionAccess.test.js",
+    "test": "npm run test:risk-calculator && npm run test:grade-calculator && npm run test:integration"
   },
   "keywords": [],
   "author": "",

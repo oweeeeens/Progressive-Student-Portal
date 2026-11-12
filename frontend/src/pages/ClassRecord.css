@@ -1,0 +1,203 @@
+/* The Class Record grid. A term can hold a dozen quizzes and tasks, so this
+   table is wider than the page more often than not: it scrolls inside its
+   own card (.app-shell__content is overflow-x: clip, so nothing outside the
+   card would ever show a scrollbar), and the learner column stays pinned so
+   a score is never typed against a name that has scrolled away. */
+
+.class-record__policy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--module-grades);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+.class-record__policy svg {
+  color: var(--module-grades);
+  flex-shrink: 0;
+}
+.class-record__policy .text-muted {
+  margin-left: auto;
+}
+
+.class-record__scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+.class-record {
+  width: max-content;
+  min-width: 100%;
+}
+.class-record th,
+.class-record td {
+  padding: var(--space-2) var(--space-2);
+  white-space: nowrap;
+}
+
+/* The learner column: pinned, opaque so scrolled cells pass under it. */
+.class-record__name {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 11rem;
+  background: var(--color-surface);
+  box-shadow: 1px 0 0 var(--color-border);
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--color-text);
+}
+thead .class-record__name {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-muted);
+}
+
+/* Component group headers: the weight sits beside the name. */
+.class-record__group {
+  text-align: center;
+  border-left: 1px solid var(--color-border);
+}
+.class-record__group--ww,
+.class-record__group--pt,
+.class-record__group--ex {
+  color: var(--module-grades-ink);
+}
+
+.class-record__item {
+  vertical-align: bottom;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--font-size-sm);
+}
+.class-record__item .link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+.class-record__hps {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.class-record__score input {
+  width: 4.25rem;
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.class-record__score input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.class-record__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* Computed columns read as the System's arithmetic, not as inputs. */
+.class-record__calc {
+  background: var(--color-neutral-bg);
+  color: var(--color-text-muted);
+}
+.class-record__grade {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+/* Add/edit item form inside the narrow modal: one column of fields. */
+.class-record__form {
+  display: grid;
+  gap: var(--space-4);
+}
+.class-record__form label {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+.class-record__form input,
+.class-record__form select {
+  margin: 0;
+}
+.class-record__form .button-row {
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .class-record__name {
+    min-width: 8.5rem;
+  }
+  .class-record__policy .text-muted {
+    margin-left: 0;
+  }
+}
+
+/* Learner names are row headers (<th scope="row">) for screen readers, but
+   must not wear the column-header band colour .table-card th gives every th. */
+.table-card .class-record tbody th.class-record__name {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-bottom-color: var(--color-border);
+}
+.table-card .class-record tbody tr:hover th.class-record__name {
+  background: color-mix(in srgb, var(--module, var(--color-primary)) 6%, var(--color-surface));
+}
+
+/* At phone width the app turns every .table-card table into one card per
+   row (index.css, 560px). That is right for a list and wrong for a score
+   grid: a teacher entering Quiz 3 down the class needs the column. So the
+   Class Record stays a real table and scrolls sideways inside its card,
+   with the learner column still pinned. */
+@media (max-width: 560px) {
+  .table-card.class-record__scroll {
+    overflow-x: auto;
+  }
+  .class-record__scroll thead {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    display: table-header-group;
+  }
+  .class-record__scroll table {
+    display: table;
+    width: max-content;
+  }
+  .class-record__scroll tbody {
+    display: table-row-group;
+  }
+  .class-record__scroll tbody tr,
+  .class-record__scroll thead tr {
+    display: table-row;
+    position: static;
+    padding: 0;
+  }
+  .class-record__scroll tbody td,
+  .class-record__scroll tbody th,
+  .class-record__scroll thead th {
+    display: table-cell;
+    padding: var(--space-2);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .class-record__scroll tbody td::before {
+    content: none;
+  }
+  .class-record__scroll tbody th.class-record__name {
+    position: sticky;
+  }
+}

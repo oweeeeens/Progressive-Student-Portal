@@ -28,6 +28,7 @@ const { pool } = require('../../config/db');
 const { TERM_SEQUENCE } = require('../../config/academicTerms');
 const { startTestServer } = require('./helpers/testServer');
 const { createClient } = require('./helpers/client');
+const { submitGrades } = require('./helpers/classRecord');
 const fixtures = require('./helpers/fixtures');
 
 let server;
@@ -177,7 +178,7 @@ test('a user labelled adviser who only TEACHES gets the teaching queue and not t
 test('the counts are what the linked page will show, and are scoped', async () => {
   // Two grades submitted into the advised section, verified by the
   // principal, and therefore waiting on exactly one person: its adviser.
-  const submitted = await api.post('/api/grades', {
+  const submitted = await submitGrades(api, {
     token: ctx.adviserWhoOnlyTeaches.token,
     body: {
       classOfferingId: ctx.advisedOffering.id,

@@ -33,6 +33,7 @@ const {
   TEACHER_OVERRIDES,
 } = require('./demoDataset');
 const { offeringCoversPeriod } = require('../config/academicTerms');
+const { demoItemsFor, scoresForGrade } = require('./lib/demoClassRecord');
 
 // A term is matched to a grading period by its position in the year, not by
 // its name, so the generator has to know which number each name carries.
@@ -208,15 +209,33 @@ async function submitGrades({
   studentIdByLrn,
   teacherEmail,
 }) {
+  // Grades are computed from scores now (DepEd Order No. 015, s. 2026), so
+  // each learner's demo grade becomes a class record that computes to it:
+  // a typical set of quizzes, tasks and exams for the term, and scores per
+  // learner produced by scripts/lib/demoClassRecord.js — then the COMPUTED
+  // grades are submitted, exactly as a teacher's would be.
+  const token = tokens[teacherEmail];
   const entries = rosterFor(sectionName).map((student) => ({
     studentId: studentIdByLrn.get(student.lrn),
     gradeValue: gradeFor(student.grades, sequenceOfPeriod(periodKey), subjectCode),
   }));
-  const submitted = await api('POST', '/api/grades', tokens[teacherEmail], {
-    classOfferingId: offeringId,
-    gradingPeriodId: periodId,
-    entries,
-  });
+  const scope = { classOfferingId: offeringId, gradingPeriodId: periodId };
+  const record = await api('GET', `/api/class-record?classOfferingId=${offeringId}&gradingPeriodId=${periodId}`, token);
+  const items = [...record.items];
+  if (items.length === 0) {
+    for (const spec of demoItemsFor(record.policy.weightGroup)) {
+      const created = await api('POST', '/api/class-record/items', token, { ...scope, ...spec });
+      items.push(created.item);
+    }
+  }
+  const scores = [];
+  for (const entry of entries) {
+    const generated = scoresForGrade({ items, termGrade: entry.gradeValue, weightGroup: record.policy.weightGroup, seed: entry.studentId * 31 + periodId });
+    if (!generated) throw new Error(`No scores compute to ${entry.gradeValue} for student ${entry.studentId}`);
+    for (const [itemId, rawScore] of generated) scores.push({ itemId, studentId: entry.studentId, rawScore });
+  }
+  await api('PUT', '/api/class-record/scores', token, { ...scope, scores });
+  const submitted = await api('POST', '/api/class-record/submit', token, { ...scope, studentIds: entries.map((e) => e.studentId) });
   return submitted.grades.map((g) => g.id);
 }
 

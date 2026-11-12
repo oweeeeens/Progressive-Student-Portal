@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ShieldCheck, ShieldX, ClipboardCheck } from 'lucide-react'
+import { ShieldCheck, ShieldX, ClipboardCheck, Calculator } from 'lucide-react'
 import { api } from '../api/client'
 import { useGradingPeriods } from '../hooks/useGradingPeriods'
 import { Breadcrumbs } from '../components/Breadcrumbs'
@@ -8,6 +8,9 @@ import { formatGrade } from '../utils/formatNumber'
 import { Alert } from '../components/Alert'
 import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 import { DataTable, fieldValue } from '../components/table/DataTable'
+import { useConfirm } from '../hooks/useConfirm'
+import { REJECTION_REMARKS } from '../config/rejectionRemarks'
+import { useGradeBreakdown } from '../components/GradeBreakdown'
 
 const PAGE_SIZE = 20
 
@@ -39,6 +42,9 @@ export function VerifyGradesPage() {
   const [message, setMessage] = useState(null)
   const [loading, setLoading] = useState(false)
   const [acting, setActing] = useState(false)
+  const [confirm, confirmDialog] = useConfirm()
+  // The principal can see how a grade was computed before verifying it.
+  const [showBreakdown, breakdownDialog] = useGradeBreakdown()
 
   useEffect(() => {
     api
@@ -94,6 +100,30 @@ export function VerifyGradesPage() {
   }
 
   async function verifyGradeIds(gradeIds) {
+    // Verifying passes grades on to the adviser, so it asks first. One row
+    // is named in full; a selection is summarised by count and subject.
+    const chosen = rows.filter((r) => gradeIds.includes(r.id))
+    const single = chosen.length === 1 ? chosen[0] : null
+    const subjects = [...new Set(chosen.map((r) => r.subject_name))]
+    const ok = await confirm({
+      title: single ? 'Verify this grade?' : `Verify ${gradeIds.length} grades?`,
+      message: single
+        ? `${single.first_name} ${single.last_name}'s grade will be sent to the adviser to be finalized into the official record.`
+        : `These grades will be sent to the students' advisers to be finalized into the official record.`,
+      details: single ? (
+        <p>
+          <strong>{single.subject_name}</strong> — Grade {single.grade_level} {single.section_name}: {formatGrade(single.grade_value)}
+        </p>
+      ) : (
+        <p>
+          {subjects.slice(0, 3).join(', ')}
+          {subjects.length > 3 ? ` and ${subjects.length - 3} more subject${subjects.length - 3 === 1 ? '' : 's'}` : ''}
+        </p>
+      ),
+      confirmLabel: single ? 'Verify grade' : `Verify ${gradeIds.length} grades`,
+    })
+    if (!ok) return
+
     setError(null)
     setMessage(null)
     setActing(true)
@@ -116,8 +146,30 @@ export function VerifyGradesPage() {
     setRejectionNote('')
   }
 
+  // Puts a suggested remark into the note — appended after anything already
+  // typed, so the principal can combine a suggestion with their own words.
+  function applyRemark(remark) {
+    setRejectionNote((current) => (current.trim() ? `${current.trim()} ${remark}` : remark))
+  }
+
   async function handleReject(e) {
     e.preventDefault()
+    const row = rows.find((r) => r.id === rejectingId)
+    const ok = await confirm({
+      title: 'Return this grade to the teacher?',
+      message: row
+        ? `${row.first_name} ${row.last_name}'s ${row.subject_name} grade (${formatGrade(row.grade_value)}) will go back to ${row.recorded_by_name || 'the subject teacher'} to correct and resubmit.`
+        : 'This grade will go back to the subject teacher to correct and resubmit.',
+      details: (
+        <>
+          <p className="text-muted">Your remark, as the teacher will see it:</p>
+          <p className="confirm-dialog__quote">{rejectionNote.trim()}</p>
+        </>
+      ),
+      confirmLabel: 'Reject grade',
+      danger: true,
+    })
+    if (!ok) return
     setError(null)
     setMessage(null)
     setActing(true)
@@ -276,23 +328,42 @@ export function VerifyGradesPage() {
               label: 'Select all grades on this page',
             }}
             rowActions={(r) => [
+              {
+                key: 'breakdown',
+                label: 'View breakdown',
+                icon: Calculator,
+                onSelect: () => showBreakdown(`${r.first_name} ${r.last_name} — ${r.subject_name}`, r.computation, r.grade_value),
+              },
               { key: 'verify', label: 'Verify', icon: ShieldCheck, disabled: acting, onSelect: () => verifyGradeIds([r.id]) },
               { key: 'reject', label: 'Reject', icon: ShieldX, danger: true, disabled: acting, onSelect: () => startReject(r.id) },
             ]}
             renderExpanded={(r) =>
               rejectingId === r.id ? (
                 <form onSubmit={handleReject} className="grade-reject-form">
+                  {/* Suggestions and the note stack in one column beside the
+                      buttons, so the note keeps the full width it had. */}
+                  <div className="grade-reject-form__body">
+                  <div className="remark-suggestions" role="group" aria-label="Suggested remarks">
+                    <span className="remark-suggestions__label">Suggested remarks — click one to use it, then edit if needed</span>
+                    {REJECTION_REMARKS.map((remark) => (
+                      <button type="button" key={remark} onClick={() => applyRemark(remark)} disabled={acting}>
+                        {remark}
+                      </button>
+                    ))}
+                  </div>
                   <textarea
                     value={rejectionNote}
                     onChange={(e) => setRejectionNote(e.target.value)}
                     required
-                    rows={2}
+                    rows={3}
+                    aria-label="Rejection remark"
                     placeholder={`Why is ${r.first_name} ${r.last_name}'s ${r.subject_name} grade being rejected?`}
                     autoFocus
                   />
+                  </div>
                   <div className="grade-reject-form__actions">
                     <button type="submit" className="btn-danger" disabled={acting}>
-                      {acting ? 'Rejecting…' : 'Confirm reject'}
+                      {acting ? 'Rejecting…' : 'Reject grade'}
                     </button>
                     <button type="button" onClick={() => setRejectingId(null)} disabled={acting}>
                       Cancel
@@ -328,6 +399,8 @@ export function VerifyGradesPage() {
           </div>
         </>
       )}
+      {confirmDialog}
+      {breakdownDialog}
     </div>
   )
 }

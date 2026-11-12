@@ -11,6 +11,8 @@ import { formatGrade } from '../utils/formatNumber'
 import { Alert } from '../components/Alert'
 import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 import { DataTable, fieldValue } from '../components/table/DataTable'
+import { useConfirm } from '../hooks/useConfirm'
+import { useGradeBreakdown } from '../components/GradeBreakdown'
 
 // The final stage of CLAUDE.md's 3-stage grade approval chain, done by
 // whoever actually advises the section (sections.adviser_id, not whoever's
@@ -44,6 +46,8 @@ export function GradeFinalizationPage() {
   const [message, setMessage] = useState(null)
   const [loading, setLoading] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
+  const [confirm, confirmDialog] = useConfirm()
+  const [showBreakdown, breakdownDialog] = useGradeBreakdown()
 
   // admin has blanket finalize access by role (the only role that bypasses
   // the adviser_id ownership check — see gradeController.finalizeGrades),
@@ -100,6 +104,26 @@ export function GradeFinalizationPage() {
   }
 
   async function handleFinalize() {
+    // The last step of the chain and the one that cannot be walked back by
+    // the teacher: a finalized grade is official, a resubmission of it is
+    // refused, and the students' risk levels are recalculated from it.
+    const count = verifiedGrades.length
+    const subjects = [...new Set(verifiedGrades.map((g) => g.subject_name).filter(Boolean))]
+    const students = new Set(verifiedGrades.map((g) => g.student_id)).size
+    const ok = await confirm({
+      title: `Finalize ${count} grade${count === 1 ? '' : 's'}?`,
+      message: `These become the official record for ${sectionLabel}, ${periodLabel}. The subject teacher can no longer resubmit them, and each student's risk level is recalculated.`,
+      details: (
+        <p>
+          {students} student{students === 1 ? '' : 's'}
+          {subjects.length > 0 ? ` · ${subjects.slice(0, 3).join(', ')}${subjects.length > 3 ? ` and ${subjects.length - 3} more` : ''}` : ''}
+        </p>
+      ),
+      confirmLabel: 'Finalize grades',
+      danger: true,
+    })
+    if (!ok) return
+
     setError(null)
     setMessage(null)
     setFinalizing(true)
@@ -220,7 +244,19 @@ export function GradeFinalizationPage() {
                 // these marks become the official record, so the digits
                 // need to line up.
                 align: 'right',
-                render: (g) => formatGrade(g.grade_value),
+                plainText: (g) => formatGrade(g.grade_value),
+                // The grade opens its own working: the adviser is about to
+                // make it official, so they can see what it was computed from.
+                render: (g) => (
+                  <button
+                    type="button"
+                    className="link-button"
+                    title="How this grade was computed"
+                    onClick={() => showBreakdown(`${g.first_name} ${g.last_name} — ${g.subject_name}`, g.computation, g.grade_value)}
+                  >
+                    {formatGrade(g.grade_value)}
+                  </button>
+                ),
               },
               {
                 key: 'recorded',
@@ -272,6 +308,8 @@ export function GradeFinalizationPage() {
           )}
         </>
       )}
+      {confirmDialog}
+      {breakdownDialog}
     </div>
   )
 }

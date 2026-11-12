@@ -45,6 +45,8 @@ function createClient(baseUrl) {
     get: (path, opts) => request('GET', path, opts),
     post: (path, opts) => request('POST', path, opts),
     patch: (path, opts) => request('PATCH', path, opts),
+    put: (path, opts) => request('PUT', path, opts),
+    delete: (path, opts) => request('DELETE', path, opts),
     upload,
   };
 }

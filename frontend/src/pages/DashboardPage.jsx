@@ -111,7 +111,7 @@ function getQuickActions(role) {
       ]
     case 'subject_teacher':
       return [
-        { label: 'Submit Grades', to: '/grades/entry', icon: PenLine },
+        { label: 'Class Record', to: '/grades/entry', icon: PenLine },
       ]
     case 'registrar':
       // Enrollment is paper-based now (see CLAUDE.md) — a registrar's main

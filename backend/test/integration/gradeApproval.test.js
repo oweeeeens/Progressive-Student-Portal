@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
 
 const { startTestServer } = require('./helpers/testServer');
 const { createClient } = require('./helpers/client');
+const { submitGrades } = require('./helpers/classRecord');
 const fixtures = require('./helpers/fixtures');
 
 let server;
@@ -92,7 +93,7 @@ after(async () => {
 });
 
 test('a teacher who does not teach this offering cannot submit grades for it', async () => {
-  const res = await api.post('/api/grades', {
+  const res = await submitGrades(api, {
     token: ctx.teacherOther.token,
     body: {
       classOfferingId: ctx.offering.id,
@@ -107,7 +108,7 @@ let gradeXId;
 let gradeYId;
 
 test('the assigned teacher can submit grades for both students (status: submitted)', async () => {
-  const res = await api.post('/api/grades', {
+  const res = await submitGrades(api, {
     token: ctx.teacherOwner.token,
     body: {
       classOfferingId: ctx.offering.id,
@@ -202,7 +203,7 @@ test('finalizing too early only finalizes the verified grade, not the rejected o
 });
 
 test('the teacher resubmits the rejected grade — it returns to submitted and the rejection note clears', async () => {
-  const res = await api.post('/api/grades', {
+  const res = await submitGrades(api, {
     token: ctx.teacherOwner.token,
     body: {
       classOfferingId: ctx.offering.id,
@@ -212,15 +213,16 @@ test('the teacher resubmits the rejected grade — it returns to submitted and t
   });
   assert.equal(res.status, 201);
 
-  const submissions = await api.get(
-    `/api/grades/by-offering?classOfferingId=${ctx.offering.id}&gradingPeriodId=${ctx.period.id}`,
+  // The Class Record now carries each learner's grade row beside the scores.
+  const record = await api.get(
+    `/api/class-record?classOfferingId=${ctx.offering.id}&gradingPeriodId=${ctx.period.id}`,
     { token: ctx.teacherOwner.token }
   );
-  assert.equal(submissions.status, 200);
-  const row = submissions.body.submissions.find((s) => s.student_id === ctx.studentX.id);
-  assert.equal(row.status, 'submitted');
-  assert.equal(row.grade_value, '95.00');
-  assert.equal(row.rejection_note, null);
+  assert.equal(record.status, 200);
+  const row = record.body.learners.find((l) => l.studentId === ctx.studentX.id);
+  assert.equal(row.grade.status, 'submitted');
+  assert.equal(row.grade.value, 95);
+  assert.equal(row.grade.rejectionNote, null);
 });
 
 test('the resubmitted grade goes through verify -> finalize and completes the chain', async () => {

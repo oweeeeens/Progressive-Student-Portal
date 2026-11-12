@@ -220,6 +220,11 @@ export function InterventionsPage() {
       <div className="page-header">
         <h1>Interventions</h1>
       </div>
+      {/* Adviser only (no third parties): this lists the learners in the
+          reader's own advisory section, and nobody else's. */}
+      <p className="help-text mb-3">
+        Learners in your advisory section. Only a learner&apos;s adviser can see, log or update their interventions.
+      </p>
 
       {/* Every status here is a distinct stage of the closed loop, so each
           earns a tile — but only once it has something in it. A row of
@@ -481,8 +486,8 @@ export function InterventionsPage() {
           onPageChange={setPage}
           emptyState={
             <>
-              <p>No interventions logged yet.</p>
-              <p>Log one from a student's detail page when they need follow-up.</p>
+              <p>No interventions logged for your advisory section yet.</p>
+              <p>Log one from Academic Progress Tracking or a learner&apos;s record when they need follow-up.</p>
             </>
           }
           noResultsState={

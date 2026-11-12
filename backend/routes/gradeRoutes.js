@@ -1,8 +1,6 @@
 // Mounted at /api/grades.
 const express = require('express');
 const {
-  recordGrades,
-  getSubmissionsForOffering,
   listSubmittedGrades,
   verifyGrades,
   rejectGrades,
@@ -15,13 +13,10 @@ const { requireRole } = require('../middleware/roleMiddleware');
 const router = express.Router();
 router.use(requireAuth);
 
-// Whoever actually teaches the class offering — not whoever's literal role
-// is 'subject_teacher'. class_offerings.teacher_id doesn't require the
-// role column to match (an adviser can also teach a class), so gating on
-// role here would lock out a legitimate assignment; the real boundary is
-// the ownership check inside recordGrades/getSubmissionsForOffering.
-router.post('/', requireAuth, recordGrades);
-router.get('/by-offering', requireAuth, getSubmissionsForOffering);
+// There is deliberately no "POST /" any more. A grade used to be typed in
+// here; it is now always COMPUTED from the learner's recorded scores and
+// submitted through the Class Record (POST /api/class-record/submit — see
+// classRecordController.js and DepEd Order No. 015, s. 2026, Annex D).
 
 // The principal's review queue and verify/reject actions — genuinely
 // role-based, unlike the others here: there's no "principal assignment"

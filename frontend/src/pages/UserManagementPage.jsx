@@ -126,6 +126,34 @@ function AllAccountsTab() {
 
   async function handleSaveEdit(e) {
     e.preventDefault()
+    // A name change saves straight away. A role or email change asks first:
+    // the role decides what this person can open, and the email is where
+    // their password-reset link goes and what they sign in with.
+    const original = (accounts || []).find((a) => a.id === editingId)
+    const roleChanged = original && original.role !== editForm.role
+    const emailChanged = original && original.email.trim().toLowerCase() !== editForm.email.trim().toLowerCase()
+    if (roleChanged || emailChanged) {
+      const ok = await confirm({
+        title: `Change ${editForm.fullName}'s account?`,
+        message: 'Check these before saving — they change how this person signs in and what they can access.',
+        details: (
+          <ul>
+            {roleChanged && (
+              <li>
+                Role: {ROLE_DISPLAY_LABELS[original.role] || original.role} → <strong>{ROLE_DISPLAY_LABELS[editForm.role] || editForm.role}</strong>. The pages and records they can open change on their next request.
+              </li>
+            )}
+            {emailChanged && (
+              <li>
+                Email: {original.email} → <strong>{editForm.email.trim()}</strong>. They must sign in with the new address from now on.
+              </li>
+            )}
+          </ul>
+        ),
+        confirmLabel: 'Save changes',
+      })
+      if (!ok) return
+    }
     setError(null)
     setSaving(true)
     try {
@@ -468,6 +496,7 @@ function PendingStudentAccountsTab() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [confirm, confirmDialog] = useConfirm()
   const [result, setResult] = useState(null) // { created, failures } | null
 
   function load() {
@@ -509,6 +538,15 @@ function PendingStudentAccountsTab() {
   }
 
   async function handleCreateSelected() {
+    // Creates live logins and shows each temporary password once, so it asks
+    // first and says how many.
+    const count = selected.size
+    const ok = await confirm({
+      title: `Create ${count} student account${count === 1 ? '' : 's'}?`,
+      message: "Each student gets a portal login with a temporary password, shown once on the next screen. They must change it at their first sign-in.",
+      confirmLabel: `Create ${count} account${count === 1 ? '' : 's'}`,
+    })
+    if (!ok) return
     setError(null)
     setCreating(true)
     try {
@@ -679,6 +717,7 @@ function PendingStudentAccountsTab() {
       )}
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      {confirmDialog}
     </div>
   )
 }

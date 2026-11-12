@@ -6,7 +6,7 @@ const { DEFAULT_SUBJECT_CATEGORY } = require('../config/academicTerms');
 
 async function listActiveSubjects() {
   const result = await pool.query(
-    'SELECT id, name, code, grade_level, category FROM subjects WHERE is_active = TRUE ORDER BY name'
+    'SELECT id, name, code, grade_level, category, weight_group FROM subjects WHERE is_active = TRUE ORDER BY name'
   );
   return result.rows;
 }
@@ -32,7 +32,7 @@ async function listSubjectsForAdmin({ search, gradeLevel, includeInactive, page 
   const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
   const dataParams = [...params, limit, offset];
   const dataResult = await pool.query(
-    `SELECT id, name, code, grade_level, category, is_active FROM subjects ${where}
+    `SELECT id, name, code, grade_level, category, weight_group, is_active FROM subjects ${where}
      ORDER BY name LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
     dataParams
   );
@@ -43,20 +43,29 @@ async function listSubjectsForAdmin({ search, gradeLevel, includeInactive, page 
 // how its class offerings are termed — see config/academicTerms.js. It
 // falls back to the default rather than NULL so the column can stay NOT NULL
 // and every read can rely on a value being there.
-async function createSubject({ name, code, gradeLevel, category }) {
+// `weightGroup` is the DepEd DO 015 weight set the subject's grades are
+// computed with (config/gradingPolicy.js). Left out, a core subject is
+// graded as core and anything else as an academic elective — the same
+// 20/50/30 split — until the admin says otherwise.
+async function createSubject({ name, code, gradeLevel, category, weightGroup }) {
+  const resolvedCategory = category || DEFAULT_SUBJECT_CATEGORY;
+  const resolvedGroup = weightGroup || (resolvedCategory === 'core' ? 'core' : 'academic_elective');
   const result = await pool.query(
-    `INSERT INTO subjects (name, code, grade_level, category) VALUES ($1, $2, $3, $4)
-     RETURNING id, name, code, grade_level, category, is_active`,
-    [name, code || null, gradeLevel || null, category || DEFAULT_SUBJECT_CATEGORY]
+    `INSERT INTO subjects (name, code, grade_level, category, weight_group) VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, name, code, grade_level, category, weight_group, is_active`,
+    [name, code || null, gradeLevel || null, resolvedCategory, resolvedGroup]
   );
   return result.rows[0];
 }
 
-async function updateSubject(id, { name, code, gradeLevel, category }) {
+// A missing weightGroup keeps the subject's current one.
+async function updateSubject(id, { name, code, gradeLevel, category, weightGroup }) {
   const result = await pool.query(
-    `UPDATE subjects SET name = $2, code = $3, grade_level = $4, category = $5 WHERE id = $1
-     RETURNING id, name, code, grade_level, category, is_active`,
-    [id, name, code || null, gradeLevel || null, category || DEFAULT_SUBJECT_CATEGORY]
+    `UPDATE subjects SET name = $2, code = $3, grade_level = $4, category = $5,
+            weight_group = COALESCE($6, weight_group)
+     WHERE id = $1
+     RETURNING id, name, code, grade_level, category, weight_group, is_active`,
+    [id, name, code || null, gradeLevel || null, category || DEFAULT_SUBJECT_CATEGORY, weightGroup || null]
   );
   return result.rows[0] || null;
 }

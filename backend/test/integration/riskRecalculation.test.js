@@ -13,6 +13,7 @@ const assert = require('node:assert/strict');
 
 const { startTestServer } = require('./helpers/testServer');
 const { createClient } = require('./helpers/client');
+const { submitGrades } = require('./helpers/classRecord');
 const fixtures = require('./helpers/fixtures');
 const { pool } = require('../../config/db');
 
@@ -70,7 +71,7 @@ after(async () => {
 // like gradeApproval.test.js does — finalizing is what triggers the risk
 // recalculation under test.
 async function finalizeOneGrade(periodId, gradeValue) {
-  const submitRes = await api.post('/api/grades', {
+  const submitRes = await submitGrades(api, {
     token: ctx.teacher.token,
     body: {
       classOfferingId: ctx.offering.id,

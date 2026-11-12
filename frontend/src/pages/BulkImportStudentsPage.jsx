@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Download, Upload, CheckCircle2, XCircle, ArrowLeft, Users } from 'lucide-react'
 import { api } from '../api/client'
+import { useConfirm } from '../hooks/useConfirm'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatDetail } from '../components/StatDetail'
@@ -96,6 +97,7 @@ export function BulkImportStudentsPage() {
   const [result, setResult] = useState(null)
   const [accountResult, setAccountResult] = useState(null) // { created, failures } | null
   const [creatingAccounts, setCreatingAccounts] = useState(false)
+  const [confirm, confirmDialog] = useConfirm()
 
   function resetAll() {
     setStep('upload')
@@ -173,6 +175,16 @@ export function BulkImportStudentsPage() {
   }
 
   async function handleCommit() {
+    // Writes every valid row as a student record in one go, so it asks
+    // first with the same two numbers the review step shows.
+    const ok = await confirm({
+      title: `Import ${summary.validCount} student record${summary.validCount === 1 ? '' : 's'}?`,
+      message: `${summary.validCount} new student record${summary.validCount === 1 ? '' : 's'} will be added from ${fileName || 'your file'}.${
+        summary.invalidCount > 0 ? ` ${summary.invalidCount} row${summary.invalidCount === 1 ? '' : 's'} with errors will be skipped.` : ''
+      }`,
+      confirmLabel: `Import ${summary.validCount}`,
+    })
+    if (!ok) return
     setLoading(true)
     setError(null)
     try {
@@ -195,6 +207,13 @@ export function BulkImportStudentsPage() {
   // "Pending Student Accounts" tab uses — the rows just imported are simply
   // a pre-selected subset (those with an email mapped), not a separate flow.
   async function handleCreateAccounts() {
+    const count = result.insertedIds.length
+    const ok = await confirm({
+      title: `Create ${count} student account${count === 1 ? '' : 's'}?`,
+      message: 'Each student gets a portal login with a temporary password, shown once on the next screen. They must change it at their first sign-in.',
+      confirmLabel: `Create ${count} account${count === 1 ? '' : 's'}`,
+    })
+    if (!ok) return
     setError(null)
     setCreatingAccounts(true)
     try {
@@ -564,6 +583,7 @@ export function BulkImportStudentsPage() {
           </div>
         </div>
       )}
+      {confirmDialog}
     </div>
   )
 }

@@ -62,7 +62,7 @@ export function buildGradeMatrix({ grades, subjects }) {
     const row = rows.get(g.subject_id)
     const existing = row.cells[g.grading_period_id]
     if (!existing || GRADE_STATUS_RANK[g.status] > GRADE_STATUS_RANK[existing.status]) {
-      row.cells[g.grading_period_id] = { value: Number(g.grade_value), status: g.status }
+      row.cells[g.grading_period_id] = { value: Number(g.grade_value), status: g.status, computation: g.computation || null }
     }
   }
 

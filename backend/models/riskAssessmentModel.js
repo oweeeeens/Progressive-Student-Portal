@@ -39,7 +39,7 @@ async function listForDashboard({ sectionIds, gradingPeriodId }) {
   }
 
   const result = await pool.query(
-    `SELECT s.id AS student_id, s.first_name, s.last_name, sec.name AS section_name, sec.grade_level,
+    `SELECT s.id AS student_id, s.first_name, s.last_name, sec.name AS section_name, sec.grade_level, sec.adviser_id,
             ra.average_grade, ra.grade_trend, ra.attendance_rate, ra.attendance_trend,
             ra.risk_score, ra.risk_level, ra.calculated_at
      FROM students s

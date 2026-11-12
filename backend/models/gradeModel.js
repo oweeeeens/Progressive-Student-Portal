@@ -40,10 +40,19 @@ async function getActiveStudentsInOffering(classOfferingId) {
 // A row already finalized is now left exactly as it is, and the caller is
 // told which entries were refused rather than being told everything saved.
 async function upsertSubmittedGrades({ classOfferingId, gradingPeriodId, recordedBy, entries }) {
-  const columns = ['student_id', 'class_offering_id', 'grading_period_id', 'grade_value', 'recorded_by'];
+  // `computation` is the Class Record breakdown the grade was computed from
+  // (services/gradeCalculator.js), stored as a snapshot beside the value.
+  const columns = ['student_id', 'class_offering_id', 'grading_period_id', 'grade_value', 'recorded_by', 'computation'];
   const params = [];
   const valueGroups = entries.map((entry) => {
-    const row = [entry.studentId, classOfferingId, gradingPeriodId, entry.gradeValue, recordedBy];
+    const row = [
+      entry.studentId,
+      classOfferingId,
+      gradingPeriodId,
+      entry.gradeValue,
+      recordedBy,
+      entry.computation ? JSON.stringify(entry.computation) : null,
+    ];
     const placeholders = row.map((value) => {
       params.push(value);
       return `$${params.length}`;
@@ -56,6 +65,7 @@ async function upsertSubmittedGrades({ classOfferingId, gradingPeriodId, recorde
      VALUES ${valueGroups.join(', ')}
      ON CONFLICT (student_id, class_offering_id, grading_period_id)
      DO UPDATE SET grade_value = EXCLUDED.grade_value, recorded_by = EXCLUDED.recorded_by,
+                   computation = EXCLUDED.computation,
                    recorded_at = now(), status = 'submitted',
                    verified_by = NULL, verified_at = NULL,
                    rejected_by = NULL, rejected_at = NULL, rejection_note = NULL,
@@ -106,7 +116,7 @@ async function listSubmittedGrades({ gradingPeriodId, sectionId, page = 1, pageS
   const dataResult = await pool.query(
     `SELECT g.id, g.student_id, st.first_name, st.last_name, g.grade_value,
             sec.name AS section_name, sec.grade_level, subj.name AS subject_name,
-            u.full_name AS recorded_by_name
+            u.full_name AS recorded_by_name, g.computation
      FROM grades g
      JOIN students st ON st.id = g.student_id
      JOIN class_offerings co ON co.id = g.class_offering_id
@@ -163,7 +173,8 @@ async function rejectGrades(gradeIds, rejectedBy, note, gradingPeriodId) {
 async function listPrincipalVerifiedForSection(sectionId, gradingPeriodId) {
   const result = await pool.query(
     `SELECT g.id, g.student_id, s.first_name, s.last_name, g.grade_value,
-            subj.name AS subject_name, u.full_name AS recorded_by_name, v.full_name AS verified_by_name
+            subj.name AS subject_name, u.full_name AS recorded_by_name, v.full_name AS verified_by_name,
+            g.computation
      FROM grades g
      JOIN students s ON s.id = g.student_id
      JOIN class_offerings co ON co.id = g.class_offering_id
@@ -237,7 +248,7 @@ async function finalizeSectionGrades(sectionId, gradingPeriodId, finalizedBy) {
 async function getHistoryForStudent(studentId, schoolYearId) {
   const result = await pool.query(
     `SELECT g.id, g.grade_value, g.status, g.recorded_at, g.finalized_at,
-            co.term,
+            g.computation, co.term,
             subj.id AS subject_id, subj.name AS subject_name, subj.category AS subject_category,
             gp.id AS grading_period_id, gp.name AS grading_period_name,
             gp.sequence_number

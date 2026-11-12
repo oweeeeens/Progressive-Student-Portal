@@ -65,7 +65,7 @@ The client requested removing digital enrollment entirely — they want to keep 
 - **Principal** — verifies/approves grades submitted by subject teachers (see Grade Approval Workflow below). One school-wide position, so they also *read* school-wide: Analytics, the Academic Progress Tracking dashboard, student records, and **Academic Setup — read-only** (school years, sections, subjects, class offerings, grading periods). The structure of the school year is theirs to see; restructuring it stays with the admin, and those four pages hide their write controls rather than letting them fail with a permission error. They hold no advisory section and teach no class, so the attendance and grade-entry pages are not shown to them. Logging interventions stays with advisers and guidance counselors — the principal approves grades and reads the rollup; the per-learner follow-up is not theirs.
 - **Advisers** — see only students in their own advisory section; finalize grades into the official record (final step of the approval workflow)
 - **Subject teachers** — submit initial grades for the classes they actually teach (scoped by class/subject, not by advisory section — a teacher may teach students across multiple sections)
-- **Guidance counselors** — view flagged/at-risk students, log interventions
+- **Guidance counselors** — view flagged/at-risk students (Academic Progress Tracking, Analytics). **Read-only since 2026-11-12: they no longer log or see interventions** (see Part B, "adviser only")
 - **Registrar staff** — manage student records; create student/staff portal accounts once a student has enrolled on paper (see REMOVED: Enrollment Management above)
 - ~~**ICT faculty**~~ — **removed 2026-11-11** with Announcements, the only thing the role did (see REMOVED above).
 - **Students / Parents** — view own records only (no separate parent role yet — out of scope for Phase 1, students role covers this access level)
@@ -126,6 +126,7 @@ Grades are NOT entered directly by one person. They go through a 3-stage approva
 3. **Adviser** inputs the grade into the student's official record (status: Finalized — this is the "official" grade)
 
 - **Rejection handling:** if the Principal rejects a submitted grade, it returns to the Subject Teacher to resubmit (status reverts to Submitted / or a Rejected status with a resubmit action)
+- **Suggested remarks (2026-11-12):** the reject form offers clickable ready-made remarks (`frontend/src/config/rejectionRemarks.js`) that fill the note, which stays editable and required — the teacher reads it on Enter Grades. They are starting points, not a fixed reason list, so nothing about the stored data changed.
 - **A finalized grade is final.** Once the adviser has put a grade into the official record, a subject teacher resubmitting it does *not* take it back to Submitted — the resubmission is refused for that row and the teacher is told why. Without this, a resubmit silently reverted the official grade to a draft and erased who finalized it and when, while the stored risk score went on citing a grade that no longer counted. Correcting a finalized grade is deliberately an adviser's action, not a teacher's.
 - **Risk formula uses only Finalized grades** (post-adviser-input), not grades still in Submitted or Principal-Verified status. Note: this means risk detection may lag behind real-time classroom performance due to the approval pipeline — call this out explicitly as a known limitation in the thesis manuscript (Scope and Limitations chapter), framed as working within the school's existing grade-approval process rather than bypassing it.
 
@@ -167,7 +168,38 @@ Every student is classified into exactly one of three bands per grading period:
 Advisory/encouragement/recognition text is **rule-based** (a fixed message per triggered factor, configured in `backend/config/academicProgress.js`), not AI-generated — kept deterministic and explainable for the same reason the risk formula itself is, and to avoid sending minors' academic data to a third-party service. See `backend/services/academicProgressCalculator.js` for the band/advisory logic, layered on top of (not modifying) `riskCalculator.js`.
 
 ## Intervention Tracking Logic (Part B — the closed loop)
-When a student is flagged, the adviser/guidance counselor logs an intervention:
+
+**Adviser only, no third parties (2026-11-12).** The instructor and research
+adviser ruled that a learner's interventions involve **only that learner's
+adviser**: the person in `sections.adviser_id` for the learner's current
+section. Logging, changing status, and reading the record and its notes are
+all theirs alone.
+- **Refused:** admin, principal, guidance counselor, and a teacher who only
+  teaches the section. All get 403, or an empty list and zero counts.
+- **Still allowed:** everyone else sees **anonymous totals** on Analytics.
+  The learner still sees their own on My Progress, because they are the
+  data subject.
+
+**Grounds:**
+- **DepEd's Homeroom Guidance Program:** the class adviser follows up their
+  own learners and refers to the guidance counselor only when counseling is
+  needed. In the System that referral is recorded by the adviser as a
+  "Counseling Referral".
+- **Data Privacy Act (RA 10173), Sec. 11 — proportionality.**
+- **RA 9258:** counseling itself is for licensed counselors. The System only
+  records the referral.
+
+**Implementation:**
+- `studentModel.isAdvisedBy` and `appendAdviserOnlyClause`.
+- No `requireRole` on the intervention routes: advising is an assignment,
+  not a role.
+- `canLogIntervention` on Academic Progress rows.
+- The sidebar link is earned by advising a section.
+- The activity feed and home-task counts are scoped to advisory learners.
+
+**Tests:** `test/integration/interventionAccess.test.js`.
+
+When a student is flagged, their adviser logs an intervention:
 - Fields: intervention type (Parent Conference / Tutoring Referral / Counseling Referral / Attendance Follow-up / Other), notes, date logged
 - Status: **Open → Monitoring → Resolved / Escalated**
 - On next grading period's risk recalculation, auto-compare new risk level to the risk level at time of intervention:
@@ -277,6 +309,98 @@ inside `AnalyticsPage.jsx`; they are now `utils/performanceBands.js`, shared
 with the home page. Two copies of "which colour is At Risk — Medium" would
 have drifted, and the same learner would have been a different colour on two
 pages of one product.
+
+## Class Record: Grades Are Computed, Never Typed (2026-11-12)
+
+**The research adviser's objection:** a teacher typing a final grade into
+Enter Grades is wrong. A grade must be computed from the learner's recorded
+scores, and anyone reading it must be able to see the breakdown. DepEd says
+the same. So **Enter Grades is gone**: `POST /api/grades` no longer exists,
+and `/grades/entry` is now the **Class Record**
+(`frontend/src/pages/ClassRecordPage.jsx`).
+
+**Source: DepEd Order No. 015, s. 2026, Annex D**, pp. 35–39 (signed 4 June
+2026; it replaces DO 8, s. 2015 and matches the school's three terms). Every
+number was read from the signed scanned PDF itself, not from a summary. The
+order's own worked examples (Table 5 gives 88; Table 6, zero-based, gives
+84) are test cases in `scripts/testGradeCalculator.js`, and both pass. All
+numbers live in `backend/config/gradingPolicy.js`:
+
+- **Components.**
+  - Written/Oral Works (WW).
+  - Product/Performance Tasks (PT).
+  - Examinations (EX) = Summative Test 1 (30%) + Summative Test 2 (30%) +
+    Term Exam (40%). Field Exposure groups have a Term Exam only (¶7).
+- **SHS weights (Table 2), per `subjects.weight_group`** (WW / PT / EX):
+  - core 20/50/30;
+  - academic elective 20/50/30;
+  - arts, sports and wellness 20/60/20;
+  - field exposure 15/70/15;
+  - research and design 40/60/–;
+  - TechPro elective 15/65/20;
+  - work immersion 20/80/–.
+
+  The admin sets the group on the Subjects form.
+- **Steps.** Total raw score per component → PS = raw ÷ HPS × 100 → WS =
+  PS × weight → Initial Grade = sum of the WSs → Term Grade.
+  - PS and WS are rounded to two decimals at each step, so the breakdown on
+    screen adds up exactly.
+  - The Term Grade uses the **adjusted transmutation table for SY
+    2026–2027** (Table 4: IG 70.00 → 75; 60 is the minimum reported grade).
+  - `GRADING_MODE=zero_based` switches to no transmutation. The order
+    schedules zero-based grading for SY 2027–28 for Grades 4–10 only and
+    names no date for SHS, so it stays a switch.
+- **Attendance and participation are NOT grade components.** The order
+  grades only WW, PT and EX. Participation can count only if the teacher
+  records it as a Performance Task item.
+- **A blank is not a zero.** A learner with any score missing has no
+  computed grade. The page names what is missing, and submit skips them.
+
+**Data** (migration `20261112120000000_add-class-record.sql`, **15 tables
+now**):
+- `assessment_items`: class offering, term, component, exam part, title,
+  highest possible score.
+- `assessment_scores`: one learner's raw score on one item.
+- `grades.computation` (JSONB): a snapshot of the breakdown taken at
+  submission, so a grade on record always shows the figures it came from.
+- `subjects.weight_group`.
+
+**Flow.** The teacher records items and scores → the page previews each
+learner's grade live (`utils/gradeCalculator.js`, fed DepEd's numbers by the
+server's `policy`) → **Submit for review**, where the server recomputes from
+the stored scores (`classRecordController.submitClassRecord`) and writes the
+grade and its snapshot through the unchanged `gradeModel.upsertSubmittedGrades`.
+- The approval chain and the risk formula did not change. Risk still reads
+  only finalized `grade_value`.
+- A finalized learner's scores, and the items behind them, are locked
+  (409).
+- **Who can read a record:** the teacher, the section's adviser, the
+  principal and admin. **Who can write:** the teacher and admin. All of
+  this is by assignment.
+
+**The breakdown is shown everywhere a grade is**
+(`components/GradeBreakdown.jsx`, the "View breakdown" action):
+- Verify Grades;
+- Finalize Grades;
+- the staff Grades tab;
+- the learner's My Grades.
+
+**Demo data.** `npm run backfill:class-records` gave all 495 pre-existing
+demo grades a class record. Its scores compute exactly to the grade each
+learner already had: 0 failures, and no value or status changed.
+`seedDemoAcademicData.js` now seeds through the Class Record API, using
+`scripts/lib/demoClassRecord.js`. **Never run the backfill on real
+learners**: real grades get real scores.
+
+**Tests:** `testGradeCalculator.js` (109 checks) and
+`test/integration/classRecord.test.js`. The other suites now create grades
+through `test/integration/helpers/classRecord.js`, which records scores that
+compute to the wanted grade.
+
+**Still to build:** the bulk import of the school's grade-computing
+spreadsheet. It is waiting on a copy of the school's actual file, so that it
+reads that exact layout and can cross-check the sheet's own computed grades
+against ours.
 
 ## Subjects Per Term, Grades Per Term
 
@@ -669,6 +793,29 @@ Based on a reference college portal design the team liked — apply these patter
     "no". Reactivating stays one click. The consequence text states only what
     the system really does — deactivating a section with recorded history is
     refused by the server, so the dialog does not promise that records "stay".
+
+    **Extended system-wide on 2026-11-12, at the group's request.** Every
+    *important* action now confirms, naming the object and the consequence,
+    with a short summary in the dialog's `details` slot (counts, class and
+    term, the note being sent):
+    - Log out (folds the unsaved-changes warning into the same dialog).
+    - The whole grade chain: submit (class, term, who is still without a
+      grade), verify one or a selection, reject (quotes the remark back),
+      and finalize (official record, no resubmission, risk recalculated).
+    - Saving daily attendance (section, date, counts; says when it replaces
+      a recorded day).
+    - Both bulk-import commits, and bulk student-account creation.
+    - Logging an intervention, and changing an intervention's status. The
+      status check lives in the shared `InterventionDetailPanel`, so both
+      entry points get it.
+    - Setting the current school year.
+    - Editing an account **only when its role or email changes**.
+
+    **Ordinary form saves deliberately do not confirm** — creating or
+    editing a student, subject, section, class offering, school year or
+    grading period, or an account's name. Filling a form and pressing Save is
+    already deliberate; asking twice on every save trains people to click
+    through the dialogs that matter. That boundary was the group's choice.
 13. **One content width.** The page column is capped at `--page-max-width`
     (1360px) through `--page-gutter` in `Layout.css`, which the top bar
     shares so the breadcrumbs line up with the title. Without it, list pages

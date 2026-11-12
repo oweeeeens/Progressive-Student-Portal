@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { useConfirm } from '../hooks/useConfirm'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
 import { StatDetail } from '../components/StatDetail'
@@ -171,6 +172,7 @@ export function BulkImportAttendancePage() {
   // Step 4 — the plan, and a decision per already-recorded date.
   const [plan, setPlan] = useState(null)
   const [conflictDecisions, setConflictDecisions] = useState({})
+  const [confirm, confirmDialog] = useConfirm()
 
   const [result, setResult] = useState(null)
   const { openFor, close: closeStat, cardProps } = useStatExplainer('attendance-import-stat-detail')
@@ -300,6 +302,34 @@ export function BulkImportAttendancePage() {
   }
 
   async function handleCommit() {
+    // Writes the official daily register for every day on the sheet, so it
+    // asks first with the same figures as the review step: days written,
+    // days overwritten, days kept, and that risk is recalculated.
+    const dateCount = plan.summary.dateCount
+    const overwriteCount = plan.conflicts.filter((c) => conflictDecisions[c.date] === 'overwrite').length
+    const daysToWrite = dateCount - skippedCount
+    const ok = await confirm({
+      title: `Import attendance for ${daysToWrite} day${daysToWrite === 1 ? '' : 's'}?`,
+      message: `${plan.summary.entryCount} attendance mark${plan.summary.entryCount === 1 ? '' : 's'} will be written to the daily (SF2) register, and the affected students' risk levels are recalculated.`,
+      details:
+        overwriteCount > 0 || skippedCount > 0 ? (
+          <ul>
+            {overwriteCount > 0 && (
+              <li>
+                {overwriteCount} day{overwriteCount === 1 ? '' : 's'} already recorded will be overwritten with this sheet.
+              </li>
+            )}
+            {skippedCount > 0 && (
+              <li>
+                {skippedCount} day{skippedCount === 1 ? '' : 's'} already recorded will be kept as they are.
+              </li>
+            )}
+          </ul>
+        ) : null,
+      confirmLabel: 'Import attendance',
+      danger: overwriteCount > 0,
+    })
+    if (!ok) return
     setLoading(true)
     setError(null)
     try {
@@ -850,6 +880,7 @@ export function BulkImportAttendancePage() {
           </div>
         </div>
       )}
+      {confirmDialog}
     </div>
   )
 }

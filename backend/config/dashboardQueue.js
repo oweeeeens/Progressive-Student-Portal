@@ -63,11 +63,11 @@ const QUEUE_ITEMS = {
     urgency: 'now',
   },
   submit_grades: {
-    title: 'Enter grades for this term',
-    detail: 'Classes you teach that run in this term with no grade entered yet.',
+    title: 'Record scores for this term',
+    detail: 'Classes you teach that run in this term with no computed grade submitted yet.',
     unit: 'class',
     href: '/grades/entry',
-    linkLabel: 'Enter Grades',
+    linkLabel: 'Class Record',
     area: 'grades',
     urgency: 'routine',
   },
@@ -76,7 +76,7 @@ const QUEUE_ITEMS = {
     detail: 'Sent back by the principal. These stay out of the official record until you resubmit.',
     unit: 'grade',
     href: '/grades/entry',
-    linkLabel: 'Enter Grades',
+    linkLabel: 'Class Record',
     area: 'grades',
     urgency: 'now',
   },
@@ -133,13 +133,13 @@ const QUEUE_ITEMS = {
 //
 // The principal appears with one item only, and that is the point: CLAUDE.md
 // is explicit that they approve grades and read the rollup, while the
-// per-learner follow-up belongs to advisers and guidance counselors.
+// per-learner follow-up belongs to the learner's adviser alone (interventions
+// are adviser-only), which is why the guidance counselor has no items here.
 // Students appear nowhere: nothing in this list is a learner's job.
 const ROLE_ITEMS = {
   principal: ['verify_grades'],
   admin: ['verify_grades', 'pending_student_accounts', 'temporary_passwords'],
   registrar: ['pending_student_accounts'],
-  guidance_counselor: ['flagged_without_support', 'stale_interventions'],
 };
 
 // Items earned by advising at least one section.

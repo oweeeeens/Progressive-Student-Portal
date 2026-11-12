@@ -35,7 +35,7 @@
 //    isSchoolDay below.
 const { pool } = require('../config/db');
 const { todayInSchoolTimezone } = require('../utils/schoolDate');
-const { appendScopeClause, BASE_FROM } = require('./studentModel');
+const { appendAdviserOnlyClause, BASE_FROM } = require('./studentModel');
 const gradingPeriodModel = require('./gradingPeriodModel');
 const sectionModel = require('./sectionModel');
 const classOfferingModel = require('./classOfferingModel');
@@ -161,7 +161,9 @@ async function countRejectedGrades(teacherId, gradingPeriodId) {
 async function countFlaggedWithoutSupport(user, gradingPeriodId) {
   const clauses = ['s.is_active = TRUE', 'ra.grading_period_id = $1', 'ra.risk_score > 0'];
   const params = [gradingPeriodId];
-  appendScopeClause(user, clauses, params);
+  // Interventions are the learner's adviser's alone, so these two count
+  // advisory learners only — never a section the user merely teaches.
+  appendAdviserOnlyClause(user, clauses, params);
 
   const result = await pool.query(
     `SELECT COUNT(*)::int AS count
@@ -188,7 +190,9 @@ async function countStaleInterventions(user, today) {
     `i.date_logged < $1::date - $2::int`,
   ];
   const params = [today, STALE_INTERVENTION_DAYS];
-  appendScopeClause(user, clauses, params);
+  // Interventions are the learner's adviser's alone, so these two count
+  // advisory learners only — never a section the user merely teaches.
+  appendAdviserOnlyClause(user, clauses, params);
 
   const result = await pool.query(
     `SELECT COUNT(*)::int AS count
