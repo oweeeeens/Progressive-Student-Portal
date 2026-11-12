@@ -113,21 +113,31 @@ async function main() {
       client.release();
     }
   }
-  console.log(`Backfilled ${filled} grade(s) across ${groups.rows.length} class/term record(s); ${skipped} could not be reproduced.`);
-  await pool.end();
+  const summary = `Backfilled ${filled} grade(s) across ${groups.rows.length} class/term record(s); ${skipped} could not be reproduced.`;
+  return { filled, skipped, summary };
 }
 
-if (ON_DEPLOY && String(process.env.BACKFILL_CLASS_RECORDS).toLowerCase() === 'false') {
-  console.log('Class-record backfill skipped: BACKFILL_CLASS_RECORDS=false.');
-  process.exit(0);
-}
+// Used by server.js on a deployment (services/demoClassRecordsOnStart.js),
+// where the pool stays open for the app. Run directly, it is the CLI below.
+module.exports = { backfillClassRecords: main };
 
-main().catch(async (err) => {
-  console.error(err);
-  await pool.end().catch(() => {});
-  if (ON_DEPLOY) {
-    console.error('Class-record backfill failed; the deploy continues without it.');
+if (require.main === module) {
+  if (ON_DEPLOY && String(process.env.BACKFILL_CLASS_RECORDS).toLowerCase() === 'false') {
+    console.log('Class-record backfill skipped: BACKFILL_CLASS_RECORDS=false.');
     process.exit(0);
   }
-  process.exit(1);
-});
+  main()
+    .then(async ({ summary }) => {
+      console.log(summary);
+      await pool.end();
+    })
+    .catch(async (err) => {
+      console.error(err);
+      await pool.end().catch(() => {});
+      if (ON_DEPLOY) {
+        console.error('Class-record backfill failed; the deploy continues without it.');
+        process.exit(0);
+      }
+      process.exit(1);
+    });
+}

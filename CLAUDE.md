@@ -393,10 +393,16 @@ learner already had: 0 failures, and no value or status changed.
 `seedDemoAcademicData.js` now seeds through the Class Record API, using
 `scripts/lib/demoClassRecord.js`.
 
-**The backfill runs on every Railway deploy (2026-11-13).** It is run with
-`--on-deploy` from `npm run deploy:prepare`, railway.json's pre-deploy step,
-straight after migrations. That way the live demo shows class records
-without anyone running a script by hand.
+**The backfill runs on every Railway deploy (2026-11-13).** It runs when
+the server starts on a deployment: in the background, after it is listening,
+from `services/demoClassRecordsOnStart.js`. It logs to the Deploy Logs as
+`[class-records]`. That way the live demo shows class records without anyone
+running a script by hand.
+- **Why not the pre-deploy step:** it was first run there, but its output
+  never appeared in the service's Deploy Logs, so nobody could tell whether
+  it had run.
+- **Where it runs:** never on a developer machine or in the tests. It needs
+  `NODE_ENV=production` or Railway's own `RAILWAY_ENVIRONMENT`.
 - **Safe to repeat:** it only touches grades whose `computation` is empty.
   Those can only be grades typed in before the Class Record existed, which
   are the demo grades. Every grade submitted since carries its breakdown, so
@@ -408,7 +414,7 @@ without anyone running a script by hand.
 
 **Then every current learner gets a record** —
 `scripts/fillDemoClassRecords.js` (`npm run fill:demo-class-records`), the
-next step of `deploy:prepare`. The backfill only builds a record behind an
+second step of that same start-up run. The backfill only builds a record behind an
 existing grade, and on the live demo many learners had no grade in many
 classes, so their Class Record stayed empty. For each active class this
 school year, each term that has started, and each active learner with no

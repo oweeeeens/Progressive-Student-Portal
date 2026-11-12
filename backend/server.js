@@ -62,6 +62,9 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     logEmailConfiguration();
+    // Sample class records for the live demo — deployment only, in the
+    // background, never fatal (services/demoClassRecordsOnStart.js).
+    require('./services/demoClassRecordsOnStart').ensureDemoClassRecords();
   });
 }
 

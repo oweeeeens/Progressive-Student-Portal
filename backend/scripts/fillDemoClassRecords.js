@@ -82,8 +82,7 @@ async function main() {
   const today = todayInSchoolTimezone();
   const year = (await pool.query('SELECT id, label FROM school_years WHERE is_current = TRUE LIMIT 1')).rows[0];
   if (!year) {
-    console.log('No current school year — nothing to fill.');
-    return;
+    return { summary: 'No school year is marked current — nothing to fill. Set one in Academic Setup → School Years.' };
   }
   const periods = (
     await pool.query(
@@ -242,25 +241,38 @@ async function main() {
     }
   }
 
-  console.log(
-    `Class records filled for ${year.label}: ${learnersFilled} learner(s) across ${records} class/term record(s); ` +
-      `${gradesFinalized} grade(s) finalized for ended terms; ${skipped} could not be reproduced.`
-  );
+  // What was looked at is part of the summary, so a deploy log that says
+  // "0 learners" also says whether that is because everything is already
+  // filled or because there was nothing to look at.
+  const summary =
+    `Class records filled for ${year.label} (${offerings.length} active class(es), ` +
+    `${periods.length} term(s) started: ${periods.map((p) => p.name).join(', ') || 'none'}): ` +
+    `${learnersFilled} learner(s) across ${records} class/term record(s); ` +
+    `${gradesFinalized} grade(s) finalized for ended terms; ${skipped} could not be reproduced.`;
+  return { learnersFilled, gradesFinalized, skipped, summary };
 }
 
-if (ON_DEPLOY && String(process.env.BACKFILL_CLASS_RECORDS).toLowerCase() === 'false') {
-  console.log('Class-record fill skipped: BACKFILL_CLASS_RECORDS=false.');
-  process.exit(0);
-}
+// Used by server.js on a deployment (services/demoClassRecordsOnStart.js),
+// where the pool stays open for the app. Run directly, it is the CLI below.
+module.exports = { fillDemoClassRecords: main };
 
-main()
-  .then(() => pool.end())
-  .catch(async (err) => {
-    console.error(err);
-    await pool.end().catch(() => {});
-    if (ON_DEPLOY) {
-      console.error('Class-record fill failed; the deploy continues without it.');
-      process.exit(0);
-    }
-    process.exit(1);
-  });
+if (require.main === module) {
+  if (ON_DEPLOY && String(process.env.BACKFILL_CLASS_RECORDS).toLowerCase() === 'false') {
+    console.log('Class-record fill skipped: BACKFILL_CLASS_RECORDS=false.');
+    process.exit(0);
+  }
+  main()
+    .then(async ({ summary }) => {
+      console.log(summary);
+      await pool.end();
+    })
+    .catch(async (err) => {
+      console.error(err);
+      await pool.end().catch(() => {});
+      if (ON_DEPLOY) {
+        console.error('Class-record fill failed; the deploy continues without it.');
+        process.exit(0);
+      }
+      process.exit(1);
+    });
+}
