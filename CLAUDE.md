@@ -691,6 +691,31 @@ now also returns `passingGrade` and `currentPeriodId` (school timezone). The
 attendance calendar was shrunk at the same time — capped at 22rem with fixed
 2rem cells, the days missed or late listed beside it (`.attendance-split`).
 
+**2026-11-13: the learner's own My Grades went back to term TABS, with ONE
+list per term.** The group asked for it, because the stacked page had become
+one long scroll on a phone. The cause was repetition, not the stacking: every
+grade was printed three times (the term tables, "Your Scores", and the
+whole-year grid), seven tables before the one chart.
+
+Now (`pages/StudentGradesPage.jsx`, `components/MyTermGrades.jsx`):
+- **Tabs:** the summary figures, then one tab per term, opening on the
+  current term ("Term 2 · Now"), plus a **Whole year** tab holding the grid
+  and the Movement chart.
+- **One row per subject in each term:** the grade (official, or the class
+  record's computed grade marked *Provisional*), its status, and the change
+  since the term before.
+- **Tap a row** to see the quiz, task and exam scores the grade came from,
+  with each component's weight and PS, the initial grade → term grade, and
+  "How this was computed".
+- **On a phone** a row stacks into two lines, and the four summary figures
+  sit two by two.
+- **Checked** with axe at 1440, 390 and 320 px: no violations and no
+  overflow.
+
+The **staff** Grades tab on a learner's record keeps the stacked tables and
+the full class-record tab. A staff reader compares across terms; a learner
+asks about one term at a time.
+
 **The printed report card had the same flaw, and paper has no tabs.** It now
 prints `n/a` for a term a subject was not taught in and a dash for one taught
 with no final mark, with a one-line legend — and only where the data

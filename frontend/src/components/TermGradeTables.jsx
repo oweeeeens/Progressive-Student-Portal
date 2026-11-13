@@ -2,7 +2,7 @@ import { ArrowUp, ArrowDown } from 'lucide-react'
 import { DataTable } from './table/DataTable'
 import { StatusPill } from './StatusPill'
 import { offeringCoversPeriod, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
-import { GRADE_STATUS_NOTES, finalizedAverageForPeriod } from '../utils/gradeMatrix'
+import { GRADE_STATUS_NOTES, GRADE_STATUS_LABELS, GRADE_STATUS_VARIANTS, finalizedAverageForPeriod } from '../utils/gradeMatrix'
 import { useGradeBreakdown } from './GradeBreakdown'
 
 // One learner's grades as ONE TABLE PER TERM, stacked Term 1 → Term 3.
@@ -18,24 +18,6 @@ import { useGradeBreakdown } from './GradeBreakdown'
 // mirroring the server): a Grade 12 class that runs for one term appears only
 // in that term, a whole-year or specialized subject in all three.
 
-// The four statuses a grade can hold, as the approval chain defines them:
-// submitted → principal_verified → finalized, plus rejected. The colours are
-// the non-risk status palette, never the risk ramp — a grade awaiting
-// verification is not an at-risk student (see CLAUDE.md).
-const GRADE_STATUS_VARIANTS = {
-  submitted: 'info',
-  principal_verified: 'warning',
-  finalized: 'positive',
-  rejected: 'negative',
-}
-
-// The stored values carry underscores; a reader should not have to.
-const GRADE_STATUS_LABELS = {
-  submitted: 'Submitted',
-  principal_verified: 'Verified by principal',
-  finalized: 'Finalized',
-  rejected: 'Returned to teacher',
-}
 
 // Props:
 //   gradingPeriods  — the school year's terms, any order (sorted here)

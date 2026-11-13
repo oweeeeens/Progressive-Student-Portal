@@ -9,18 +9,31 @@ import { StatusPill } from '../components/StatusPill'
 import { ChartCard } from '../components/charts/ChartCard'
 import { ChangeBarChart } from '../components/charts/ChangeBarChart'
 import { DataTable } from '../components/table/DataTable'
-import { TermGradeTables } from '../components/TermGradeTables'
+import { Tabs } from '../components/Tabs'
+import { MyTermGrades } from '../components/MyTermGrades'
+import { useGradeBreakdown } from '../components/GradeBreakdown'
+import { SkeletonTable } from '../components/Skeleton'
 import { buildGradeMatrix, GRADE_STATUS_NOTES } from '../utils/gradeMatrix'
+import { offeringCoversPeriod } from '../utils/academicTerms'
 import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
-import { StudentClassRecord } from '../components/StudentClassRecord'
+import './StudentGradesPage.css'
 
-// The student's grades, on their own page: the report-card matrix and the
-// per-subject comparison for the current period.
+// The student's grades, on their own page.
 //
 // Split out of the home page once that page had grown to roughly four
 // screens. Home keeps what a student needs at a glance — the figures, the
 // advice, the trends — and the detail they came looking for on purpose
 // lives here, one click away rather than four scrolls down.
+//
+// LAYOUT (2026-11-13): the summary figures, then TABS — one per term,
+// opening on the term the school is in, plus "Whole year". Each term is one
+// list (components/MyTermGrades.jsx): a row per subject with its grade,
+// status and movement, and the scores behind the grade folded inside the
+// row. Before this the page printed every grade three times — a table per
+// term, the class record per term, and the whole-year grid — which made it
+// one very long scroll on a phone. The whole-year grid and the Movement
+// chart answer a different question ("how is my year going?"), so they
+// have their own tab rather than sitting under the term lists.
 
 // One panel serves all four figures, so one id covers every card's
 // aria-controls — they all point at the same region.
@@ -121,6 +134,12 @@ export function StudentGradesPage() {
   const [expandedSubject, setExpandedSubject] = useState(null)
   // Which summary figure is currently explaining itself, or null.
   const [openStat, setOpenStat] = useState(null)
+  // The learner's class record — every score behind every grade — fetched
+  // once for all the term tabs. Null while loading.
+  const [classRecord, setClassRecord] = useState(null)
+  const [classRecordError, setClassRecordError] = useState(null)
+  // One "how was this computed" dialog for every grade on the page.
+  const [showBreakdown, breakdownDialog] = useGradeBreakdown()
 
   // The student-scoped endpoints carry no :id — they resolve the caller's
   // own record server-side (see backend/controllers/myProgressController.js).
@@ -145,7 +164,18 @@ export function StudentGradesPage() {
       .get(`/students/${student.id}/grades`)
       .then((data) => setGrades(data.grades))
       .catch((err) => setError(err.message))
+    api
+      .get(`/students/${student.id}/class-record`)
+      .then(setClassRecord)
+      .catch((err) => setClassRecordError(err.message))
   }, [student])
+
+  // Class-record subjects by subject, so a term row can find the scores
+  // behind its grade.
+  const recordBySubject = useMemo(
+    () => (classRecord ? new Map(classRecord.subjects.map((s) => [s.subjectId, s])) : null),
+    [classRecord]
+  )
 
   const passingGrade = subjects?.passingGrade ?? subjectGrades?.passingGrade ?? null
 
@@ -217,6 +247,16 @@ export function StudentGradesPage() {
     [gradingPeriods, subjectGrades]
   )
 
+  const periods = useMemo(() => [...gradingPeriods].sort((a, b) => a.sequence_number - b.sequence_number), [gradingPeriods])
+
+  // Which tab opens: the term the school is in; between terms, the latest
+  // term that has any mark; otherwise the first term.
+  const defaultTab = useMemo(() => {
+    if (currentPeriodId) return `term-${currentPeriodId}`
+    const marked = [...periods].reverse().find((p) => gradeMatrix.some((r) => r.cells[p.id]))
+    return marked ? `term-${marked.id}` : periods[0] ? `term-${periods[0].id}` : 'year'
+  }, [currentPeriodId, periods, gradeMatrix])
+
   function toggleStat(key) {
     setOpenStat((current) => (current === key ? null : key))
   }
@@ -233,7 +273,7 @@ export function StudentGradesPage() {
   }
 
   return (
-    <div>
+    <div className="student-grades">
       <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'My Grades' }]} />
 
       <div className="page-header">
@@ -305,65 +345,76 @@ export function StudentGradesPage() {
         </>
       )}
 
-      <div className="record-section">
-        <h2>Your Subjects &amp; Grades</h2>
-        {/* One table per term, stacked Term 1 → Term 3, so every term is
-            visible at once. A Grade 12 learner does not take the same
-            subjects all year — core and applied subjects change every term —
-            so each table lists only the subjects running in it, and a dash
-            there can only mean "no mark recorded yet". Which term a class
-            runs in comes from its own term setting; a specialized subject
-            runs all three (utils/academicTerms.js). The same component is
-            the staff Grades tab on this learner's record. */}
-        <TermGradeTables
-          gradingPeriods={gradingPeriods}
-          rows={gradeMatrix}
-          passingGrade={passingGrade}
-          currentPeriodId={currentPeriodId}
-          error={error}
-        />
+      <div className="my-grades">
+        <h2 className="sr-only">Your grades by term</h2>
+        {periods.length === 0 || grades === null ? (
+          // Until the terms and grades arrive, draw the shape that is coming.
+          error ? null : <SkeletonTable rows={6} columns={4} />
+        ) : (
+          <Tabs
+            // Remount when the opening tab is first known, so it opens there.
+            key={defaultTab}
+            defaultTab={defaultTab}
+            tabs={[
+              ...periods.map((period, index) => ({
+                key: `term-${period.id}`,
+                label: period.id === currentPeriodId ? `${period.name} · Now` : period.name,
+                content: (
+                  <MyTermGrades
+                    period={period}
+                    previousPeriod={periods[index - 1] || null}
+                    // Only the subjects running in this term — a Grade 12
+                    // subject changes every term, a specialized one runs
+                    // all year (utils/academicTerms.js).
+                    rows={gradeMatrix.filter((row) =>
+                      offeringCoversPeriod({ term: row.term, subjectCategory: row.category, periodSequenceNumber: period.sequence_number })
+                    )}
+                    recordBySubject={recordBySubject}
+                    recordError={classRecordError}
+                    isCurrent={period.id === currentPeriodId}
+                    passingGrade={passingGrade}
+                    showBreakdown={showBreakdown}
+                  />
+                ),
+              })),
+              {
+                key: 'year',
+                label: 'Whole year',
+                content: (
+                  <div className="my-grades__year">
+                    <p className="record-section__note">
+                      Every subject against every term, the way a report card lays it out. Select a subject to see each
+                      of its marks and who to ask about them.
+                    </p>
+                    <WholeYearGrid
+                      gradeMatrix={gradeMatrix}
+                      gradingPeriods={periods}
+                      passingGrade={passingGrade}
+                      error={error}
+                      expandedSubject={expandedSubject}
+                      setExpandedSubject={setExpandedSubject}
+                    />
+                    <ChartCard
+                      title="Movement Since Last Term"
+                      description="How each subject changed between its last two finalized marks — biggest drop first."
+                      legend={[
+                        { label: 'Improved', color: 'var(--band-performing-well)' },
+                        { label: 'Dropped', color: 'var(--band-at-risk-high)' },
+                      ]}
+                      isEmpty={subjectChanges.length === 0}
+                      emptyMessage="Two terms of finalized marks are needed before movement can be shown."
+                      interpretation={describeMovement(subjectChanges)}
+                    >
+                      <ChangeBarChart rows={subjectChanges} />
+                    </ChartCard>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        )}
       </div>
-
-      {/* Every score behind each grade, so the learner can see exactly
-          what their grade was computed from. */}
-      {student && (
-        <div className="record-section">
-          <h2>Your Scores</h2>
-          <StudentClassRecord studentId={student.id} />
-        </div>
-      )}
-
-      <div className="record-section">
-        <h2>Whole Year at a Glance</h2>
-        <p className="record-section__note">
-          Every subject against every term in one grid. Select a subject to see each of its
-          marks and who to ask about them.
-        </p>
-        <WholeYearGrid
-          gradeMatrix={gradeMatrix}
-          gradingPeriods={gradingPeriods}
-          passingGrade={passingGrade}
-          error={error}
-          expandedSubject={expandedSubject}
-          setExpandedSubject={setExpandedSubject}
-        />
-      </div>
-
-      <div className="record-section">
-        <ChartCard
-          title="Movement Since Last Period"
-          description="How each subject changed between its last two finalized marks — biggest drop first."
-          legend={[
-            { label: 'Improved', color: 'var(--band-performing-well)' },
-            { label: 'Dropped', color: 'var(--band-at-risk-high)' },
-          ]}
-          isEmpty={subjectChanges.length === 0}
-          emptyMessage="Two grading periods of finalized marks are needed before movement can be shown."
-          interpretation={describeMovement(subjectChanges)}
-        >
-          <ChangeBarChart rows={subjectChanges} />
-        </ChartCard>
-      </div>
+      {breakdownDialog}
     </div>
   )
 }

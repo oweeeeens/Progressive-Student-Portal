@@ -14,6 +14,27 @@ export const GRADE_STATUS_RANK = { rejected: 0, submitted: 1, principal_verified
 // Only a finalized mark is the official record (CLAUDE.md's approval
 // workflow), so anything earlier in the pipeline is labelled rather than
 // printed as if it were final. Shown under the mark on the student's view.
+// The four statuses a grade can hold, as the approval chain defines them:
+// submitted → principal_verified → finalized, plus rejected. The colours are
+// the non-risk status palette, never the risk ramp — a grade awaiting
+// verification is not an at-risk student (see CLAUDE.md). Shared by the
+// staff term tables and the learner's My Grades so the two never word or
+// colour a status differently.
+export const GRADE_STATUS_VARIANTS = {
+  submitted: 'info',
+  principal_verified: 'warning',
+  finalized: 'positive',
+  rejected: 'negative',
+}
+
+// The stored values carry underscores; a reader should not have to.
+export const GRADE_STATUS_LABELS = {
+  submitted: 'Submitted',
+  principal_verified: 'Verified by principal',
+  finalized: 'Finalized',
+  rejected: 'Returned to teacher',
+}
+
 export const GRADE_STATUS_NOTES = {
   submitted: 'In review',
   principal_verified: 'In review',

@@ -1,0 +1,291 @@
+/* My Grades (StudentGradesPage.jsx + components/MyTermGrades.jsx).
+   One list per term: a row per subject — grade, status, movement — with the
+   scores behind the grade folded inside the row. Existing tokens only; no
+   new colours. Breakpoints are the system's three, written as literals
+   because custom properties are not valid in a media condition. */
+
+.my-grades {
+  margin-top: var(--space-6);
+}
+
+/* --- The term's summary line --------------------------------------------- */
+.mtg__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.mtg__meta strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.mtg__meta strong.is-below {
+  color: var(--band-at-risk-high);
+}
+.mtg__hint {
+  margin-left: auto;
+  color: var(--color-text-faint);
+}
+
+/* --- The list: one container, rows divided by hairlines ------------------ */
+.mtg__list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.mtg__item + .mtg__item {
+  border-top: 1px solid var(--color-border);
+}
+
+/* A row is a disclosure button the width of the list. Columns: subject,
+   grade, status, movement, chevron. The fixed tracks keep every term's
+   grades on one vertical line, so the eye can run down a column. */
+.mtg__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.5rem 11.5rem 5.5rem 1.25rem;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 3.5rem;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mtg__row:hover {
+  background: var(--color-neutral-bg);
+}
+.mtg__row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+.mtg__item.is-open > .mtg__row {
+  background: var(--color-primary-light);
+}
+
+.mtg__subject {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mtg__name {
+  font-weight: 600;
+  line-height: 1.3;
+}
+.mtg__teacher {
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.mtg__grade {
+  justify-self: end;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.mtg__grade.is-below {
+  color: var(--band-at-risk-high);
+}
+/* Not official yet: the same figure, set lighter, so it never reads as the
+   grade on record. The status pill beside it says so in words. */
+.mtg__grade.is-provisional {
+  font-weight: 500;
+  font-style: italic;
+}
+.mtg__status {
+  min-width: 0;
+}
+.mtg__quiet {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-faint);
+}
+.mtg__movement {
+  justify-self: end;
+  font-size: var(--font-size-sm);
+}
+.mtg__change--flat {
+  color: var(--color-text-muted);
+}
+.mtg__chevron {
+  color: var(--color-text-faint);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mtg__item.is-open .mtg__chevron {
+  transform: rotate(180deg);
+  color: var(--color-primary);
+}
+
+/* --- The scores behind the grade ----------------------------------------- */
+.mtg__detail {
+  padding: var(--space-4) var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+.mtg__note {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.mtg__none {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.mtg__loading {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-4);
+}
+
+/* Written works, performance tasks, examinations: side by side where there
+   is room, stacked on a phone. Separated by space and a hairline, not boxed
+   — they are parts of one breakdown, not three cards. */
+.mtg__components {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-4) var(--space-6);
+}
+.mtg__component h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text);
+}
+.mtg__weight {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.mtg__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mtg__ps {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.mtg__ps strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.mtg__result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+.mtg__result p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+.mtg__result strong {
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  font-variant-numeric: tabular-nums;
+}
+.mtg__result .btn-subtle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* --- Whole year tab ------------------------------------------------------- */
+.my-grades__year {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.my-grades__year .record-section__note {
+  margin: 0;
+}
+
+/* --- Phone ---------------------------------------------------------------- */
+/* Below 720px the hint is dropped (a tap target says it by itself) and the
+   row becomes two lines: the subject across the top, then the grade, its
+   status and its movement on one line beneath — no column to squeeze. */
+@media (max-width: 720px) {
+  .mtg__hint {
+    display: none;
+  }
+  .mtg__row {
+    grid-template-columns: auto minmax(0, 1fr) auto 1.25rem;
+    grid-template-areas:
+      'subject subject subject chevron'
+      'grade status movement chevron';
+    row-gap: var(--space-2);
+    column-gap: var(--space-3);
+    padding: var(--space-3);
+  }
+  .mtg__subject {
+    grid-area: subject;
+  }
+  .mtg__grade {
+    grid-area: grade;
+    justify-self: start;
+  }
+  .mtg__status {
+    grid-area: status;
+  }
+  .mtg__movement {
+    grid-area: movement;
+  }
+  .mtg__chevron {
+    grid-area: chevron;
+    align-self: center;
+  }
+  .mtg__detail {
+    padding: var(--space-3) var(--space-3) var(--space-4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mtg__row,
+  .mtg__chevron {
+    transition: none;
+  }
+}
+
+/* On a phone the four summary figures stacked into one column and filled
+   the whole first screen before the term tabs. Two columns, without the
+   icon circle (the colour and the label already carry the meaning), puts
+   the figures and the first subjects on one screen. Scoped to this page so
+   other stat rows are unaffected. */
+@media (max-width: 720px) {
+  .student-grades .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .student-grades .stat-card {
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+  .student-grades .stat-card__icon {
+    display: none;
+  }
+}
