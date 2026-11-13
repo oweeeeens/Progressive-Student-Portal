@@ -11,6 +11,8 @@ import { useOwnStudentRecord } from '../hooks/useOwnStudentRecord'
 import { humanize } from '../utils/humanize'
 import { formatRegisterDate } from '../utils/dateUtils'
 import { StatusPill } from '../components/StatusPill'
+import { AttendanceInsights } from '../components/AttendanceInsights'
+import './StudentAttendancePage.css'
 
 // The student's attendance, on its own page: the official daily (SF2) record
 // per grading period and the month calendar. This is the figure the school
@@ -46,6 +48,8 @@ export function StudentAttendancePage() {
   // absent" into the three actual days.
   const [gradingPeriods, setGradingPeriods] = useState([])
   const [error, setError] = useState(null)
+  // { attendance, thresholds } for the school year, or null.
+  const [yearInsights, setYearInsights] = useState(null)
 
   useEffect(() => {
     Promise.all([api.get('/my-progress/attendance-detail'), api.get('/my-progress/trend')])
@@ -77,6 +81,13 @@ export function StudentAttendancePage() {
       .get(`/students/${student.id}/attendance/daily`)
       .then((data) => setDailyRecords(data.records))
       .catch((err) => setError(err.message))
+    // This school year's absences against DepEd's ~12-absence mark, from the
+    // same endpoint (and the same counting) as the learner's insights.
+    // Optional: if it fails, "Where you stand" simply shows the term card.
+    api
+      .get(`/students/${student.id}/insights`)
+      .then((data) => setYearInsights({ attendance: data.attendance, thresholds: data.thresholds }))
+      .catch(() => setYearInsights(null))
   }, [student])
 
   // Reshaped once per data change, not every render: AttendanceCalendar
@@ -104,6 +115,7 @@ export function StudentAttendancePage() {
       present: period.present,
       absent: period.absent,
       late: period.late,
+      total: period.totalDays,
     }
   }, [attendanceDetail])
 
@@ -125,7 +137,7 @@ export function StudentAttendancePage() {
   }
 
   return (
-    <div>
+    <div className="student-attendance">
       <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'My Attendance' }]} />
       <div className="page-header">
         <h1>My Attendance</h1>
@@ -193,6 +205,21 @@ export function StudentAttendancePage() {
         </>
       )}
 
+      {/* What the figures mean for this learner: how far from the required
+          rate, what it takes to get there, this year's absences against
+          DepEd's mark, their streak and weekday pattern, and who to ask. */}
+      {(summary || yearInsights) && (
+        <AttendanceInsights
+          summary={summary}
+          period={summaryPeriod}
+          requiredAttendance={requiredAttendance}
+          yearAttendance={yearInsights?.attendance}
+          thresholds={yearInsights?.thresholds}
+          records={calendarRecords}
+          adviserName={student.adviser_name}
+        />
+      )}
+
       <div className="record-section">
         <div className="record-section__header-row">
           <h2>Daily Attendance</h2>
@@ -215,6 +242,20 @@ export function StudentAttendancePage() {
             { key: 'late', header: 'Late', align: 'right', render: (p) => p.late },
             { key: 'excused', header: 'Excused', align: 'right', render: (p) => p.excused },
             { key: 'total', header: 'Total Days', align: 'right', render: (p) => <strong>{p.totalDays}</strong> },
+            // Each term's own rate, by the same rule as the figures above
+            // (Present and Late attended), so terms can be compared at a
+            // glance instead of by dividing in your head.
+            {
+              key: 'rate',
+              header: 'Rate',
+              align: 'right',
+              render: (p) => {
+                if (!p.totalDays) return <span className="grade-cell__empty">—</span>
+                const rate = Math.round(((p.present + p.late) / p.totalDays) * 1000) / 10
+                const below = requiredAttendance != null && rate < requiredAttendance
+                return <strong className={below ? 'is-below' : undefined}>{rate}%</strong>
+              },
+            },
           ]}
           rows={attendanceDetail || []}
           rowKey={(p) => p.periodName}

@@ -1,0 +1,207 @@
+/* My Attendance — "Where you stand" and "Your patterns"
+   (components/AttendanceInsights.jsx). Existing tokens only. The "below"
+   state uses the same at-risk red the rate figure and the target bar already
+   use for the same meaning; nothing new competes with the risk palette.
+   Breakpoints are the system's literals (custom properties are not valid in
+   a media condition). */
+
+.att-standing,
+.att-patterns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.att-patterns {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+/* A card per question. Flat surface and hairline, the same container the
+   rest of the student view uses — no accent stripes. */
+.att-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+.att-card h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+}
+.att-card h3 svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+.att-card.is-below h3 svg {
+  color: var(--band-at-risk-high);
+}
+.att-card__message {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+.att-card__fine {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+/* TargetBar inside a card: its own label is the term, the card heading
+   already says what is measured. */
+.att-card .target-bar {
+  margin: 0;
+}
+
+/* --- Absences meter: counts UP toward a limit, so it fills toward the mark
+   rather than reusing TargetBar (which fills toward a goal to reach). ---- */
+.att-meter__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.att-meter__head strong {
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.att-meter__head strong.is-below {
+  color: var(--band-at-risk-high);
+}
+.att-meter__track {
+  position: relative;
+  height: var(--chart-bar-thickness);
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-bg);
+}
+.att-meter__fill {
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--color-success);
+}
+.att-meter__fill.is-approaching {
+  background: var(--color-warning);
+}
+.att-meter__fill.is-alert {
+  background: var(--band-at-risk-high);
+}
+/* "Getting close" from 9 — the same dashed threshold line the target bar
+   and the trend charts draw. */
+.att-meter__mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 0;
+  border-left: 2px dashed var(--color-text-muted);
+}
+
+/* --- Streak ---------------------------------------------------------------- */
+.att-streak {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+.att-streak strong {
+  display: block;
+  font-size: var(--font-size-3xl);
+  line-height: 1.1;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Weekday breakdown: one row per weekday, absences then lates on one
+   shared scale, never stacked into a misleading total. ---------------------- */
+.att-weekdays {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.att-weekdays li {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 9rem;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+.att-weekdays__day {
+  font-weight: 600;
+  color: var(--color-text);
+}
+.att-weekdays__dots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 0.75rem;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+}
+.att-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+}
+.att-dot--missed {
+  background: var(--band-at-risk-high);
+}
+.att-dot--late {
+  background: var(--color-warning);
+}
+.att-weekdays__count {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Who to ask ------------------------------------------------------------ */
+.att-contact {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-5) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--color-primary-light);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+.att-contact svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-primary);
+}
+
+/* --- Phone ----------------------------------------------------------------- */
+@media (max-width: 720px) {
+  /* The four figures two by two, without the icon circle, as on My Grades —
+     one column of them filled the whole first screen. */
+  .student-attendance .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .student-attendance .stat-card {
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+  .student-attendance .stat-card__icon {
+    display: none;
+  }
+  .att-standing,
+  .att-patterns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .att-card {
+    padding: var(--space-4);
+  }
+  .att-weekdays li {
+    grid-template-columns: 2.5rem minmax(0, 1fr) 6.5rem;
+  }
+}
