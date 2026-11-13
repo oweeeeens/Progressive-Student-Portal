@@ -221,6 +221,17 @@ CLAUDE.md's Code Quality Standards ask for per-module orientation notes. Each ba
 - **Analytics** — the school-wide rollup of risk, factors, attendance and intervention effectiveness, with PDF and Excel export. Admin, principal and guidance counselor only; advisers keep the per-section Academic Progress view instead. `services/analyticsCalculator.js` does the maths, `analyticsReportPdf.js` / `analyticsReportWorkbook.js` render it.
 - ~~**Report Card PDF**~~ — removed 2026-11-11 (see REMOVED above).
 - **My Progress** (student self-view) — a student's own grades, attendance, risk band and the plain-language version of any triggered factors, including what number they would have to reach to clear each one. Read-only and scoped to themselves; no school-wide figures reach it.
+- **My Record** (`/my-record`, student, 2026-11-13). The learner's own
+  student record, read-only:
+  - identity, enrollment (section, strand, adviser), contact and guardian
+    details, and this year's classes;
+  - "Is something wrong?" points to the registrar.
+
+  It used to be a disclosure at the bottom of the student Home, where nobody
+  found it. Home keeps a small namecard with a link to it.
+  - The data subject's right of access: RA 10173, Sec. 16.
+  - PWD, 4Ps and ALS are still stripped server-side.
+  - Corrections go through the registrar.
 - **Your profile** (`/profile`, every role) — the one page a person owns: their
   name and email, their password, and what they advise and teach. The
   assignment panel calls **both** `/sections/mine` and `/class-offerings/mine`

@@ -191,11 +191,9 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar, isPhone = false, dra
                   className="account-menu__item"
                   onClick={() => {
                     setAccountMenuOpen(false)
-                    // The student's whole portal is one page, so this opens
-                    // the record section in place rather than routing
-                    // somewhere — the timestamp makes every click a new
-                    // state value, so it works twice in a row.
-                    navigate('/', { state: { openRecord: Date.now() } })
+                    // The learner's own record has its own page now
+                    // (pages/StudentRecordPage.jsx).
+                    navigate('/my-record')
                   }}
                 >
                   <IdCard size={15} strokeWidth={1.75} />

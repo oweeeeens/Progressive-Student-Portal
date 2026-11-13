@@ -30,6 +30,7 @@ import { SubjectsPage } from './pages/SubjectsPage'
 import { ClassOfferingsPage } from './pages/ClassOfferingsPage'
 import { StudentGradesPage } from './pages/StudentGradesPage'
 import { StudentAttendancePage } from './pages/StudentAttendancePage'
+import { StudentRecordPage } from './pages/StudentRecordPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -83,7 +84,9 @@ function App() {
                     links and bookmarks keep working. */}
                 <Route path="/my-grades" element={<StudentGradesPage />} />
                 <Route path="/my-attendance" element={<StudentAttendancePage />} />
-                <Route path="/my-record" element={<Navigate to="/" replace />} />
+                {/* The learner's own record, read-only (was a redirect to
+                    Home, where the record sat hidden at the bottom). */}
+                <Route path="/my-record" element={<StudentRecordPage />} />
                 {/* The old redirect-to-home stub is now a real page, and
                     /my-profile keeps working as an alias so any link or
                     bookmark from before it existed still lands somewhere

@@ -7,6 +7,7 @@ import {
   FileUp,
   CalendarCheck,
   GraduationCap,
+  IdCard,
   PenLine,
   ShieldCheck,
   CheckCircle2,
@@ -105,6 +106,7 @@ function getNavSections(role, has) {
       items: [
         { to: '/my-grades', label: 'My Grades', icon: GraduationCap, show: role === 'student' },
         { to: '/my-attendance', label: 'My Attendance', icon: CalendarCheck, show: role === 'student' },
+        { to: '/my-record', label: 'My Record', icon: IdCard, show: role === 'student' },
       ],
     },
     {

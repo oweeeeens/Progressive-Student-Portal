@@ -1,0 +1,80 @@
+/* My Record (StudentRecordPage.jsx): the learner's own record, read-only.
+   Existing tokens only, the same flat card the other student pages use. */
+
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.rec-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+.rec-card h2,
+.rec-section-title,
+.rec-correct h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+  color: var(--color-text);
+}
+.rec-card h2 svg,
+.rec-section-title svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+/* One field per line inside a card: the cards are narrow, and a label
+   above its value reads faster than two squeezed columns. */
+.rec-card__fields {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  margin: 0;
+}
+.rec-card__fields dd {
+  overflow-wrap: anywhere;
+}
+
+.rec-correct {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--color-primary-light);
+}
+.rec-correct > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-primary);
+}
+.rec-correct h2 {
+  margin-bottom: var(--space-1);
+}
+.rec-correct p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+/* Three cards side by side need room; below 1024px two, below 720px one. */
+@media (max-width: 1024px) {
+  .rec-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .rec-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rec-card,
+  .rec-correct {
+    padding: var(--space-4);
+  }
+}

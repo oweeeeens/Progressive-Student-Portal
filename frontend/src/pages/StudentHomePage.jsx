@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   GraduationCap,
   CalendarCheck,
@@ -10,9 +10,7 @@ import {
   Award,
   ShieldAlert,
   Target,
-  ChevronDown,
   ChevronRight,
-  ChevronUp,
   IdCard,
 } from 'lucide-react'
 import { api } from '../api/client'
@@ -31,7 +29,6 @@ import { INTERVENTION_TYPE_LABELS, INTERVENTION_STATUS_VARIANTS } from '../compo
 import { describeTrendAgainstThreshold } from '../utils/chartInterpretation'
 import './StudentHomePage.css'
 import { Alert } from '../components/Alert'
-import { humanize } from '../utils/humanize'
 import { LearnerInsights } from '../components/LearnerInsights'
 
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
@@ -84,14 +81,9 @@ export function StudentHomePage() {
   // time: four panels open at once would push the advice below them off the
   // screen, which is the problem this page was rebuilt to fix.
   const [openStat, setOpenStat] = useState(null)
-  const location = useLocation()
-  const namecardRef = useRef(null)
   const [attendanceDetail, setAttendanceDetail] = useState(null)
   const [interventions, setInterventions] = useState(null)
   const [grades, setGrades] = useState(null)
-  // The namecard's second half (address, guardian, contact), opened from
-  // here or from the top bar's account menu.
-  const [showRecord, setShowRecord] = useState(false)
   const [currentPeriod, setCurrentPeriod] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -147,15 +139,6 @@ export function StudentHomePage() {
       .catch(() => setCurrentPeriod(null))
   }, [])
 
-  // Opened from the top bar's account menu. The student's portal is one
-  // page, so "Your record on file" is a disclosure to open and scroll to
-  // rather than a route to visit. The state value is a timestamp, so
-  // choosing the menu item twice in a row still fires.
-  useEffect(() => {
-    if (!location.state?.openRecord) return
-    setShowRecord(true)
-    namecardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [location.state?.openRecord])
 
   // One row per flagged thing, pairing each exit target with the advice for
   // the SAME factor. Both come from the same triggered-factor list on the
@@ -555,7 +538,7 @@ export function StudentHomePage() {
               already knows their own address and guardian's phone number;
               reprinting all of it just pushes the advice they came for down
               the page. */}
-          <section className="namecard" ref={namecardRef}>
+          <section className="namecard">
             {/* No name bar here: the hero at the top of the page already
                 says whose record this is, and printing it again two blocks
                 later read as a second page starting. */}
@@ -582,57 +565,15 @@ export function StudentHomePage() {
               </div>
             </dl>
 
-            {/* The rest of what the school holds, behind a disclosure: a
-                student rarely needs to re-read their own address, but they
-                DO need a way to check it is right and spot what to ask the
-                registrar to correct. Read-only by design — corrections go
-                through the registrar, who owns the record. */}
+            {/* The rest of the record (birth date, address, guardian,
+                classes) lives on its own page, My Record — it was a
+                disclosure here, at the very bottom of the page, where
+                almost nobody found it. */}
             <div className="namecard__more">
-              <button
-                type="button"
-                className="btn-subtle"
-                onClick={() => setShowRecord((v) => !v)}
-                aria-expanded={showRecord}
-              >
+              <Link to="/my-record" className="btn-subtle">
                 <IdCard size={14} strokeWidth={1.75} />
-                {showRecord ? 'Hide record on file' : 'Your record on file'}
-                {showRecord ? <ChevronUp size={14} strokeWidth={1.75} /> : <ChevronDown size={14} strokeWidth={1.75} />}
-              </button>
-
-              {showRecord && (
-                <>
-                  <dl className="field-grid namecard__fields">
-                    <div>
-                      <dt>Date of birth</dt>
-                      <dd>{formatDate(student.date_of_birth)}</dd>
-                    </div>
-                    <div>
-                      <dt>Sex</dt>
-                      <dd>{fieldValue(humanize(student.sex))}</dd>
-                    </div>
-                    <div>
-                      <dt>Address</dt>
-                      <dd>{fieldValue(student.address)}</dd>
-                    </div>
-                    <div>
-                      <dt>Guardian</dt>
-                      <dd>{fieldValue(student.guardian_name)}</dd>
-                    </div>
-                    <div>
-                      <dt>Guardian contact</dt>
-                      <dd>{fieldValue(student.guardian_contact_number)}</dd>
-                    </div>
-                    <div>
-                      <dt>Enrollment status</dt>
-                      <dd>{humanize(student.enrollment_status)}</dd>
-                    </div>
-                  </dl>
-                  <p className="form-note namecard__note">
-                    Something wrong here? Ask the registrar to correct it — records are edited by the school, not from this
-                    page.
-                  </p>
-                </>
-              )}
+                View your full record
+              </Link>
             </div>
           </section>
         </div>
