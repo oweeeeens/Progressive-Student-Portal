@@ -67,8 +67,12 @@ export function AuthProvider({ children }) {
     }
   }, [userId, userRole])
 
+  // `remember` is sent to the server as well as deciding the storage: the
+  // server makes a remembered sign-in last 30 days instead of 8 hours. Before
+  // 2026-11-15 only the storage changed, so a "remembered" sign-in still
+  // expired overnight.
   async function login(email, password, remember = true) {
-    const data = await api.post('/auth/login', { email, password })
+    const data = await api.post('/auth/login', { email, password, remember: Boolean(remember) })
     setToken(data.token, remember)
     setUser(data.user)
   }

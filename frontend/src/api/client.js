@@ -13,6 +13,16 @@ export function getToken() {
   return localStorage.getItem(TOKEN_STORAGE_KEY) || sessionStorage.getItem(TOKEN_STORAGE_KEY);
 }
 
+// Swaps in a fresh token, keeping it in whichever storage held the old one,
+// so "Remember me" (localStorage) or "not remembered" (sessionStorage) is
+// preserved. Used after a password change: the server ends every older
+// session, including the current one, and hands back this replacement.
+export function replaceToken(token) {
+  if (!token) return
+  const wasRemembered = localStorage.getItem(TOKEN_STORAGE_KEY) !== null
+  setToken(token, wasRemembered)
+}
+
 export function setToken(token, remember = true) {
   if (token) {
     const [store, other] = remember ? [localStorage, sessionStorage] : [sessionStorage, localStorage];

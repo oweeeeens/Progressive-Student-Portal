@@ -1,5 +1,5 @@
 // The one place in the app that talks to an email provider. Everything else
-// calls sendPasswordResetEmail / canSendEmail and never learns which
+// calls sendPasswordResetCode / canSendEmail and never learns which
 // transport is in use.
 //
 // FOUR TRANSPORTS, tried in this order:
@@ -287,20 +287,33 @@ function emailConfigSummary() {
   };
 }
 
-function resetEmailBody(resetUrl) {
+// The reset email carries a 6-digit CODE, not a link, so it can be read on
+// a phone and typed on a laptop (or the other way round). The code is set in
+// large, spaced digits because it is copied by eye; "ignore this email" is
+// there because anyone can type any address into Forgot Password, and the
+// owner of that address deserves to know that doing nothing is safe.
+function resetCodeEmailBody(code, expiresInMinutes) {
   return {
-    subject: 'Reset your Student Portal password',
+    subject: `${code} is your Student Portal password reset code`,
     html: `
-    <p>A password reset was requested for your Student Portal account.</p>
-    <p><a href="${resetUrl}">Reset your password</a></p>
-    <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#111;max-width:480px">
+      <p>A password reset was requested for your Student Portal account (DepEd Progressive SHS – Bacoor City).</p>
+      <p>Enter this code on the Forgot password page:</p>
+      <p style="font-size:30px;font-weight:bold;letter-spacing:8px;color:#1A3A6B;margin:16px 0">${code}</p>
+      <p>The code expires in ${expiresInMinutes} minutes and works once.</p>
+      <p style="color:#555">If you didn't ask to reset your password, ignore this email — your password has not changed. Never share this code with anyone.</p>
+    </div>
   `,
-    text: `A password reset was requested for your Student Portal account.\n\nReset your password: ${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, you can safely ignore this email.`,
+    text:
+      `A password reset was requested for your Student Portal account (DepEd Progressive SHS - Bacoor City).\n\n` +
+      `Your code: ${code}\n\n` +
+      `Enter it on the Forgot password page. It expires in ${expiresInMinutes} minutes and works once.\n\n` +
+      `If you didn't ask to reset your password, ignore this email - your password has not changed. Never share this code with anyone.`,
   };
 }
 
-async function sendPasswordResetEmail(toEmail, resetUrl) {
-  const { subject, html, text } = resetEmailBody(resetUrl);
+async function sendPasswordResetCode(toEmail, code, expiresInMinutes = 15) {
+  const { subject, html, text } = resetCodeEmailBody(code, expiresInMinutes);
 
   if (brevoConfigured) {
     // Plain-text alternative included for the same spam-folder reason as
@@ -341,11 +354,11 @@ async function sendPasswordResetEmail(toEmail, resetUrl) {
 
   console.log('[emailService] EMAIL_DEV_FALLBACK is on — logging instead of sending.');
   console.log(`[emailService] To: ${toEmail}`);
-  console.log(`[emailService] Reset link: ${resetUrl}`);
+  console.log(`[emailService] Reset code: ${code}`);
 }
 
 module.exports = {
-  sendPasswordResetEmail,
+  sendPasswordResetCode,
   canSendEmail,
   activeEmailTransport,
   verifyTransport,

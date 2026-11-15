@@ -11,7 +11,7 @@ import {
   User,
   Users,
 } from 'lucide-react'
-import { api } from '../api/client'
+import { api, replaceToken } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { roleLabel } from '../utils/roleLabel'
 import { Alert } from '../components/Alert'
@@ -139,12 +139,15 @@ export function ProfilePage() {
     const ok = await password.runWrite(
       'password',
       async () => {
-        await api.post('/auth/change-password', {
+        const data = await api.post('/auth/change-password', {
           currentPassword: passwords.current,
           newPassword: passwords.next,
         })
+        // The change signs out every other device and ends this session's
+        // old token too; keep the fresh one so this device stays signed in.
+        replaceToken(data?.token)
       },
-      'Your password has been changed.'
+      'Your password has been changed. Other devices have been signed out.'
     )
 
     if (ok) setPasswords({ current: '', next: '', confirm: '' })

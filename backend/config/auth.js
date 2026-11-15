@@ -5,8 +5,24 @@ if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not set. Add it to backend/.env (see .env.example).');
 }
 
+const { positiveIntFromEnv } = require('../utils/envNumber');
+
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h'; // roughly one school day
+// "Remember me on this device" ticked: the sign-in lasts this long instead of
+// one school day. Safe to make long because a deactivated account loses
+// access on its next request, and a password change or reset ends every
+// session issued before it (users.password_changed_at, checked in
+// authMiddleware).
+const REMEMBER_ME_EXPIRES_IN = process.env.REMEMBER_ME_EXPIRES_IN || '30d';
+
+// Password reset by emailed 6-digit code. A code has only a million values,
+// so it is safe only because guessing is cut off three ways: it expires
+// quickly, it is burned after a few wrong tries, and the reset endpoints are
+// rate-limited per IP (config/rateLimits.js). 5 tries out of 1,000,000 is a
+// 0.0005% chance per code.
+const RESET_CODE_TTL_MINUTES = positiveIntFromEnv('RESET_CODE_TTL_MINUTES', 15);
+const RESET_CODE_MAX_ATTEMPTS = positiveIntFromEnv('RESET_CODE_MAX_ATTEMPTS', 5);
 const BCRYPT_SALT_ROUNDS = 10;
 // The floor for any password a person chooses — the forced first-login
 // change, the self-service reset, and the server-side rescue script all
@@ -57,6 +73,9 @@ const CREATABLE_ROLES = [
 module.exports = {
   JWT_SECRET,
   JWT_EXPIRES_IN,
+  REMEMBER_ME_EXPIRES_IN,
+  RESET_CODE_TTL_MINUTES,
+  RESET_CODE_MAX_ATTEMPTS,
   BCRYPT_SALT_ROUNDS,
   MIN_PASSWORD_LENGTH,
   USER_ROLES,

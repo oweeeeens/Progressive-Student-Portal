@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const { devOnlyFlag } = require('../config/environment');
 const bcrypt = require('bcryptjs');
-const { BCRYPT_SALT_ROUNDS } = require('../config/auth');
+const { BCRYPT_SALT_ROUNDS, JWT_SECRET } = require('../config/auth');
 
 function hashPassword(plainTextPassword) {
   return bcrypt.hash(plainTextPassword, BCRYPT_SALT_ROUNDS);
@@ -48,20 +48,30 @@ function generateTempPassword() {
   return password;
 }
 
-// Forgot-password reset tokens. The raw token goes out in the email link and
-// is held only briefly in memory; only its SHA-256 hash is ever persisted
-// (see password_reset_tokens table) — same reasoning as never storing a
-// plaintext password. SHA-256 (fast, deterministic) rather than bcrypt here
-// on purpose: this needs an exact-match DB lookup by hash, not a slow
-// per-attempt compare, and the token itself already has 256 bits of entropy
-// from crypto.randomBytes, so it doesn't need bcrypt's deliberate slowness.
-function generateResetToken() {
-  const rawToken = crypto.randomBytes(32).toString('hex');
-  return { rawToken, tokenHash: hashResetToken(rawToken) };
+// Forgot-password reset CODES — six digits, emailed, typed on whatever
+// device the person is using (a link had to be opened where the email was).
+//
+// crypto.randomInt, not Math.random: the code is a credential.
+function generateResetCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 }
 
-function hashResetToken(rawToken) {
-  return crypto.createHash('sha256').update(rawToken).digest('hex');
+// Only this hash is stored (password_reset_tokens.token_hash), never the
+// code. A plain SHA-256 of a six-digit code would be useless protection —
+// anyone with the table could hash all million values in a second — so it is
+// an HMAC keyed with the server secret, which a copy of the database alone
+// does not contain. The user id is part of the message, so a code is bound
+// to the account it was issued for and means nothing for any other.
+function hashResetCode(userId, code) {
+  return crypto.createHmac('sha256', JWT_SECRET).update(`${userId}:${code}`).digest('hex');
 }
 
-module.exports = { hashPassword, verifyPassword, generateTempPassword, generateResetToken, hashResetToken };
+// Constant-time comparison, so response timing cannot reveal how many
+// leading characters of a guess were right.
+function resetCodeMatches(userId, code, storedHash) {
+  const expected = Buffer.from(String(storedHash || ''), 'hex');
+  const actual = Buffer.from(hashResetCode(userId, code), 'hex');
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+module.exports = { hashPassword, verifyPassword, generateTempPassword, generateResetCode, hashResetCode, resetCodeMatches };

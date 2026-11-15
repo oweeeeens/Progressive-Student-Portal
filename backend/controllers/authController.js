@@ -5,7 +5,14 @@
 // linked to an existing Student Record rather than collecting a fresh
 // name/email — see the role === 'student' branch below.
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET, JWT_EXPIRES_IN, CREATABLE_ROLES, MIN_PASSWORD_LENGTH } = require('../config/auth');
+const {
+  JWT_SECRET,
+  JWT_EXPIRES_IN,
+  REMEMBER_ME_EXPIRES_IN,
+  RESET_CODE_TTL_MINUTES,
+  CREATABLE_ROLES,
+  MIN_PASSWORD_LENGTH,
+} = require('../config/auth');
 const userModel = require('../models/userModel');
 const { verifyPassword, generateTempPassword } = require('../utils/password');
 const passwordReset = require('../services/passwordReset');
@@ -22,8 +29,16 @@ function normalizeEmailForCompare(value) {
   return String(value ?? '').trim().toLowerCase();
 }
 
-function signToken(user) {
-  return jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+// "Remember me on this device" decides how long the sign-in lasts: 30 days
+// when ticked, one school day when not. (Before 2026-11-15 the checkbox only
+// chose where the browser kept the token, while every token still expired
+// after 8 hours — so a "remembered" sign-in ended overnight anyway.) The
+// choice rides in the token as `rem` so change-password can re-issue a token
+// with the same lifetime.
+function signToken(user, remember = false) {
+  const payload = { userId: user.id, role: user.role };
+  if (remember) payload.rem = true;
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: remember ? REMEMBER_ME_EXPIRES_IN : JWT_EXPIRES_IN });
 }
 
 function toPublicUser(user) {
@@ -37,7 +52,7 @@ function toPublicUser(user) {
 }
 
 async function login(req, res) {
-  const { email, password } = req.body;
+  const { email, password, remember } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -57,7 +72,9 @@ async function login(req, res) {
     return invalidCredentialsError();
   }
 
-  const token = signToken(user);
+  // Strictly `true`: anything else (absent, "yes", 1) gets the short
+  // lifetime, so an old client that never sends the flag stays as it was.
+  const token = signToken(user, remember === true);
   res.json({ token, user: toPublicUser(user) });
 }
 
@@ -143,7 +160,12 @@ async function changePassword(req, res) {
   }
 
   await userModel.updatePassword(req.user.id, newPassword);
-  res.json({ message: 'Password changed.' });
+  // The change just ended every session issued before it — including the
+  // one making this request (authMiddleware compares password_changed_at
+  // with each token's age). Hand back a fresh token, with the same "Remember
+  // me" lifetime as the old one, so the person who changed their password
+  // stays signed in on this device while every other device is signed out.
+  res.json({ message: 'Password changed.', token: signToken(req.user, req.auth?.rem === true) });
 }
 
 // Always responds with the same generic message whether or not an account
@@ -165,7 +187,7 @@ async function forgotPassword(req, res) {
   }
 
   // Checked here too, not just in the UI: a request that cannot possibly
-  // result in an email must not be answered with "a reset link has been
+  // result in an email must not be answered with "a reset code has been
   // sent." 503 rather than 400 — the request is fine, the capability is
   // missing.
   if (!emailService.canSendEmail()) {
@@ -199,21 +221,37 @@ async function forgotPassword(req, res) {
         'We could not send the reset email just now. Please try again in a few minutes, or ask the registrar or a system administrator for a temporary password.',
     });
   }
-  res.json({ message: 'If an account exists for that email, a password reset link has been sent.' });
+  res.json({
+    message: `If an account exists for that email, we sent it a 6-digit code. It expires in ${RESET_CODE_TTL_MINUTES} minutes.`,
+    codeExpiresInMinutes: RESET_CODE_TTL_MINUTES,
+  });
 }
 
+// Redeems an emailed code: { email, code, newPassword }.
+//
+// One error message for every way it can fail — wrong code, expired code,
+// burned code, unknown or deactivated email — so this endpoint cannot be
+// used to learn which addresses have accounts, and a guesser learns nothing
+// from the reply. Guessing itself is cut off by the code's attempt limit
+// (passwordReset.completeSelfServiceReset) and this route's rate limiter.
 async function resetPassword(req, res) {
-  const { token, newPassword } = req.body;
-  if (!token || !newPassword) {
-    return res.status(400).json({ error: 'token and newPassword are required.' });
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ error: 'email, code and newPassword are required.' });
+  }
+  const trimmedCode = String(code).trim();
+  if (!/^\d{6}$/.test(trimmedCode)) {
+    return res.status(400).json({ error: 'The code is the 6 digits from the email.' });
   }
   if (newPassword.length < MIN_PASSWORD_LENGTH) {
     return res.status(400).json({ error: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.` });
   }
 
-  const succeeded = await passwordReset.completeSelfServiceReset(token, newPassword);
+  const succeeded = await passwordReset.completeSelfServiceReset(email, trimmedCode, newPassword);
   if (!succeeded) {
-    return res.status(400).json({ error: 'That reset link is invalid or has expired. Request a new one.' });
+    return res.status(400).json({
+      error: 'That code is incorrect or has expired. Use the newest code we sent, or request a new one.',
+    });
   }
 
   res.json({ message: 'Password reset. You can now log in with your new password.' });

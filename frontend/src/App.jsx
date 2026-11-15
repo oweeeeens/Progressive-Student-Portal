@@ -32,7 +32,6 @@ import { StudentGradesPage } from './pages/StudentGradesPage'
 import { StudentAttendancePage } from './pages/StudentAttendancePage'
 import { StudentRecordPage } from './pages/StudentRecordPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
-import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 function App() {
@@ -50,7 +49,9 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              {/* Reset is by emailed code now, typed on /forgot-password;
+                  an old reset link still lands somewhere sensible. */}
+              <Route path="/reset-password" element={<Navigate to="/forgot-password" replace />} />
               <Route
                 path="/change-password"
                 element={

@@ -898,11 +898,51 @@ only HTTPS can leave a Railway container.
   key.
 - **Tests:** `test/integration/emailConfig.test.js` (7 Brevo cases, fetch
   stubbed).
-- **Status:** the reset link flow itself is unchanged. Self-service reset is
-  live on Railway **only once the group sets those variables there and a
-  real email has arrived**. Until then the manual reset above remains the
-  supported path, and the manuscript and video still say email reset is
-  inactive.
+- **Status:** self-service reset is live on Railway **only once the group
+  sets those variables there and a real email has arrived**. Until then the
+  manual reset above remains the supported path, and the manuscript and
+  video still say email reset is inactive.
+- **Key gotcha:** Brevo has two kinds of key. Only the **API key**
+  (`xkeysib-…`, with "Transactional email: All") works; the SMTP key
+  (`xsmtpsib-…`) answers 401 "Key not found".
+
+**2026-11-15: reset by emailed 6-DIGIT CODE, not a link.** A link had to be
+opened on the device that received the email. Someone reading mail on a
+phone but using the portal on a laptop had to switch devices, so the email
+now carries a code, typed on `/forgot-password` (two steps on one page).
+`/reset-password` redirects there.
+
+A code is a far smaller secret than a link token (a million values against
+2^256), so guessing is cut off three ways:
+- it expires in 15 minutes (`RESET_CODE_TTL_MINUTES`);
+- it **burns after 5 wrong tries** (`RESET_CODE_MAX_ATTEMPTS`,
+  `password_reset_tokens.failed_attempts`), counted in the database;
+- the reset routes keep their 5-per-15-minutes limiter.
+
+How it is stored and checked:
+- **Bound to one account:** redeemed with email + code. The stored hash is
+  an **HMAC keyed with `JWT_SECRET`** over `userId:code`, so a copy of the
+  table alone cannot be brute-forced offline. Compared in constant time.
+- **One message for every failure:** a wrong code, an expired code and an
+  unknown email all get the same reply, so nothing reveals whether an
+  account exists.
+- **No link in the email,** so `FRONTEND_URL` no longer matters for reset.
+
+**2026-11-15: "Remember me" really remembers.** The checkbox used to choose
+only where the browser kept the token, while the server gave every token 8
+hours, so a remembered sign-in ended overnight. Now:
+- **Lifetime:** ticked means a **30-day** token (`REMEMBER_ME_EXPIRES_IN`,
+  claim `rem: true`); unticked keeps 8 hours.
+- **Password changes sign out older sessions,** so a long session is safe.
+  `users.password_changed_at` (TIMESTAMPTZ, stamped from the app's own
+  clock) is set by both `updatePassword` and `resetPasswordToTemp`.
+  `authMiddleware` refuses any token whose `iat` is before it, with "Your
+  password was changed. Please sign in again."
+- **The person changing it stays signed in:** `POST /auth/change-password`
+  hands back a fresh token with the same lifetime, which the frontend
+  stores via `replaceToken()`.
+- **Tests:** `passwordReset.test.js` (codes) and `accountSecurity.test.js`
+  (sessions).
 
 ## Announcements (client-requested, added post-Phase-1 — REMOVED 2026-11-11, kept here as history)
 - A home page / announcement banner feature, requested directly by the client

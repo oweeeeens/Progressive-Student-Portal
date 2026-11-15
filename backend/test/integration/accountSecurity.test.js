@@ -12,6 +12,7 @@
 // have caught it the day it was written.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const jwt = require('jsonwebtoken');
 
 const { startTestServer } = require('./helpers/testServer');
 const { createClient } = require('./helpers/client');
@@ -203,9 +204,95 @@ test('an account on a temporary password cannot use the app until it changes it'
     body: { currentPassword: created.body.tempPassword, newPassword: 'ARealPassword123!' },
   });
   assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  assert.ok(changed.body.token, 'change-password hands back a fresh token');
 
-  const allowed = await api.get('/api/students', { token });
+  const allowed = await api.get('/api/students', { token: changed.body.token });
   assert.equal(allowed.status, 200);
+});
+
+// --- Sessions: "Remember me", and a password change ending old sessions ---
+
+const DAY_SECONDS = 24 * 60 * 60;
+
+function lifetimeSeconds(token) {
+  const { iat, exp } = jwt.decode(token);
+  return exp - iat;
+}
+
+test('"Remember me" signs in for 30 days; unticked, for one school day', async () => {
+  // Before 2026-11-15 the checkbox only chose where the browser kept the
+  // token, while every token still expired after 8 hours — so a remembered
+  // sign-in ended overnight, and the box looked broken.
+  const remembered = await api.post('/api/auth/login', {
+    body: { email: ctx.adviser.email, password: FIXTURE_PASSWORD, remember: true },
+  });
+  assert.equal(remembered.status, 200);
+  assert.equal(lifetimeSeconds(remembered.body.token), 30 * DAY_SECONDS);
+
+  const notRemembered = await api.post('/api/auth/login', {
+    body: { email: ctx.adviser.email, password: FIXTURE_PASSWORD, remember: false },
+  });
+  assert.equal(lifetimeSeconds(notRemembered.body.token), 8 * 60 * 60);
+
+  // Only a real `true` counts: an older client that never sends the flag
+  // keeps the short lifetime it always had.
+  const noFlag = await api.post('/api/auth/login', {
+    body: { email: ctx.adviser.email, password: FIXTURE_PASSWORD },
+  });
+  assert.equal(lifetimeSeconds(noFlag.body.token), 8 * 60 * 60);
+});
+
+test('changing a password ends every older session but keeps this one, with its lifetime', async () => {
+  const person = await fixtures.createStaffUser('adviser', 'sec-session-revoke');
+  try {
+    // Two devices: a phone remembered for 30 days, and this laptop.
+    const phone = await api.post('/api/auth/login', {
+      body: { email: person.email, password: FIXTURE_PASSWORD, remember: true },
+    });
+    const laptop = await api.post('/api/auth/login', {
+      body: { email: person.email, password: FIXTURE_PASSWORD, remember: true },
+    });
+    assert.equal((await api.get('/api/auth/me', { token: phone.body.token })).status, 200);
+
+    // `iat` is whole seconds; step past the second the old tokens were
+    // issued in, as a real password change would be.
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const changed = await api.post('/api/auth/change-password', {
+      token: laptop.body.token,
+      body: { currentPassword: FIXTURE_PASSWORD, newPassword: 'BrandNewPass123!' },
+    });
+    assert.equal(changed.status, 200, JSON.stringify(changed.body));
+
+    // The lost phone is signed out — the point of changing the password.
+    const phoneAfter = await api.get('/api/auth/me', { token: phone.body.token });
+    assert.equal(phoneAfter.status, 401);
+    assert.match(phoneAfter.body.error, /password was changed/i);
+    // So is the laptop's OLD token...
+    assert.equal((await api.get('/api/auth/me', { token: laptop.body.token })).status, 401);
+    // ...but the fresh one handed back works, and is still a 30-day token.
+    assert.equal((await api.get('/api/auth/me', { token: changed.body.token })).status, 200);
+    assert.equal(lifetimeSeconds(changed.body.token), 30 * DAY_SECONDS);
+  } finally {
+    await pool.query('DELETE FROM users WHERE id = $1', [person.id]);
+  }
+});
+
+test('an admin or registrar reset also signs the account out everywhere', async () => {
+  const person = await fixtures.createStaffUser('subject_teacher', 'sec-reset-revoke');
+  try {
+    const login = await api.post('/api/auth/login', {
+      body: { email: person.email, password: FIXTURE_PASSWORD, remember: true },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const reset = await api.post(`/api/users/${person.id}/reset-password`, { token: ctx.registrar.token });
+    assert.equal(reset.status, 200, JSON.stringify(reset.body));
+
+    // The registrar handed out a temporary password because the account may
+    // be compromised; a session someone else is holding must not survive it.
+    assert.equal((await api.get('/api/auth/me', { token: login.body.token })).status, 401);
+  } finally {
+    await pool.query('DELETE FROM users WHERE id = $1', [person.id]);
+  }
 });
 
 // --- User Management: the admin-takeover guard ----------------------------
@@ -279,9 +366,11 @@ test('an admin can still manage their own account', async () => {
   assert.equal(res.status, 200, JSON.stringify(res.body));
   assert.ok(res.body.tempPassword);
 
-  // Put it back so the rest of the suite can still sign in as the admin.
+  // Put it back so the rest of the suite can still sign in as the admin —
+  // and clear password_changed_at, or the reset would have ended the admin
+  // token every later test is holding (a reset signs out old sessions).
   const { hashPassword } = require('../../utils/password');
-  await pool.query('UPDATE users SET password_hash = $1, must_change_password = FALSE WHERE id = $2', [
+  await pool.query('UPDATE users SET password_hash = $1, must_change_password = FALSE, password_changed_at = NULL WHERE id = $2', [
     await hashPassword(FIXTURE_PASSWORD),
     ctx.admin.id,
   ]);
@@ -377,11 +466,14 @@ test('a student sees their own record and nothing else', async () => {
     body: { email: account.email, password: account.tempPassword },
   });
   assert.equal(login.status, 200);
-  const token = login.body.token;
-  await api.post('/api/auth/change-password', {
-    token,
+  // Changing the password ends every earlier session, including the one
+  // that asked; the response carries the fresh token to carry on with.
+  const changed = await api.post('/api/auth/change-password', {
+    token: login.body.token,
     body: { currentPassword: account.tempPassword, newPassword: 'StudentOwnPass123!' },
   });
+  assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  const token = changed.body.token;
 
   // Their own record: visible.
   const own = await api.get(`/api/students/${ctx.ownStudent.id}`, { token });

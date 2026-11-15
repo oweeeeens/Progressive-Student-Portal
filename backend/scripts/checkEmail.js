@@ -152,14 +152,12 @@ async function checkEmail() {
     console.log('\n  To switch it on (works on Railway, free): Brevo over HTTPS.');
     console.log('    BREVO_API_KEY=<Brevo: SMTP & API -> API Keys>');
     console.log('    BREVO_SENDER_EMAIL=<an address verified in Brevo -> Senders>');
-    console.log('    FRONTEND_URL=<the public URL of this deployment>');
     console.log('\n  Or, where outbound SMTP is allowed (not on Railway Hobby/Free):');
     console.log('    SMTP_HOST=smtp.gmail.com');
     console.log('    SMTP_PORT=465');
     console.log('    SMTP_USER=<the sending mailbox>');
     console.log('    SMTP_PASS=<a 16-character Google App Password>');
     console.log('    SMTP_FROM=<the same address>');
-    console.log('    FRONTEND_URL=<the public URL of this deployment>');
     console.log('\n  See backend/.env.example for the full notes.\n');
     return false;
   }
@@ -190,21 +188,8 @@ async function checkEmail() {
     console.log('  refused in production — it must never be set on the deployment.');
   }
 
-  // The variable that fails silently. The email sends, the link arrives, and
-  // it points at a machine the recipient does not have.
-  const frontendUrl = process.env.FRONTEND_URL;
-  console.log('\nReset links');
-  console.log('-----------');
-  line('FRONTEND_URL', frontendUrl || '(unset)');
-  if (!frontendUrl) {
-    console.log('\n  Not set, so links will be built against http://localhost:5173 — fine on a');
-    console.log('  development machine, useless in an email to anybody else. Set it to this');
-    console.log('  deployment\'s public URL.');
-  } else if (/localhost|127\.0\.0\.1/.test(frontendUrl)) {
-    console.log('\n  This points at localhost. Correct for local testing; if this is the');
-    console.log('  deployment, every emailed link is dead on arrival.');
-  }
-
+  // (No FRONTEND_URL check any more: since 2026-11-15 the reset email carries
+  // a 6-digit code rather than a link, so there is no address to get wrong.)
   console.log('\nConnection');
   console.log('----------');
   const result = await emailService.verifyTransport();
@@ -230,11 +215,11 @@ async function checkEmail() {
   console.log('---------');
   line('To', testRecipient);
   try {
-    // Deliberately through the REAL sendPasswordResetEmail rather than a
+    // Deliberately through the REAL sendPasswordResetCode rather than a
     // send written here: a diagnostic that exercises a parallel path can
     // pass while the path that runs in production is broken.
-    const sampleUrl = `${frontendUrl || 'http://localhost:5173'}/reset-password?token=check-email-test`;
-    await emailService.sendPasswordResetEmail(testRecipient, sampleUrl);
+    const sampleCode = '123456';
+    await emailService.sendPasswordResetCode(testRecipient, sampleCode);
 
     if (summary.transport === 'console') {
       // Say what actually happened. Reporting "sent" here would be the exact
@@ -245,9 +230,7 @@ async function checkEmail() {
       console.log('  Sent. Check that inbox (and its spam folder).');
     }
 
-    console.log('\n  The link is a SAMPLE and will not work — it carries a dummy token.');
-    console.log('  What it shows you is whether the address in the link is right.');
-    console.log(`  It should read: ${sampleUrl}\n`);
+    console.log(`\n  The code in it (${sampleCode}) is a SAMPLE and resets nothing.\n`);
     return true;
   } catch (error) {
     console.log('  FAILED to send.');

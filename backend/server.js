@@ -13,7 +13,6 @@ require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 
 const app = require('./app');
 const emailService = require('./services/emailService');
-const { IS_PRODUCTION } = require('./config/environment');
 
 const PORT = process.env.PORT || 5000;
 
@@ -35,17 +34,9 @@ function logEmailConfiguration() {
     const sender = transport === 'smtp' ? ` as ${smtp.from}` : transport === 'brevo' ? ` as ${brevo.senderEmail}` : '';
     console.log(`Email: ${transport} transport${sender}. Run "npm run check:email" to test the credentials.`);
   }
-
-  // The variable that fails silently. The send succeeds, the link arrives,
-  // and it points at a machine the recipient does not have — so this is a
-  // warning rather than a note, and only on a real deployment, where the
-  // localhost default can never be what was meant.
-  if (IS_PRODUCTION && !process.env.FRONTEND_URL) {
-    console.warn(
-      'FRONTEND_URL is not set on a production deployment. Password-reset links will be built ' +
-        'against http://localhost:5173 and will be unusable. Set it to this service\'s public URL.'
-    );
-  }
+  // (The FRONTEND_URL warning that used to follow is gone: since 2026-11-15
+  // the reset email carries a 6-digit code instead of a link, so nothing is
+  // built from that URL any more.)
 }
 
 // Starts the embedded dev PostgreSQL server when no system-wide PostgreSQL

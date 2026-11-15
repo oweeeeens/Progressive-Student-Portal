@@ -192,7 +192,7 @@ test('a reset email goes to Brevo\'s send endpoint with the key in the header on
   const { service } = loadWith({ ...BREVO, BREVO_SENDER_NAME: '  Student Portal  ' });
   const stub = stubFetch(() => ({ status: 201, body: { messageId: '<abc@smtp-relay>' } }));
   try {
-    await service.sendPasswordResetEmail('learner@example.com', 'https://portal.example/reset-password?token=t0k3n');
+    await service.sendPasswordResetCode('learner@example.com', '482913', 15);
   } finally {
     stub.restore();
   }
@@ -204,9 +204,12 @@ test('a reset email goes to Brevo\'s send endpoint with the key in the header on
   const body = JSON.parse(options.body);
   assert.deepEqual(body.sender, { name: 'Student Portal', email: 'portal.sender@gmail.com' });
   assert.deepEqual(body.to, [{ email: 'learner@example.com' }]);
-  assert.match(body.subject, /Reset your Student Portal password/);
-  assert.match(body.htmlContent, /reset-password\?token=t0k3n/);
-  assert.match(body.textContent, /reset-password\?token=t0k3n/);
+  // The code, not a link: readable on one device, typed on another.
+  assert.match(body.subject, /482913 is your Student Portal password reset code/);
+  assert.match(body.htmlContent, /482913/);
+  assert.match(body.textContent, /Your code: 482913/);
+  assert.match(body.textContent, /expires in 15 minutes/);
+  assert.ok(!/https?:\/\//.test(body.textContent), 'the email must not depend on a link');
   assert.ok(!options.body.includes(BREVO.BREVO_API_KEY), 'the key must not be in the body');
 });
 
@@ -215,7 +218,7 @@ test('a rejected Brevo key becomes a thrown error naming the status, never the k
   const stub = stubFetch(() => ({ status: 401, body: { code: 'unauthorized', message: 'Key not found' } }));
   try {
     await assert.rejects(
-      service.sendPasswordResetEmail('learner@example.com', 'https://portal.example/reset-password?token=x'),
+      service.sendPasswordResetCode('learner@example.com', '000111'),
       (error) => {
         assert.equal(error.code, 'BREVO_UNAUTHORIZED');
         assert.match(error.message, /401/);

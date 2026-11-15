@@ -3,7 +3,9 @@
 const { pool } = require('../config/db');
 const { hashPassword } = require('../utils/password');
 
-const PUBLIC_COLUMNS = 'id, email, full_name, role, is_active, must_change_password, created_at, updated_at';
+// password_changed_at is included because authMiddleware (which loads the
+// user through findById on every request) compares it with the token's age.
+const PUBLIC_COLUMNS = 'id, email, full_name, role, is_active, must_change_password, password_changed_at, created_at, updated_at';
 
 // One canonical form for every email, applied HERE rather than in each
 // controller, because there are five separate write paths (staff creation,
@@ -66,11 +68,19 @@ async function createUser({ email, password, fullName, role, mustChangePassword 
 // must_change_password — changing your password (deliberately, to something
 // only you know) is what satisfies the forced-change requirement, whether
 // or not it was actually pending.
+//
+// Both password writes below also stamp password_changed_at, which ends every
+// session signed in before it (authMiddleware) — so a lost phone that was
+// "remembered" for 30 days stops working the moment the password changes.
+// The time comes from THIS process's clock, not the database's now(): it is
+// compared with a JWT's `iat`, which this process also stamps, and on
+// Railway the database is a different machine whose clock may differ by a
+// second or two — enough to sign out the very person who just changed it.
 async function updatePassword(userId, newPlainTextPassword) {
   const passwordHash = await hashPassword(newPlainTextPassword);
   await pool.query(
-    'UPDATE users SET password_hash = $1, must_change_password = FALSE, updated_at = now() WHERE id = $2',
-    [passwordHash, userId]
+    'UPDATE users SET password_hash = $1, must_change_password = FALSE, password_changed_at = $3, updated_at = now() WHERE id = $2',
+    [passwordHash, userId, new Date()]
   );
 }
 
@@ -81,8 +91,8 @@ async function updatePassword(userId, newPlainTextPassword) {
 async function resetPasswordToTemp(userId, tempPlainTextPassword) {
   const passwordHash = await hashPassword(tempPlainTextPassword);
   await pool.query(
-    'UPDATE users SET password_hash = $1, must_change_password = TRUE, updated_at = now() WHERE id = $2',
-    [passwordHash, userId]
+    'UPDATE users SET password_hash = $1, must_change_password = TRUE, password_changed_at = $3, updated_at = now() WHERE id = $2',
+    [passwordHash, userId, new Date()]
   );
 }
 

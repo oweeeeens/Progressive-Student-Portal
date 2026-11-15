@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from '../api/client'
+import { api, replaceToken } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { Alert } from '../components/Alert'
 import { AuthCard } from '../components/AuthCard'
@@ -28,7 +28,10 @@ export function ChangePasswordPage() {
 
     setSubmitting(true)
     try {
-      await api.post('/auth/change-password', { currentPassword, newPassword })
+      const data = await api.post('/auth/change-password', { currentPassword, newPassword })
+      // The change ends every older session, this one included; keep the
+      // fresh token the server hands back so this device stays signed in.
+      replaceToken(data?.token)
       markPasswordChanged()
       navigate('/')
     } catch (err) {
