@@ -881,6 +881,29 @@ built today). `npm run check:email` now recognizes this exact failure by
 name (`CONNECT_TIMEOUT`) and says so, rather than printing a bare error, so
 it is immediately recognizable if it comes up again.
 
+**2026-11-15: the Brevo transport is built.** A friend of the group found
+Brevo, so `emailService.js` now has an HTTPS transport for it (Node's
+built-in `fetch`, no SDK). It switches on when `BREVO_API_KEY` and
+`BREVO_SENDER_EMAIL` are both set, and it is tried **before** SMTP, because
+only HTTPS can leave a Railway container.
+
+- **Free plan:** 300 emails a day, any recipient, no domain. The sender is
+  verified once by clicking Brevo's confirmation email.
+- **The catch:** a gmail.com sender cannot be authenticated, so Brevo
+  rewrites it to `name@<id>.brevosend.com`. Mail arrives but may be
+  filtered to spam. A school domain would fix it.
+- **`npm run check:email`** makes two real calls. `/v3/account` checks the
+  key (401 → `BREVO_UNAUTHORIZED`), and `/v3/senders` checks the sender
+  (`BREVO_SENDER_UNKNOWN` or `BREVO_SENDER_INACTIVE`). It never prints the
+  key.
+- **Tests:** `test/integration/emailConfig.test.js` (7 Brevo cases, fetch
+  stubbed).
+- **Status:** the reset link flow itself is unchanged. Self-service reset is
+  live on Railway **only once the group sets those variables there and a
+  real email has arrived**. Until then the manual reset above remains the
+  supported path, and the manuscript and video still say email reset is
+  inactive.
+
 ## Announcements (client-requested, added post-Phase-1 — REMOVED 2026-11-11, kept here as history)
 - A home page / announcement banner feature, requested directly by the client
 - Posting access: **admin, registrar, guidance counselor, or ICT faculty** (not advisers/subject teachers/students)

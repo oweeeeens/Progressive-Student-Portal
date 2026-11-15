@@ -19,7 +19,7 @@ const assert = require('node:assert/strict');
 const nodemailer = require('nodemailer');
 
 const EMAIL_SERVICE = require.resolve('../../services/emailService');
-const SMTP_VARS = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'SMTP_PORT', 'SMTP_FROM', 'RESEND_API_KEY'];
+const SMTP_VARS = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'SMTP_PORT', 'SMTP_FROM', 'RESEND_API_KEY', 'BREVO_API_KEY', 'BREVO_SENDER_EMAIL', 'BREVO_SENDER_NAME'];
 
 let originalCreateTransport;
 let originalEnv;
@@ -152,4 +152,116 @@ test('an unconfigured transport reports that it cannot be verified', async () =>
   assert.equal(result.ok, null);
   assert.equal(result.transport, null);
   assert.match(result.unverifiable, /No email transport is configured/);
+});
+
+// ---------------------------------------------------------------------------
+// Brevo — the HTTPS transport that works on Railway, where outbound SMTP is
+// blocked. No network here either: global fetch is replaced by a stub that
+// records the request and returns a canned response.
+// ---------------------------------------------------------------------------
+const BREVO = { BREVO_API_KEY: 'xkeysib-test-0123456789', BREVO_SENDER_EMAIL: 'portal.sender@gmail.com' };
+
+function stubFetch(responder) {
+  const calls = [];
+  const original = global.fetch;
+  global.fetch = async (url, options) => {
+    calls.push({ url, options });
+    const { status = 200, body = {} } = responder(url, options) || {};
+    return { ok: status >= 200 && status < 300, status, json: async () => body };
+  };
+  return { calls, restore: () => (global.fetch = original) };
+}
+
+test('Brevo is the transport when its key and sender are both set', () => {
+  const { service } = loadWith(BREVO);
+  assert.equal(service.activeEmailTransport(), 'brevo');
+  assert.equal(service.canSendEmail(), true);
+});
+
+test('a Brevo key without a sender (or the reverse) counts as not configured', () => {
+  assert.equal(loadWith({ BREVO_API_KEY: BREVO.BREVO_API_KEY }).service.activeEmailTransport(), null);
+  assert.equal(loadWith({ BREVO_SENDER_EMAIL: BREVO.BREVO_SENDER_EMAIL }).service.canSendEmail(), false);
+});
+
+test('Brevo wins over SMTP, because only HTTPS gets out of a Railway container', () => {
+  const { service } = loadWith({ ...BREVO, ...GMAIL, SMTP_PASS: 'abcdefghijklmnop' });
+  assert.equal(service.activeEmailTransport(), 'brevo');
+});
+
+test('a reset email goes to Brevo\'s send endpoint with the key in the header only', async () => {
+  const { service } = loadWith({ ...BREVO, BREVO_SENDER_NAME: '  Student Portal  ' });
+  const stub = stubFetch(() => ({ status: 201, body: { messageId: '<abc@smtp-relay>' } }));
+  try {
+    await service.sendPasswordResetEmail('learner@example.com', 'https://portal.example/reset-password?token=t0k3n');
+  } finally {
+    stub.restore();
+  }
+  assert.equal(stub.calls.length, 1);
+  const { url, options } = stub.calls[0];
+  assert.equal(url, 'https://api.brevo.com/v3/smtp/email');
+  assert.equal(options.method, 'POST');
+  assert.equal(options.headers['api-key'], BREVO.BREVO_API_KEY);
+  const body = JSON.parse(options.body);
+  assert.deepEqual(body.sender, { name: 'Student Portal', email: 'portal.sender@gmail.com' });
+  assert.deepEqual(body.to, [{ email: 'learner@example.com' }]);
+  assert.match(body.subject, /Reset your Student Portal password/);
+  assert.match(body.htmlContent, /reset-password\?token=t0k3n/);
+  assert.match(body.textContent, /reset-password\?token=t0k3n/);
+  assert.ok(!options.body.includes(BREVO.BREVO_API_KEY), 'the key must not be in the body');
+});
+
+test('a rejected Brevo key becomes a thrown error naming the status, never the key', async () => {
+  const { service } = loadWith(BREVO);
+  const stub = stubFetch(() => ({ status: 401, body: { code: 'unauthorized', message: 'Key not found' } }));
+  try {
+    await assert.rejects(
+      service.sendPasswordResetEmail('learner@example.com', 'https://portal.example/reset-password?token=x'),
+      (error) => {
+        assert.equal(error.code, 'BREVO_UNAUTHORIZED');
+        assert.match(error.message, /401/);
+        assert.ok(!error.message.includes(BREVO.BREVO_API_KEY));
+        return true;
+      }
+    );
+  } finally {
+    stub.restore();
+  }
+});
+
+test('verifyTransport checks the key and that the sender is verified in Brevo', async () => {
+  const { service } = loadWith(BREVO);
+  const ok = stubFetch((url) => (url.endsWith('/senders')
+    ? { body: { senders: [{ id: 1, email: 'Portal.Sender@gmail.com', active: true }] } }
+    : { body: { email: 'owner@example.com' } }));
+  try {
+    assert.deepEqual(await service.verifyTransport(), { ok: true, transport: 'brevo' });
+  } finally {
+    ok.restore();
+  }
+
+  const unverified = stubFetch((url) => (url.endsWith('/senders')
+    ? { body: { senders: [{ id: 1, email: 'portal.sender@gmail.com', active: false }] } }
+    : { body: {} }));
+  try {
+    const result = await service.verifyTransport();
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, 'BREVO_SENDER_INACTIVE');
+  } finally {
+    unverified.restore();
+  }
+
+  const unknown = stubFetch((url) => (url.endsWith('/senders') ? { body: { senders: [] } } : { body: {} }));
+  try {
+    assert.equal((await service.verifyTransport()).error.code, 'BREVO_SENDER_UNKNOWN');
+  } finally {
+    unknown.restore();
+  }
+});
+
+test('the config summary never reveals the Brevo key', () => {
+  const { service } = loadWith(BREVO);
+  const summary = service.emailConfigSummary();
+  assert.equal(summary.brevo.keySet, true);
+  assert.equal(summary.brevo.senderEmail, 'portal.sender@gmail.com');
+  assert.ok(!JSON.stringify(summary).includes('xkeysib'), 'no part of the key may appear');
 });

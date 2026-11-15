@@ -31,8 +31,8 @@ function logEmailConfiguration() {
   if (!transport) {
     console.log('Email: not configured — "Forgot password" is switched off and the login page says so.');
   } else {
-    const { smtp } = emailService.emailConfigSummary();
-    const sender = transport === 'smtp' ? ` as ${smtp.from}` : '';
+    const { smtp, brevo } = emailService.emailConfigSummary();
+    const sender = transport === 'smtp' ? ` as ${smtp.from}` : transport === 'brevo' ? ` as ${brevo.senderEmail}` : '';
     console.log(`Email: ${transport} transport${sender}. Run "npm run check:email" to test the credentials.`);
   }
 

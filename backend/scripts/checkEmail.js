@@ -26,7 +26,7 @@
 //
 //   railway run npm run check:email
 //
-// It never prints SMTP_PASS, in whole or in part.
+// It never prints SMTP_PASS or BREVO_API_KEY, in whole or in part.
 require('dotenv').config();
 
 const emailService = require('../services/emailService');
@@ -76,6 +76,26 @@ const ERROR_HINTS = {
   EDNS: 'No such host. SMTP_HOST is misspelled (Gmail is exactly smtp.gmail.com).',
   ENOTFOUND: 'No such host. SMTP_HOST is misspelled (Gmail is exactly smtp.gmail.com).',
   EENVELOPE: 'The server refused the sender or recipient address. Check SMTP_FROM.',
+
+  // Brevo (HTTPS API). Codes set by emailService's BrevoError.
+  BREVO_UNAUTHORIZED:
+    'Brevo rejected the API key (401). It is mistyped, was revoked, or has a stray space.\n' +
+    '      Create a new one in Brevo: SMTP & API -> API Keys -> Generate a new API key,\n' +
+    '      and paste it into BREVO_API_KEY exactly.',
+  BREVO_SENDER_UNKNOWN:
+    'BREVO_SENDER_EMAIL is not one of the senders in this Brevo account.\n' +
+    '      Add it in Brevo under Senders (Senders, Domains & Dedicated IPs), click the link in\n' +
+    '      the confirmation email Brevo sends to that address, then run this again.',
+  BREVO_SENDER_INACTIVE:
+    'The sender exists in Brevo but has not been verified yet.\n' +
+    '      Open the confirmation email Brevo sent to that address and click its link.',
+  BREVO_SENDER_INVALID:
+    'Brevo refused the sender address on send. It must be a verified sender in this\n' +
+    '      Brevo account (Senders), spelled exactly as in BREVO_SENDER_EMAIL.',
+  BREVO_TIMEOUT: 'Brevo did not answer in time. Usually temporary: try again in a minute.',
+  BREVO_UNREACHABLE:
+    "Could not reach api.brevo.com at all. Check this machine's internet connection;\n" +
+    '      Railway allows outbound HTTPS, so on the deployment this should not happen.',
 };
 
 // nodemailer's own connection-phase timeouts (checked in
@@ -129,7 +149,11 @@ async function checkEmail() {
     // it honestly rather than pretending. Say what to set, and stop.
     console.log('  No email transport is configured, so "Forgot password" is switched off.');
     console.log('  The login page says so plainly and points users at the registrar instead.');
-    console.log('\n  To switch it on, set these on the app service:');
+    console.log('\n  To switch it on (works on Railway, free): Brevo over HTTPS.');
+    console.log('    BREVO_API_KEY=<Brevo: SMTP & API -> API Keys>');
+    console.log('    BREVO_SENDER_EMAIL=<an address verified in Brevo -> Senders>');
+    console.log('    FRONTEND_URL=<the public URL of this deployment>');
+    console.log('\n  Or, where outbound SMTP is allowed (not on Railway Hobby/Free):');
     console.log('    SMTP_HOST=smtp.gmail.com');
     console.log('    SMTP_PORT=465');
     console.log('    SMTP_USER=<the sending mailbox>');
@@ -141,6 +165,16 @@ async function checkEmail() {
   }
 
   line('Transport', summary.transport);
+  if (summary.transport === 'brevo') {
+    line('Sending as', `${summary.brevo.senderName} <${summary.brevo.senderEmail}>`);
+    // Presence only, never any part of the key.
+    line('API key', summary.brevo.keySet ? 'set' : 'MISSING');
+    if (/@(gmail|yahoo|outlook|hotmail)\./i.test(summary.brevo.senderEmail || '')) {
+      console.log('\n  Note: a free-mail sender cannot be authenticated, so Brevo rewrites it to an');
+      console.log('  address like name@<id>.brevosend.com. Mail still arrives, but tell users to');
+      console.log("  check their spam folder. A domain of the school's own would remove this.");
+    }
+  }
   if (summary.transport === 'smtp') {
     line('Host', summary.smtp.host);
     line('Port', `${summary.smtp.port} (${summary.smtp.secure ? 'implicit TLS' : 'STARTTLS'})`);
@@ -178,9 +212,9 @@ async function checkEmail() {
   if (result.ok === null) {
     console.log(`  ${result.unverifiable}`);
   } else if (result.ok) {
-    console.log('  Connected and authenticated successfully.');
+    console.log(summary.transport === 'brevo' ? '  Brevo accepted the API key, and the sender is verified.' : '  Connected and authenticated successfully.');
   } else {
-    console.log('  FAILED — the server refused the connection or the credentials.');
+    console.log(summary.transport === 'brevo' ? '  FAILED — Brevo refused the API key or the sender.' : '  FAILED — the server refused the connection or the credentials.');
     describeError(result.error);
     console.log('');
     return false;
@@ -206,7 +240,7 @@ async function checkEmail() {
       // Say what actually happened. Reporting "sent" here would be the exact
       // thing this script exists to catch, committed by the script itself.
       console.log('  Written to the console above — NOT sent. That is what the console');
-      console.log('  transport does; configure SMTP to send for real.');
+      console.log('  transport does; configure Brevo (or SMTP) to send for real.');
     } else {
       console.log('  Sent. Check that inbox (and its spam folder).');
     }
@@ -226,10 +260,13 @@ async function checkEmail() {
 checkEmail()
   .then((ok) => {
     // A non-zero exit so this is usable in a deploy check or a shell `&&`
-    // chain, not only read by a person.
-    process.exit(ok ? 0 : 1);
+    // chain, not only read by a person. exitCode rather than process.exit():
+    // exiting abruptly while fetch's connection to Brevo is still closing
+    // crashes Node on Windows (a libuv assertion), turning a clean "FAILED"
+    // into exit 127. Letting the event loop drain avoids it.
+    process.exitCode = ok ? 0 : 1;
   })
   .catch((error) => {
     console.error('\ncheck:email could not run:', error?.message || error, '\n');
-    process.exit(1);
+    process.exitCode = 1;
   });

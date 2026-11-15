@@ -2,14 +2,29 @@
 // calls sendPasswordResetEmail / canSendEmail and never learns which
 // transport is in use.
 //
-// THREE TRANSPORTS, tried in this order:
+// FOUR TRANSPORTS, tried in this order:
 //
-//   1. SMTP (nodemailer) — the one the school actually runs on. Any mailbox
-//      with SMTP credentials will do; for a Gmail account that means an App
-//      Password, which requires 2-Step Verification on that account.
-//   2. Resend — kept because it was here first and is genuinely simpler to
+//   1. Brevo (HTTPS API) — the one that works on the Railway deployment.
+//      Railway's Hobby/Free plans block outgoing SMTP entirely (see
+//      CLAUDE.md, "Forgot Password"), but not HTTPS, and Brevo's free plan
+//      sends 300 emails a day to ANY recipient from one sender address
+//      verified by clicking a confirmation email — no domain needed.
+//      Caveat: a free-mail sender such as a gmail.com address cannot be
+//      authenticated, so Brevo rewrites it to something@<id>.brevosend.com.
+//      The email still arrives, but may be filtered to spam until the school
+//      sends from a domain of its own.
+//   2. SMTP (nodemailer) — any mailbox with SMTP credentials; for a Gmail
+//      account that means an App Password, which requires 2-Step
+//      Verification on that account. Works anywhere outbound SMTP is open.
+//   3. Resend — kept because it was here first and is genuinely simpler to
 //      set up. See the warning below about who it can reach.
-//   3. The development console fallback.
+//   4. The development console fallback.
+//
+// WHY BREVO IS PREFERRED WHEN BOTH IT AND SMTP ARE SET. Both reach any
+// recipient, but only one of them can leave a Railway container: an SMTP
+// connection there times out after two minutes. Putting the HTTPS transport
+// first means a deployment that happens to carry leftover SMTP variables
+// still sends.
 //
 // WHY SMTP IS PREFERRED WHEN BOTH ARE SET. Resend's free sending identity,
 // onboarding@resend.dev, only delivers to the address that owns the Resend
@@ -94,6 +109,64 @@ const smtpTransport = smtpConfigured
 // Gmail among them — sending as anyone else is refused anyway.
 const SMTP_FROM = trimmed(process.env.SMTP_FROM) || SMTP_USER;
 
+// Brevo, over its HTTPS API with Node's built-in fetch (no SDK dependency).
+// Configured only when both the key and the sender are set, for the same
+// reason as SMTP: a half-filled set should switch the flow off, not fail
+// while someone waits for a link. The sender must be one verified in the
+// Brevo account (Senders), or Brevo refuses the send.
+const BREVO_API = 'https://api.brevo.com/v3';
+const BREVO_API_KEY = trimmed(process.env.BREVO_API_KEY);
+const BREVO_SENDER_EMAIL = trimmed(process.env.BREVO_SENDER_EMAIL);
+const BREVO_SENDER_NAME = trimmed(process.env.BREVO_SENDER_NAME) || 'DepEd Progressive SHS Student Portal';
+const brevoConfigured = Boolean(BREVO_API_KEY && BREVO_SENDER_EMAIL);
+// Long enough for a slow day at Brevo, short enough that a person on the
+// Forgot Password page gets an answer instead of a spinner.
+const BREVO_TIMEOUT_MS = 15000;
+
+// A Brevo failure with a stable `code`, so scripts/checkEmail.js can name
+// the fix the way it already does for SMTP's EAUTH / ETIMEDOUT.
+class BrevoError extends Error {
+  constructor(message, code, status = null) {
+    super(message);
+    this.name = 'BrevoError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+// One call to Brevo's API. The key travels only in the `api-key` header and
+// is never part of an error message, a log line or a return value.
+async function brevoRequest(path, { method = 'GET', body } = {}) {
+  let response;
+  try {
+    response = await fetch(`${BREVO_API}${path}`, {
+      method,
+      headers: {
+        'api-key': BREVO_API_KEY,
+        accept: 'application/json',
+        ...(body ? { 'content-type': 'application/json' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const timedOut = error.name === 'TimeoutError' || error.name === 'AbortError';
+    throw new BrevoError(
+      timedOut ? `Brevo did not answer within ${BREVO_TIMEOUT_MS / 1000} seconds.` : `Could not reach Brevo: ${error.message}`,
+      timedOut ? 'BREVO_TIMEOUT' : 'BREVO_UNREACHABLE'
+    );
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = typeof payload.message === 'string' ? payload.message : '';
+    let code = `BREVO_HTTP_${response.status}`;
+    if (response.status === 401) code = 'BREVO_UNAUTHORIZED';
+    else if (response.status === 400 && /sender/i.test(message)) code = 'BREVO_SENDER_INVALID';
+    throw new BrevoError(`Brevo answered ${response.status}${message ? `: ${message}` : ''}`, code, response.status);
+  }
+  return payload;
+}
+
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 // Refused in production: there, "the link went to a log nobody reads" is
 // indistinguishable to the user from "the link was sent", which is the exact
@@ -105,7 +178,7 @@ const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.de
 // configured, or this is a developer machine that has opted into the console
 // fallback. The API and the UI both ask this before offering the flow.
 function canSendEmail() {
-  return Boolean(smtpTransport) || Boolean(resend) || devFallbackEnabled;
+  return brevoConfigured || Boolean(smtpTransport) || Boolean(resend) || devFallbackEnabled;
 }
 
 // Which transport a send would use. Named once at boot (see server.js) and
@@ -117,6 +190,7 @@ function canSendEmail() {
 // a user can act on while telling anyone else a little about how the
 // deployment is wired. The diagnostic belongs behind deploy access.
 function activeEmailTransport() {
+  if (brevoConfigured) return 'brevo';
   if (smtpTransport) return 'smtp';
   if (resend) return 'resend';
   if (devFallbackEnabled) return 'console';
@@ -137,6 +211,28 @@ function activeEmailTransport() {
 // is to print the failure, not to crash on it.
 async function verifyTransport() {
   const transport = activeEmailTransport();
+
+  if (brevoConfigured) {
+    try {
+      // Two real HTTPS calls: /account proves the key works (a wrong or
+      // revoked key answers 401), /senders proves the configured sender is
+      // one Brevo will actually send as.
+      await brevoRequest('/account');
+      const { senders } = await brevoRequest('/senders');
+      if (Array.isArray(senders)) {
+        const match = senders.find((s) => String(s.email || '').toLowerCase() === BREVO_SENDER_EMAIL.toLowerCase());
+        if (!match) {
+          return { ok: false, transport, error: new BrevoError(`${BREVO_SENDER_EMAIL} is not a sender in this Brevo account.`, 'BREVO_SENDER_UNKNOWN') };
+        }
+        if (match.active === false) {
+          return { ok: false, transport, error: new BrevoError(`${BREVO_SENDER_EMAIL} is in Brevo but not yet verified.`, 'BREVO_SENDER_INACTIVE') };
+        }
+      }
+      return { ok: true, transport };
+    } catch (error) {
+      return { ok: false, transport, error };
+    }
+  }
 
   if (smtpTransport) {
     try {
@@ -165,12 +261,17 @@ async function verifyTransport() {
 
 // What is set, for a human reading a diagnostic — never what it is set to.
 //
-// SMTP_PASS is reported only as present or absent and is never returned,
-// logged or printed in any form, including partially masked: a prefix of a
-// sixteen-character secret is still four characters of it.
+// SMTP_PASS and BREVO_API_KEY are reported only as present or absent and are
+// never returned, logged or printed in any form, including partially masked:
+// a prefix of a secret is still part of it.
 function emailConfigSummary() {
   return {
     transport: activeEmailTransport(),
+    brevo: {
+      senderEmail: BREVO_SENDER_EMAIL || null,
+      senderName: BREVO_SENDER_EMAIL ? BREVO_SENDER_NAME : null,
+      keySet: Boolean(BREVO_API_KEY),
+    },
     smtp: {
       host: SMTP_HOST || null,
       port: SMTP_HOST ? SMTP_PORT : null,
@@ -200,6 +301,23 @@ function resetEmailBody(resetUrl) {
 
 async function sendPasswordResetEmail(toEmail, resetUrl) {
   const { subject, html, text } = resetEmailBody(resetUrl);
+
+  if (brevoConfigured) {
+    // Plain-text alternative included for the same spam-folder reason as
+    // SMTP below — doubly worth it when Brevo has rewritten a free-mail
+    // sender to a brevosend.com address.
+    await brevoRequest('/smtp/email', {
+      method: 'POST',
+      body: {
+        sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+        to: [{ email: toEmail }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      },
+    });
+    return;
+  }
 
   if (smtpTransport) {
     // `text` as well as `html`: a plain-text alternative keeps the message
