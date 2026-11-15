@@ -13,6 +13,34 @@ export function getToken() {
   return localStorage.getItem(TOKEN_STORAGE_KEY) || sessionStorage.getItem(TOKEN_STORAGE_KEY);
 }
 
+// "Remember me on this device" also remembers WHO signed in here: the email
+// is kept so the login page opens with it filled in, even after "Log out".
+// Logging out ends the session (the token), but people expect a remembered
+// device to still know them. Signing in with the box unticked forgets the
+// email again. That's the shared-computer path. Only the email is kept,
+// never the password; the browser's own password manager is offered that
+// via the login form's autoComplete attributes. Storage can be blocked
+// (private mode, policies), hence the try/catch: remembering is a
+// convenience, never a reason for login to fail.
+const REMEMBERED_EMAIL_KEY = 'studentPortal.rememberedEmail'
+
+export function getRememberedEmail() {
+  try {
+    return localStorage.getItem(REMEMBERED_EMAIL_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export function setRememberedEmail(email) {
+  try {
+    if (email) localStorage.setItem(REMEMBERED_EMAIL_KEY, email)
+    else localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+  } catch {
+    // Blocked storage: nothing to remember with.
+  }
+}
+
 // Swaps in a fresh token, keeping it in whichever storage held the old one,
 // so "Remember me" (localStorage) or "not remembered" (sessionStorage) is
 // preserved. Used after a password change: the server ends every older

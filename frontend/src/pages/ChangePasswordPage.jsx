@@ -4,6 +4,7 @@ import { api, replaceToken } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { Alert } from '../components/Alert'
 import { AuthCard } from '../components/AuthCard'
+import { PasswordInput } from '../components/PasswordInput'
 
 // Shown instead of the normal app (no sidebar — every other route would
 // just redirect back here anyway) whenever the account has a forced
@@ -63,30 +64,30 @@ export function ChangePasswordPage() {
               the account menu later is an ordinary password change. */}
           {user?.mustChangePassword ? 'Current (temporary) password' : 'Current password'}{' '}
           <span className="required-mark">*</span>
-          <input
-            type="password"
+          <PasswordInput
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
+            autoComplete="current-password"
             required
             autoFocus
           />
         </label>
         <label>
           New password <span className="required-mark">*</span>
-          <input
-            type="password"
+          <PasswordInput
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
+            autoComplete="new-password"
             minLength={8}
             required
           />
         </label>
         <label>
           Confirm new password <span className="required-mark">*</span>
-          <input
-            type="password"
+          <PasswordInput
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
             minLength={8}
             required
           />

@@ -17,6 +17,7 @@ import { roleLabel } from '../utils/roleLabel'
 import { Alert } from '../components/Alert'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { FormField } from '../components/FormField'
+import { PasswordInput } from '../components/PasswordInput'
 import { Skeleton } from '../components/Skeleton'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 
@@ -229,9 +230,8 @@ export function ProfilePage() {
                 required
                 hint="Required to change the address your sign-in and password resets go to."
               >
-                <input
+                <PasswordInput
                   id="profile-current-password"
-                  type="password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   required
@@ -278,9 +278,8 @@ export function ProfilePage() {
 
           <form onSubmit={handlePasswordSubmit} className="profile-page__form">
             <FormField id="pw-current" icon={ShieldCheck} label="Current password" required>
-              <input
+              <PasswordInput
                 id="pw-current"
-                type="password"
                 autoComplete="current-password"
                 value={passwords.current}
                 onChange={(e) => setPasswords((p) => ({ ...p, current: e.target.value }))}
@@ -288,9 +287,8 @@ export function ProfilePage() {
               />
             </FormField>
             <FormField id="pw-next" icon={KeyRound} label="New password" required hint="At least 8 characters.">
-              <input
+              <PasswordInput
                 id="pw-next"
-                type="password"
                 autoComplete="new-password"
                 minLength={8}
                 value={passwords.next}
@@ -312,9 +310,8 @@ export function ProfilePage() {
                   : null
               }
             >
-              <input
+              <PasswordInput
                 id="pw-confirm"
-                type="password"
                 autoComplete="new-password"
                 minLength={8}
                 value={passwords.confirm}

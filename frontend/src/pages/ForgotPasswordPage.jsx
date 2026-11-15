@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { Alert } from '../components/Alert'
 import { AuthCard } from '../components/AuthCard'
+import { PasswordInput } from '../components/PasswordInput'
 
 // Forgot password, in two steps on one page:
 //
@@ -185,8 +186,7 @@ export function ForgotPasswordPage() {
             </label>
             <label>
               New password <span className="required-mark">*</span>
-              <input
-                type="password"
+              <PasswordInput
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
@@ -196,8 +196,7 @@ export function ForgotPasswordPage() {
             </label>
             <label>
               Confirm new password <span className="required-mark">*</span>
-              <input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
