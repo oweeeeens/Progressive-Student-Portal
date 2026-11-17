@@ -46,7 +46,7 @@ const IMPORTS = [
     to: '/attendance/bulk-import',
     icon: CalendarCheck,
     title: 'Attendance (SF2)',
-    file: "The section's DepEd School Form 2 attendance sheet (.xlsx).",
+    file: "The section's DepEd School Form 2 (SF2) attendance sheet (.xlsx). No sheet yet? Download the official DepEd SF2 template, with the section's learners and school days filled in, on the next page.",
     fills: "The daily register: present, absent, late or excused per learner per day. It feeds the attendance rate in the risk score and the 12-absence alert.",
     who: 'The section adviser, admin and registrar',
     allowed: canImportAttendance,

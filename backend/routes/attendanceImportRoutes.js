@@ -13,6 +13,7 @@ const {
   inspectGrid,
   validateImport,
   commitImport,
+  downloadTemplate,
 } = require('../controllers/attendanceImportController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { uploadSpreadsheet } = require('../middleware/bulkImportUploadMiddleware');
@@ -26,5 +27,7 @@ router.post('/parse', uploadSpreadsheet, parseFile);
 router.post('/inspect', uploadSpreadsheet, inspectGrid);
 router.post('/validate', validateImport);
 router.post('/commit', commitImport);
+// DepEd's official SF2, filled in for a section and month (services/sf2Template.js).
+router.get('/template', downloadTemplate);
 
 module.exports = router;

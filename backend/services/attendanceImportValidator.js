@@ -28,9 +28,15 @@ function validateGrid({ students, symbolMap }, { studentsByLrn, periodByDate, ex
   let ignoredCells = 0;
 
   for (const student of students) {
-    const match = studentsByLrn.get(student.lrn);
+    const match = student.lrn ? studentsByLrn.get(student.lrn) : null;
     if (!match) {
-      unknownStudents.push({ rowNumber: student.rowNumber, lrn: student.lrn });
+      // A row matched by name (DepEd's official SF2 has no LRN) carries the
+      // name as written and why it could not be matched.
+      unknownStudents.push({
+        rowNumber: student.rowNumber,
+        lrn: student.lrn || null,
+        ...(student.name ? { name: student.name, reason: student.unmatchedReason || 'Not in this section.' } : {}),
+      });
       continue;
     }
 

@@ -813,3 +813,133 @@ test('dates are resolved only within the section\'s own school year', async () =
   ]);
   assert.equal(leaked.rowCount, 0);
 });
+
+// ---------------------------------------------------------------------------
+// DepEd's official SF2: the template, and importing by learner name
+// ---------------------------------------------------------------------------
+// The official School Form 2 lists learners by name with no LRN, so these
+// tests use the real form: download the template the System builds from
+// DepEd's own workbook, mark it the way an adviser would, and import it back.
+const { schoolDaysOfMonth } = require('../../services/sf2Template');
+
+async function downloadSf2({ token, sectionId, month, year }) {
+  const response = await fetch(`${server.baseUrl}${BASE}/template?sectionId=${sectionId}&month=${month}&year=${year}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return { status: response.status, buffer: Buffer.from(await response.arrayBuffer()) };
+}
+
+// Overwrite any dates an earlier test already wrote, so this test does not
+// depend on run order.
+function overwriteAll(plan) {
+  return Object.fromEntries((plan.conflicts || []).map((c) => [c.date, 'overwrite']));
+}
+
+test('the SF2 template is DepEd\'s official form, filled in for the section and month', async () => {
+  const { status, buffer } = await downloadSf2({ token: ctx.adviser.token, sectionId: ctx.section.id, month: 11, year: 2032 });
+  assert.equal(status, 200);
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  assert.equal(workbook.worksheets.length, 1, 'only SF2 is left in the file');
+  const sheet = workbook.worksheets[0];
+  assert.equal(sheet.name, 'School Form 2 (SF2)');
+  assert.equal(sheet.getCell('A2').value, 'School Form 2 (SF2) Daily Attendance Report of Learners');
+  assert.equal(sheet.getCell('X6').value, 'November 2032');
+  assert.equal(sheet.getCell('AC8').value, ctx.section.name);
+
+  // "1st row for date, 2nd row for Day: M,T,W,TH,F" — every weekday of the month.
+  const days = schoolDaysOfMonth(2032, 11);
+  assert.equal(sheet.getCell('D11').value, days[0].day);
+  assert.equal(sheet.getCell('D12').value, days[0].letter);
+
+  // The section's learners, as "Last, First" (no sex recorded -> male block).
+  const names = [sheet.getCell('B14').value, sheet.getCell('B15').value];
+  assert.ok(names.includes(`${ctx.studentA.last_name}, ${ctx.studentA.first_name}`), JSON.stringify(names));
+  assert.ok(names.includes(`${ctx.studentB.last_name}, ${ctx.studentB.first_name}`), JSON.stringify(names));
+  assert.match(String(sheet.getCell('A35').value), /MALE\s+\|\s+TOTAL Per Day/);
+});
+
+test('only someone who may import into the section can download its SF2 template', async () => {
+  for (const token of [ctx.otherAdviser.token, ctx.teacher.token]) {
+    const { status } = await downloadSf2({ token, sectionId: ctx.section.id, month: 11, year: 2032 });
+    assert.equal(status, 403);
+  }
+  const registrar = await downloadSf2({ token: ctx.registrar.token, sectionId: ctx.section.id, month: 11, year: 2032 });
+  assert.equal(registrar.status, 200);
+  const badMonth = await downloadSf2({ token: ctx.adviser.token, sectionId: ctx.section.id, month: 13, year: 2032 });
+  assert.equal(badMonth.status, 400);
+});
+
+test('a filled-in official SF2 imports by learner name and writes to the right learners', async () => {
+  const { buffer } = await downloadSf2({ token: ctx.adviser.token, sectionId: ctx.section.id, month: 11, year: 2032 });
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.worksheets[0];
+
+  // The adviser marks the first learner absent on the first school day
+  // ("x", the form's own code) and leaves everything else blank (present).
+  const firstName = sheet.getCell('B14').value;
+  const absentStudent = firstName.startsWith(ctx.studentA.last_name) ? ctx.studentA : ctx.studentB;
+  const presentStudent = absentStudent === ctx.studentA ? ctx.studentB : ctx.studentA;
+  sheet.getCell('D14').value = 'x';
+  const filled = Buffer.from(await workbook.xlsx.writeBuffer());
+
+  const parse = await api.upload(`${BASE}/parse`, { token: ctx.adviser.token, buffer: filled, fields: { sectionId: ctx.section.id } });
+  assert.equal(parse.status, 200, JSON.stringify(parse.body));
+  assert.equal(parse.body.suggestion.matchBy, 'name');
+  assert.equal(parse.body.suggestion.lrnColumn, null);
+  assert.equal(parse.body.suggestion.nameColumn, 2);
+  assert.equal(parse.body.suggestion.dayRow, 11);
+  assert.equal(parse.body.suggestion.month, 11);
+  assert.equal(parse.body.suggestion.year, 2032);
+
+  const target = { sectionId: ctx.section.id };
+  const { inspect, validate, symbolMap } = await runToValidate({
+    token: ctx.adviser.token,
+    buffer: filled,
+    anchors: { nameColumn: 2, dayRow: 11, month: 11, year: 2032 },
+    target,
+    symbolMap: { '': 'present', x: 'absent' },
+  });
+  assert.equal(validate.status, 200, JSON.stringify(validate.body));
+  assert.equal(inspect.students.length, 2, 'exactly the two learners; labels and totals are skipped');
+  assert.deepEqual(validate.body.skipped.unknownStudents, []);
+
+  const commit = await api.post(`${BASE}/commit`, {
+    token: ctx.adviser.token,
+    body: { ...target, students: inspect.students, symbolMap, conflictDecisions: overwriteAll(validate.body), fileName: 'sf2-official.xlsx' },
+  });
+  assert.equal(commit.status, 201, JSON.stringify(commit.body));
+
+  const firstDay = `2032-11-${String(schoolDaysOfMonth(2032, 11)[0].day).padStart(2, '0')}`;
+  const rows = await getDailyRows([absentStudent.id, presentStudent.id]);
+  const status = (id) => rows.find((r) => r.student_id === id && r.attendance_date === firstDay)?.status;
+  assert.equal(status(absentStudent.id), 'absent');
+  assert.equal(status(presentStudent.id), 'present');
+});
+
+test('a name that matches no learner in the section is reported, never guessed', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('SF2');
+  sheet.addRow(['School Form 2 (SF2) Daily Attendance Report of Learners']);
+  sheet.addRow(['Report for the Month of', 'October 2032']);
+  sheet.addRow(["LEARNER'S NAME (Last Name, First Name, Middle Name)", 1, 4]);
+  sheet.addRow([`${ctx.studentA.last_name}, ${ctx.studentA.first_name}`, '', 'x']);
+  sheet.addRow([`${ctx.outsider.last_name}, ${ctx.outsider.first_name}`, 'x', '']);   // in another section
+  sheet.addRow(['Nobody, Someone', '', '']);
+  const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+  const { validate } = await runToValidate({
+    token: ctx.adviser.token,
+    buffer,
+    anchors: { nameColumn: 1, dayRow: 3, month: 10, year: 2032 },
+    target: { sectionId: ctx.section.id },
+    symbolMap: { '': 'present', x: 'absent' },
+  });
+  assert.equal(validate.status, 200, JSON.stringify(validate.body));
+  const unknown = validate.body.skipped.unknownStudents;
+  assert.equal(unknown.length, 2, JSON.stringify(unknown));
+  assert.ok(unknown.every((u) => u.name && u.reason), 'each skipped row says which name and why');
+  assert.equal(validate.body.summary.studentCount, 1);
+});

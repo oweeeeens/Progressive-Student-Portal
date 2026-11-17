@@ -15,18 +15,26 @@ const bulkImportModel = require('./bulkImportModel');
 // uses means an import can never write a student into a register they do
 // not belong to.
 async function getRosterByLrn({ sectionId }) {
-  const result = await pool.query(
-    `SELECT id, lrn, first_name, last_name
-     FROM students
-     WHERE current_section_id = $1 AND is_active = TRUE`,
-    [sectionId]
-  );
-
+  const rows = await getRoster({ sectionId });
   const byLrn = new Map();
-  for (const row of result.rows) {
+  for (const row of rows) {
     byLrn.set(row.lrn, { id: row.id, name: `${row.last_name}, ${row.first_name}` });
   }
   return byLrn;
+}
+
+// The same roster as rows, with the middle name and sex: used to match an
+// official SF2 (which lists learners by name, not LRN) and to fill the SF2
+// template, males first as the form prescribes.
+async function getRoster({ sectionId }) {
+  const result = await pool.query(
+    `SELECT id, lrn, first_name, middle_name, last_name, sex
+     FROM students
+     WHERE current_section_id = $1 AND is_active = TRUE
+     ORDER BY last_name, first_name, middle_name`,
+    [sectionId]
+  );
+  return result.rows;
 }
 
 // The school year the chosen section belongs to. Every
@@ -140,4 +148,4 @@ async function commitImport({ groups, recordedBy, log }) {
   };
 }
 
-module.exports = { getRosterByLrn, getSchoolYearId, getExistingByDate, commitImport };
+module.exports = { getRosterByLrn, getRoster, getSchoolYearId, getExistingByDate, commitImport };

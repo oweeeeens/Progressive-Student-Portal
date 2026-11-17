@@ -56,11 +56,47 @@ async function readSheet(buffer) {
 // user can override — an SF2's header block varies by division, and a wrong
 // guess silently applied would write a whole month of wrong attendance.
 function suggestAnchors(cells) {
+  const lrnColumn = findLrnColumn(cells);
+  const dayRow = findDayRow(cells);
+  const nameColumn = findNameColumn(cells, dayRow);
   return {
-    lrnColumn: findLrnColumn(cells),
-    dayRow: findDayRow(cells),
+    lrnColumn,
+    nameColumn,
+    // DepEd's official SF2 has no LRN column — learners are listed by name
+    // ("Last Name, First Name, Middle Name"). Match by LRN only when the
+    // sheet actually has one.
+    matchBy: lrnColumn ? 'lrn' : nameColumn ? 'name' : null,
+    dayRow,
     ...findMonthAndYear(cells),
   };
+}
+
+// Text in the name column that is a label of the form, not a learner.
+const NON_LEARNER_LABEL = /total|^\s*male\b|^\s*female\b|guidelines|learner'?s name/i;
+// Where the official SF2's learner list ends.
+const END_OF_LIST = /combined\s+total|guidelines/i;
+
+// The column holding learner names ("Last, First Middle"): the one with the
+// most such entries below the day row. Counted, like the LRN column, so a
+// heading or a stray comma cannot win. Merged name cells (the official SF2
+// merges B:C) repeat their value in both columns; the leftmost wins.
+function findNameColumn(cells, dayRow) {
+  const hits = new Map();
+  const start = dayRow ? dayRow + 1 : 1;
+  for (let r = start; r < cells.length; r += 1) {
+    const row = cells[r];
+    if (!row) continue;
+    if (row.some((v) => v && END_OF_LIST.test(String(v)))) break;
+    row.forEach((value, colNumber) => {
+      const text = value == null ? '' : String(value).trim();
+      // "Last, First …": letters on both sides of a comma.
+      if (/^[^,]*[a-z][^,]*,\s*[^,]*[a-z]/i.test(text) && !NON_LEARNER_LABEL.test(text)) {
+        hits.set(colNumber, (hits.get(colNumber) || 0) + 1);
+      }
+    });
+  }
+  if (hits.size === 0) return null;
+  return [...hits.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
 }
 
 // The column holding 12-digit LRNs. Counted rather than first-match, so a
@@ -129,8 +165,9 @@ function findMonthAndYear(cells) {
 // Returns marks keyed by the RAW cell text. Deciding that "x" means absent
 // is the validator's job once the user has confirmed it — this function
 // never interprets a symbol.
-function extractMarks(cells, { lrnColumn, dayRow, month, year }) {
-  if (!lrnColumn) throw new Error('Tell the import which column holds the LRN.');
+function extractMarks(cells, { lrnColumn, nameColumn, dayRow, month, year }) {
+  if (!lrnColumn && !nameColumn) throw new Error('Tell the import which column holds the LRN or the learner’s name.');
+  const byName = !lrnColumn;
   if (!dayRow) throw new Error('Tell the import which row holds the day numbers.');
   if (!month || !year) throw new Error('Tell the import which month and year this sheet covers.');
 
@@ -164,8 +201,19 @@ function extractMarks(cells, { lrnColumn, dayRow, month, year }) {
   for (let rowNumber = dayRow + 1; rowNumber < cells.length; rowNumber += 1) {
     const row = cells[rowNumber];
     if (!row) continue;
-    const lrn = row[lrnColumn] ? String(row[lrnColumn]).trim() : null;
-    if (!lrn || !LRN_PATTERN.test(lrn)) continue;
+    let lrn = null;
+    let name = null;
+    if (byName) {
+      // The official SF2: names down the side, the male and female blocks
+      // each closed by a TOTAL row, then the combined total and the
+      // guidelines. Labels are skipped; the list ends at the combined total.
+      if (row.some((v) => v && END_OF_LIST.test(String(v)))) break;
+      name = row[nameColumn] ? String(row[nameColumn]).trim() : '';
+      if (!name || NON_LEARNER_LABEL.test(name) || !/[a-z]/i.test(name)) continue;
+    } else {
+      lrn = row[lrnColumn] ? String(row[lrnColumn]).trim() : null;
+      if (!lrn || !LRN_PATTERN.test(lrn)) continue;
+    }
 
     if (students.length >= MAX_STUDENT_ROWS) {
       throw new Error(`The sheet has more than ${MAX_STUDENT_ROWS} student rows.`);
@@ -179,11 +227,11 @@ function extractMarks(cells, { lrnColumn, dayRow, month, year }) {
       return { date, symbol };
     });
 
-    students.push({ rowNumber, lrn, marks });
+    students.push(byName ? { rowNumber, name, marks } : { rowNumber, lrn, marks });
   }
 
   if (students.length === 0) {
-    throw new Error('No student rows were found below the day row. Check the LRN column.');
+    throw new Error(`No student rows were found below the day row. Check the ${byName ? 'name' : 'LRN'} column.`);
   }
 
   return {

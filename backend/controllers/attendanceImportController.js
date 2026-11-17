@@ -16,6 +16,10 @@ const gradingPeriodModel = require('../models/gradingPeriodModel');
 const riskEngine = require('../services/riskEngine');
 const { assertCanWriteSection } = require('./dailyAttendanceController');
 const { SYMBOL_GUESSES, BLANK_SYMBOL, BLANK_DEFAULT_STATUS, PREVIEW_ROWS } = require('../config/attendanceImport');
+const { buildNameIndex, matchName } = require('../services/learnerNameMatch');
+const { buildSf2Template } = require('../services/sf2Template');
+const { SCHOOL } = require('../services/analyticsReport');
+const { pool } = require('../config/db');
 
 // What the review step may decide about a date that already has attendance
 // recorded. Anything else (including nothing) is treated as undecided.
@@ -65,7 +69,7 @@ async function parseFile(req, res) {
 // month. Pull out the students, the dates and every distinct mark, so the
 // next step can ask what each mark means.
 async function inspectGrid(req, res) {
-  const { lrnColumn, dayRow, month, year } = req.body;
+  const { lrnColumn, nameColumn, dayRow, month, year } = req.body;
 
   if (!(await assertCanWrite(req, res, { sectionId: req.body.sectionId }))) return;
 
@@ -79,7 +83,10 @@ async function inspectGrid(req, res) {
   let grid;
   try {
     grid = extractMarks(sheet.cells, {
-      lrnColumn: Number(lrnColumn),
+      // One or the other: an LRN column if the sheet has one, otherwise the
+      // learner-name column of DepEd's official SF2.
+      lrnColumn: lrnColumn ? Number(lrnColumn) : null,
+      nameColumn: nameColumn ? Number(nameColumn) : null,
       dayRow: Number(dayRow),
       month: Number(month),
       year: Number(year),
@@ -106,8 +113,24 @@ async function inspectGrid(req, res) {
 
 // Shared by validate and commit, so the preview and the write can never
 // disagree about what would happen.
-async function buildPlan({ sectionId, students, symbolMap }) {
+async function buildPlan({ sectionId, students: sheetStudents, symbolMap }) {
   const studentsByLrn = await attendanceImportModel.getRosterByLrn({ sectionId });
+
+  // Rows from DepEd's official SF2 carry a name, not an LRN. Each is matched
+  // to the section's roster by name (services/learnerNameMatch.js) and given
+  // that learner's LRN, so everything after this point — duplicates,
+  // conflicts, overwrite/skip — is the same path an LRN sheet takes. A name
+  // that matches nobody, or more than one learner, is never guessed: it is
+  // reported with its reason and its row is not written.
+  let students = sheetStudents;
+  if (sheetStudents.some((s) => !s.lrn && s.name)) {
+    const index = buildNameIndex(await attendanceImportModel.getRoster({ sectionId }));
+    students = sheetStudents.map((s) => {
+      if (s.lrn || !s.name) return s;
+      const { student, reason } = matchName(s.name, index);
+      return student ? { ...s, lrn: student.lrn } : { ...s, lrn: null, unmatchedReason: reason };
+    });
+  }
 
   // Every distinct date in the sheet, resolved to its grading period. A date
   // in no period cannot be stored (grading_period_id is NOT NULL) and is
@@ -250,4 +273,42 @@ async function commitImport(req, res) {
   });
 }
 
-module.exports = { parseFile, inspectGrid, validateImport, commitImport };
+// GET /template?sectionId=&month=&year= — DepEd's official School Form 2,
+// filled in for one section and month: the header (school, school year,
+// month, grade level, section), the school days with their day letters, and
+// the section's learners, males first as the form prescribes. Built from
+// DepEd's own workbook (services/sf2Template.js), so the adviser fills in
+// the real form and imports it back unchanged. Same access as the import:
+// the section's adviser, the admin or the registrar.
+async function downloadTemplate(req, res) {
+  const section = await assertCanWriteSection(req, res, Number(req.query.sectionId));
+  if (!section) return;
+
+  const month = Number(req.query.month);
+  const year = Number(req.query.year);
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+    return res.status(400).json({ error: 'Choose the month and year for the SF2.' });
+  }
+
+  const schoolYear = (await pool.query('SELECT label FROM school_years WHERE id = $1', [section.school_year_id])).rows[0];
+  const roster = await attendanceImportModel.getRoster({ sectionId: section.id });
+  const buffer = await buildSf2Template({
+    schoolName: SCHOOL.name.replace(' — ', ' - '),
+    schoolYear: schoolYear ? schoolYear.label : '',
+    gradeLevel: section.grade_level,
+    sectionName: section.name,
+    month,
+    year,
+    learners: roster.map((s) => ({
+      name: `${s.last_name}, ${s.first_name}${s.middle_name ? ` ${s.middle_name}` : ''}`,
+      sex: s.sex,
+    })),
+  });
+
+  const slug = (v) => String(v).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="sf2-${slug(section.name)}-${year}-${String(month).padStart(2, '0')}.xlsx"`);
+  res.send(buffer);
+}
+
+module.exports = { parseFile, inspectGrid, validateImport, commitImport, downloadTemplate };

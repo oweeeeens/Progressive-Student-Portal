@@ -5173,6 +5173,47 @@ textarea[aria-invalid='true']:focus-visible {
   margin-top: var(--space-4);
 }
 
+/* Attendance import, step 1: download DepEd's official SF2, pre-filled.
+   Set off by a rule rather than a second panel, so it reads as the
+   alternative to choosing a file, not a separate task. */
+.import-template {
+  width: 100%;
+  max-width: 40rem;
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+  text-align: left;
+}
+.import-template h3 {
+  margin-bottom: var(--space-2);
+}
+.import-upload .import-template .form-note {
+  max-width: none;
+}
+.import-template .button-row {
+  margin-top: var(--space-4);
+}
+
+/* Attendance import, step 2: match learners by name (official SF2) or LRN. */
+.match-by {
+  border: 0;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.match-by legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+.match-by label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
 /* The "point at the grid" preview: a spreadsheet rendered as a spreadsheet,
    with clickable column headings and row numbers. Scrolls on both axes
    because an SF2's month of day columns is wider than any page. */

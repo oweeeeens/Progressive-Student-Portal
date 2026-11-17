@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   CircleSlash,
   Users,
+  Download,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -159,7 +160,11 @@ export function BulkImportAttendancePage() {
 
   // Step 2 — where the grid is. Pre-filled from the server's guesses, which
   // the user confirms or corrects; nothing is interpreted until they do.
+  // DepEd's official SF2 lists learners by NAME and has no LRN column, so a
+  // sheet is matched either way; the server suggests which.
+  const [matchBy, setMatchBy] = useState('lrn')
   const [lrnColumn, setLrnColumn] = useState(null)
+  const [nameColumn, setNameColumn] = useState(null)
   const [dayRow, setDayRow] = useState(null)
   const [month, setMonth] = useState('')
   const [year, setYear] = useState('')
@@ -175,6 +180,13 @@ export function BulkImportAttendancePage() {
   const [confirm, confirmDialog] = useConfirm()
 
   const [result, setResult] = useState(null)
+
+  // The blank SF2 to download in step 1: DepEd's official form with this
+  // section's learners and the month's school days already filled in.
+  const today = new Date()
+  const [templateMonth, setTemplateMonth] = useState(String(today.getMonth() + 1))
+  const [templateYear, setTemplateYear] = useState(String(today.getFullYear()))
+  const [downloading, setDownloading] = useState(false)
   const { openFor, close: closeStat, cardProps } = useStatExplainer('attendance-import-stat-detail')
 
   const target = { sectionId: Number(sectionId) }
@@ -183,6 +195,14 @@ export function BulkImportAttendancePage() {
   const undecidedConflicts = (plan?.conflicts || []).filter((c) => !conflictDecisions[c.date])
   const skippedCount = (plan?.conflicts || []).filter((c) => conflictDecisions[c.date] === 'skip').length
   const datesToWrite = (plan?.summary.dateCount || 0) - skippedCount
+  // The column that identifies learners, for whichever way they are matched.
+  const keyColumn = matchBy === 'name' ? nameColumn : lrnColumn
+  const keyLabel = matchBy === 'name' ? 'Name' : 'LRN'
+
+  function pickKeyColumn(col) {
+    if (matchBy === 'name') setNameColumn(col)
+    else setLrnColumn(col)
+  }
 
   function resetAll() {
     setStep('target')
@@ -190,6 +210,8 @@ export function BulkImportAttendancePage() {
     setFileName('')
     setPreview([])
     setColumnCount(0)
+    setMatchBy('lrn')
+    setNameColumn(null)
     setLrnColumn(null)
     setDayRow(null)
     setMonth('')
@@ -224,6 +246,26 @@ export function BulkImportAttendancePage() {
     }
   }, [user.role])
 
+  // Downloads DepEd's School Form 2 for the chosen section and month — the
+  // official form itself, with the header, learners and school days filled in
+  // (backend/services/sf2Template.js).
+  async function handleTemplate() {
+    const section = sections.find((s) => String(s.id) === String(sectionId))
+    const slug = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    setDownloading(true)
+    setError(null)
+    try {
+      await api.downloadFile(
+        `/attendance/bulk-import/template?sectionId=${sectionId}&month=${templateMonth}&year=${templateYear}`,
+        `sf2-${slug(section?.name)}-${templateYear}-${String(templateMonth).padStart(2, '0')}.xlsx`
+      )
+    } catch (err) {
+      setError(`Couldn't download the SF2 template: ${err.message}`)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   async function handleFileSelected(e) {
     const chosen = e.target.files[0]
     e.target.value = '' // lets choosing the same file again still fire onChange
@@ -244,6 +286,8 @@ export function BulkImportAttendancePage() {
       setPreview(data.preview)
       setColumnCount(data.columnCount)
       setLrnColumn(data.suggestion.lrnColumn)
+      setNameColumn(data.suggestion.nameColumn)
+      setMatchBy(data.suggestion.matchBy || 'lrn')
       setDayRow(data.suggestion.dayRow)
       setMonth(data.suggestion.month ? String(data.suggestion.month) : '')
       setYear(data.suggestion.year ? String(data.suggestion.year) : '')
@@ -264,7 +308,10 @@ export function BulkImportAttendancePage() {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('sectionId', sectionId)
-    formData.append('lrnColumn', lrnColumn)
+    // Exactly one of the two: the server matches by LRN when it gets an LRN
+    // column, and by name otherwise.
+    if (matchBy === 'name') formData.append('nameColumn', nameColumn)
+    else formData.append('lrnColumn', lrnColumn)
     formData.append('dayRow', dayRow)
     formData.append('month', month)
     formData.append('year', year)
@@ -387,9 +434,9 @@ export function BulkImportAttendancePage() {
           <SpotIllustration name="calendar" />
           <h2>Import an attendance sheet</h2>
           <p className="form-note">
-            An .xlsx file shaped like an SF2 — learners down the side, school days across the top, a mark in
-            each cell. It is imported into the daily (SF2) register, which feeds the risk calculation. Choose the
-            section, then pick the file.
+            DepEd School Form 2 (SF2), Daily Attendance Report of Learners, as an .xlsx file — learners down the
+            side, school days across the top, a mark in each cell. It is imported into the daily (SF2) register,
+            which feeds the risk calculation. Choose the section, then pick the file.
           </p>
 
           <div className="import-target">
@@ -408,10 +455,61 @@ export function BulkImportAttendancePage() {
                 ))}
               </select>
               <p className="form-note">
-                Learners are matched by LRN, and only against this section —
-                an LRN from elsewhere in the school is reported, never written in here.
+                Learners are matched by name (as on DepEd&apos;s SF2) or by LRN, and only against this section —
+                a learner from elsewhere in the school is reported, never written in here.
               </p>
             </div>
+          </div>
+
+          {/* The official form, ready to fill: DepEd's own SF2 sheet with the
+              header, this section's learners (males, then females) and the
+              month's school days already in place. */}
+          <div className="import-template">
+            <h3>No sheet yet? Download the official SF2</h3>
+            <p className="form-note">
+              DepEd&apos;s School Form 2 itself, unchanged, with this section&apos;s learners and the month&apos;s
+              school days already filled in. Mark it the DepEd way: leave a cell <strong>blank</strong> for
+              present and type <strong>x</strong> for absent. The form shades half a cell for tardy, which a file
+              cannot carry — type <strong>T</strong> instead, and map it to Late in step 3.
+            </p>
+            <div className="import-anchors">
+              <div className="form-field form-field--short">
+                <label htmlFor="template-month" className="form-field__label">
+                  <CalendarRange size={16} strokeWidth={1.75} />
+                  Month
+                </label>
+                <select id="template-month" value={templateMonth} onChange={(e) => setTemplateMonth(e.target.value)}>
+                  {MONTHS.map((name, index) => (
+                    <option key={name} value={index + 1}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-field form-field--short">
+                <label htmlFor="template-year" className="form-field__label">
+                  <CalendarRange size={16} strokeWidth={1.75} />
+                  Year
+                </label>
+                <input
+                  id="template-year"
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  value={templateYear}
+                  onChange={(e) => setTemplateYear(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="button-row">
+              <button type="button" onClick={handleTemplate} disabled={downloading || !targetChosen || !templateYear}>
+                <Download size={16} strokeWidth={1.75} /> {downloading ? 'Preparing…' : 'Download SF2 template'}
+              </button>
+            </div>
+            {/* A disabled control says why (UI Standard 10). */}
+            <p className="help-text" aria-live="polite">
+              {!targetChosen ? 'Choose the section first — the form comes with its learners already listed.' : ''}
+            </p>
           </div>
 
           <div className="import-upload__actions">
@@ -436,8 +534,37 @@ export function BulkImportAttendancePage() {
           <p className="text-muted">
             {fileName} — the first {Math.max(preview.length - 1, 0)} rows are shown. SF2 forms put a header
             block above the grid, so the import has to be told exactly where the learners and the days are.
-            Click a column heading to mark the LRN column, and a row number to mark the day row.
+            Click a column heading to mark the {keyLabel} column, and a row number to mark the day row.
           </p>
+
+          <fieldset className="match-by">
+            <legend className="form-field__label">Match learners by</legend>
+            <label>
+              <input
+                type="radio"
+                name="match-by"
+                value="name"
+                checked={matchBy === 'name'}
+                onChange={() => setMatchBy('name')}
+              />{' '}
+              Name column (DepEd&apos;s SF2: &quot;Last Name, First Name, Middle Name&quot;)
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="match-by"
+                value="lrn"
+                checked={matchBy === 'lrn'}
+                onChange={() => setMatchBy('lrn')}
+              />{' '}
+              LRN column
+            </label>
+            <p className="form-note">
+              {matchBy === 'name'
+                ? 'A name must match one learner in this section. A name that matches nobody, or more than one learner, is listed on the review step and never guessed.'
+                : 'Each 12-digit LRN must belong to a learner in this section.'}
+            </p>
+          </fieldset>
 
           <div className="grid-pick">
             <table>
@@ -447,9 +574,9 @@ export function BulkImportAttendancePage() {
                     Row
                   </th>
                   {Array.from({ length: columnCount }, (_, i) => i + 1).map((col) => (
-                    <th key={col} scope="col" className={col === lrnColumn ? 'is-picked' : undefined}>
-                      <button type="button" onClick={() => setLrnColumn(col)}>
-                        {col === lrnColumn ? 'LRN' : col}
+                    <th key={col} scope="col" className={col === keyColumn ? 'is-picked' : undefined}>
+                      <button type="button" onClick={() => pickKeyColumn(col)}>
+                        {col === keyColumn ? keyLabel : col}
                       </button>
                     </th>
                   ))}
@@ -468,7 +595,7 @@ export function BulkImportAttendancePage() {
                         </button>
                       </th>
                       {Array.from({ length: columnCount }, (_, i) => i + 1).map((col) => (
-                        <td key={col} className={col === lrnColumn ? 'is-picked' : undefined}>
+                        <td key={col} className={col === keyColumn ? 'is-picked' : undefined}>
                           {(row || [])[col] ?? ''}
                         </td>
                       ))}
@@ -524,7 +651,7 @@ export function BulkImportAttendancePage() {
             <button
               type="button"
               className="btn-primary"
-              disabled={loading || !lrnColumn || !dayRow || !month || !year}
+              disabled={loading || !keyColumn || !dayRow || !month || !year}
               onClick={handleInspect}
             >
               {loading ? 'Reading the grid…' : 'Continue'}
@@ -722,27 +849,26 @@ export function BulkImportAttendancePage() {
 
           {plan.skipped.unknownStudents.length > 0 && (
             <>
-              <h3 className="mt-5">LRNs not in this section</h3>
+              <h3 className="mt-5">Learners not matched in this section</h3>
               <p className="text-muted">
-                These rows will not be imported. Either the LRN is mistyped, or the learner belongs to another
-                section — in which case import that sheet separately rather
-                than filing them here.
+                These rows will not be imported. Either the name or LRN is mistyped, or the learner belongs to
+                another section — in which case import that sheet separately rather than filing them here.
               </p>
               <div className="table-card">
                 <table>
                   <thead>
                     <tr>
                       <th>Row in file</th>
-                      <th>LRN</th>
+                      <th>Learner in the sheet</th>
+                      <th>Why</th>
                     </tr>
                   </thead>
                   <tbody>
                     {plan.skipped.unknownStudents.map((s) => (
-                      <tr key={`${s.rowNumber}-${s.lrn}`}>
+                      <tr key={`${s.rowNumber}-${s.lrn || s.name}`}>
                         <td>{s.rowNumber}</td>
-                        <td>
-                          <code className="alert__code">{s.lrn}</code>
-                        </td>
+                        <td>{s.name ? s.name : <code className="alert__code">{s.lrn}</code>}</td>
+                        <td>{s.reason || 'This LRN is not in this section.'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -852,7 +978,7 @@ export function BulkImportAttendancePage() {
                 {result.skipped.unknownStudents.length > 0 && (
                   <li>
                     {result.skipped.unknownStudents.length} row
-                    {result.skipped.unknownStudents.length === 1 ? '' : 's'} whose LRN is not in this section.
+                    {result.skipped.unknownStudents.length === 1 ? '' : 's'} not matched to a learner in this section.
                   </li>
                 )}
                 {result.skipped.duplicateStudents.length > 0 && (

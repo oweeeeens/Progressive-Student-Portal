@@ -218,6 +218,24 @@ CLAUDE.md's Code Quality Standards ask for per-module orientation notes. Each ba
 
 - **Bulk Student Import** — an .xlsx of student records, mapped column by column to our fields. Four steps (upload → match columns → review → done), stateless between them. `services/bulkImportParser.js` reads the file, `services/bulkImportValidator.js` decides what is importable, `controllers/bulkImportController.js` drives it. Re-validates server-side on commit, including the learner-status write gate.
 - **Bulk Attendance Import** — the school's existing DepEd SF2 spreadsheets: learners down the side, school days across the top, a mark per cell. A different shape from the student import, so it has its own grid parser (`services/attendanceGridParser.js`). Five steps, and a day that already has attendance takes an explicit overwrite-or-skip decision. Writes the daily register, so it triggers the same risk recalculation the marking sheet does — once per grading period, never once per date. Every imported mark records which import wrote it (`import_id`), and correcting a day by hand clears that attribution.
+  - **The template is DepEd's own SF2 (2026-11-17).** "Download SF2
+    template" (`GET /api/attendance/bulk-import/template?sectionId=&month=&year=`,
+    section adviser/admin/registrar) serves the "School Form 2 (SF2)" sheet
+    of DepEd's School Forms workbook, bundled **byte-identical** in
+    `backend/templates/` (source and DO 4 s.2014 / DO 11 s.2018 in its
+    README). `services/sf2Template.js` edits the XML directly (ExcelJS
+    would drop the form's logos) and fills only blanks: header, the month's
+    weekdays in rows 11–12, males from row 14 and females from row 36, with
+    rows inserted when a block overflows. School ID stays blank — we store
+    none. Checked by `scripts/testSf2Template.js` and in Excel 2013.
+  - **Learners are matched by NAME as well as LRN,** because the official
+    SF2 has no LRN column, so the old LRN-only import could not read a real
+    SF2. `services/learnerNameMatch.js`: last and first names must all be
+    present (case, accents, punctuation ignored); the middle name only
+    breaks ties; an ambiguous or unknown name is reported with its reason,
+    never guessed. The parser suggests `matchBy` and the user confirms the
+    column. Codes per the form: blank = present, x = absent; tardy is a
+    half-shaded cell a file cannot carry, so the page says to type "T".
 - **Analytics** — the school-wide rollup of risk, factors, attendance and intervention effectiveness, with PDF and Excel export. Admin, principal and guidance counselor only; advisers keep the per-section Academic Progress view instead. `services/analyticsCalculator.js` does the maths, `analyticsReportPdf.js` / `analyticsReportWorkbook.js` render it.
 - ~~**Report Card PDF**~~ — removed 2026-11-11 (see REMOVED above).
 - **My Progress** (student self-view) — a student's own grades, attendance, risk band and the plain-language version of any triggered factors, including what number they would have to reach to clear each one. Read-only and scoped to themselves; no school-wide figures reach it.
