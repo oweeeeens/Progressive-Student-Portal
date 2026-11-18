@@ -96,13 +96,16 @@ function appendScopeClause(user, clauses, params) {
   params.push(user.id);
   scopes.push(`sec.adviser_id = $${params.length}`);
 
-  // Sections they teach into. "Taught by this teacher" is a property of the
-  // section row itself (sections are per-school-year, so a section's id
-  // already pins it to one year) — no separate school_year filter needed.
+  // Learners enrolled in a class they teach (class_enrollments). The class
+  // pins the school year, so no separate year filter is needed. Before
+  // subject enrollment existed this was "anyone in a section they teach
+  // into"; enrollment is the real answer to "is this learner in my class",
+  // and for a learner currently in the section it is the same set.
   params.push(user.id);
   scopes.push(`EXISTS (
-    SELECT 1 FROM class_offerings co
-    WHERE co.section_id = s.current_section_id AND co.teacher_id = $${params.length}
+    SELECT 1 FROM class_enrollments ce
+    JOIN class_offerings co ON co.id = ce.class_offering_id
+    WHERE ce.student_id = s.id AND ce.status = 'enrolled' AND co.teacher_id = $${params.length}
   )`);
 
   clauses.push(`(${scopes.join(' OR ')})`);

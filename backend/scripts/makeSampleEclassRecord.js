@@ -39,10 +39,8 @@ async function main() {
   if (found.rowCount === 0) throw new Error(`No class "${subjectName}" for section "${sectionName}" in the current school year.`);
   const offering = await assessmentModel.getOfferingContext(found.rows[0].id);
   const periods = (await pool.query('SELECT id, sequence_number FROM grading_periods WHERE school_year_id = $1 ORDER BY sequence_number', [offering.school_year_id])).rows;
-  const learners = (await pool.query(
-    `SELECT id, lrn, first_name, last_name, sex FROM students WHERE current_section_id = $1 AND is_active = TRUE ORDER BY last_name, first_name`,
-    [offering.section_id]
-  )).rows;
+  // The class's enrolled learners (class_enrollments).
+  const learners = await require('../models/enrollmentModel').getEnrolledStudents(offering.id);
 
   const terms = [];
   for (const period of periods) {

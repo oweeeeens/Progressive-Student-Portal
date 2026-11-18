@@ -150,23 +150,6 @@ async function listGradesForOffering(classOfferingId, gradingPeriodId) {
 
 // --- One learner across all their classes (the learner's own record) -------
 
-// Every active class offering of the learner's current section in a school
-// year, with what the computation needs (weight group, term, category).
-async function listOfferingsForStudent(studentId, schoolYearId) {
-  const result = await pool.query(
-    `SELECT co.id, co.term, subj.id AS subject_id, subj.name AS subject_name, subj.code AS subject_code,
-            subj.weight_group, subj.category AS subject_category, u.full_name AS teacher_name
-     FROM students s
-     JOIN class_offerings co ON co.section_id = s.current_section_id AND co.is_active = TRUE
-     JOIN subjects subj ON subj.id = co.subject_id
-     LEFT JOIN users u ON u.id = co.teacher_id
-     WHERE s.id = $1 AND co.school_year_id = $2
-     ORDER BY subj.name`,
-    [studentId, schoolYearId]
-  );
-  return result.rows;
-}
-
 // All items of the given offerings, every term, in display order.
 async function listItemsForOfferings(offeringIds) {
   if (offeringIds.length === 0) return [];
@@ -206,7 +189,6 @@ async function listGradesForStudent(studentId, offeringIds) {
 }
 
 module.exports = {
-  listOfferingsForStudent,
   listItemsForOfferings,
   listScoresForStudent,
   listGradesForStudent,

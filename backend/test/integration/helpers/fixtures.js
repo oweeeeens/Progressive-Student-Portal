@@ -207,6 +207,24 @@ async function deleteFixtures({
     await pool.query('DELETE FROM assessment_items WHERE created_by = ANY($1::int[])', [userIds]);
     await pool.query('DELETE FROM assessment_scores WHERE recorded_by = ANY($1::int[])', [userIds]);
   }
+  // Enrollment rows (class_enrollments) reference both students and class
+  // offerings, ON DELETE RESTRICT, and the database's own triggers create
+  // them whenever a test student gets a section or a test class is added —
+  // so they go before either is deleted. Sections are covered too: a class
+  // being deleted below may have enrolled students from another suite's
+  // section, which only its offering id can find.
+  if (studentIds.length > 0) {
+    await pool.query('DELETE FROM class_enrollments WHERE student_id = ANY($1::int[])', [studentIds]);
+  }
+  if (offeringIds.length > 0) {
+    await pool.query('DELETE FROM class_enrollments WHERE class_offering_id = ANY($1::int[])', [offeringIds]);
+  }
+  if (sectionIds.length > 0) {
+    await pool.query(
+      'DELETE FROM class_enrollments WHERE class_offering_id IN (SELECT id FROM class_offerings WHERE section_id = ANY($1::int[]))',
+      [sectionIds]
+    );
+  }
   if (studentIds.length > 0) {
     await pool.query('DELETE FROM assessment_scores WHERE student_id = ANY($1::int[])', [studentIds]);
     await pool.query('DELETE FROM interventions WHERE student_id = ANY($1::int[])', [studentIds]);

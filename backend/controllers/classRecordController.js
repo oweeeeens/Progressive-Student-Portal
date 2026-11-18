@@ -17,6 +17,7 @@
 //   write : admin and whoever teaches the offering.
 const assessmentModel = require('../models/assessmentModel');
 const gradeModel = require('../models/gradeModel');
+const enrollmentModel = require('../models/enrollmentModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const { buildClassRecord, toItem } = require('../services/classRecordService');
 const { offeringCoversPeriod } = require('../config/academicTerms');
@@ -211,7 +212,8 @@ async function saveScores(req, res) {
   if (!entries || entries.length === 0) return res.status(400).json({ error: 'scores must be a non-empty array.' });
 
   const items = new Map((await assessmentModel.listItems(offering.id, period.id)).map((row) => [row.id, row]));
-  const rosterIds = new Set((await gradeModel.getActiveStudentsInOffering(offering.id)).map((s) => s.id));
+  // Only learners enrolled in this class (class_enrollments) may be scored.
+  const rosterIds = new Set((await enrollmentModel.getEnrolledStudents(offering.id)).map((s) => s.id));
   const finalizedIds = new Set(
     (await assessmentModel.listGradesForOffering(offering.id, period.id)).filter((g) => g.status === 'finalized').map((g) => g.student_id)
   );
@@ -222,7 +224,7 @@ async function saveScores(req, res) {
     const studentId = Number(entry.studentId);
     const item = items.get(itemId);
     if (!item) return res.status(400).json({ error: `Item ${entry.itemId} is not part of this class record.` });
-    if (!rosterIds.has(studentId)) return res.status(400).json({ error: `Student ${entry.studentId} is not currently in this class.` });
+    if (!rosterIds.has(studentId)) return res.status(400).json({ error: `Student ${entry.studentId} is not enrolled in this class.` });
     if (finalizedIds.has(studentId)) {
       return res.status(409).json({ error: "A learner's grade for this term is already finalized, so their scores can no longer be changed." });
     }

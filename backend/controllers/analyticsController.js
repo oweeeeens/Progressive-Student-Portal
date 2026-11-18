@@ -236,12 +236,21 @@ async function getLearnerOutlook(req, res) {
   }
   const scores = new Map(data.scores.map((r) => [`${r.student_id}|${r.assessment_item_id}`, Number(r.raw_score)]));
   const finalizedPairs = new Set(data.finalized.map((r) => `${r.student_id}|${r.class_offering_id}`));
+  // Each class's roster is who is ENROLLED in it (class_enrollments).
+  const studentsById = new Map(data.students.map((st) => [st.student_id, st]));
+  const rosterByOffering = new Map();
+  for (const row of data.enrollments) {
+    const student = studentsById.get(row.student_id);
+    if (!student) continue; // inactive learner
+    if (!rosterByOffering.has(row.class_offering_id)) rosterByOffering.set(row.class_offering_id, []);
+    rosterByOffering.get(row.class_offering_id).push(student);
+  }
   const computations = [];
   for (const offering of data.offerings) {
     const items = itemsByOffering.get(offering.id);
     if (!items) continue;
     if (!offeringCoversPeriod({ term: offering.term, subjectCategory: offering.subject_category, periodSequenceNumber: period.sequence_number })) continue;
-    const roster = filterRows(data.students.filter((st) => st.current_section_id === offering.section_id), filters);
+    const roster = filterRows(rosterByOffering.get(offering.id) || [], filters);
     for (const student of roster) {
       const studentScores = new Map();
       for (const item of items) {

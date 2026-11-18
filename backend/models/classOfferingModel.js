@@ -1,7 +1,8 @@
 // class_offerings: "this teacher teaches this subject to this section this
-// school year." getById/listByTeacher/teacherTeachesSection/
-// getActiveStudentsInOffering are the original read-only helpers used by
-// attendance and grades — listByTeacher only ever returns active offerings
+// school year." getById/listByTeacher/teacherTeachesSection are the
+// original read-only helpers used by
+// attendance and grades (a class's ROSTER now lives in enrollmentModel.js,
+// the class_enrollments table) — listByTeacher only ever returns active offerings
 // in the current school year, so a deactivated offering quietly stops
 // appearing for grade/attendance entry. Everything below is the admin CRUD
 // surface for the Academic Setup > Class Offerings page.
@@ -47,55 +48,12 @@ async function listByTeacher(teacherId) {
   return result.rows;
 }
 
-// The subjects a section is actually taking this school year, with who
-// teaches each — "my subjects" from a student's point of view, since a
-// student's subject list IS their section's class offerings.
-//
-// Note there is no time-of-day or day-of-week on class_offerings (see that
-// table's migration), so this is a subject list, not a period-by-period
-// timetable; the schema has no schedule to show.
-async function listBySection(sectionId) {
-  const result = await pool.query(
-    // subject_id, category and term travel with the row because the grade
-    // views group by term: which of these subjects a learner is taking in
-    // a given term depends on all three (config/academicTerms.js). The id
-    // also replaces matching a subject by NAME, which the student grade view
-    // used to do — only `code` is unique, so two subjects sharing a name
-    // merged into one row.
-    `SELECT co.id, co.term, subj.id AS subject_id, subj.name AS subject_name,
-            subj.category AS subject_category, u.full_name AS teacher_name
-     FROM class_offerings co
-     JOIN subjects subj ON subj.id = co.subject_id
-     JOIN users u ON u.id = co.teacher_id
-     JOIN school_years sy ON sy.id = co.school_year_id
-     WHERE co.section_id = $1 AND sy.is_current = TRUE AND co.is_active = TRUE
-     ORDER BY subj.name`,
-    [sectionId]
-  );
-  return result.rows;
-}
-
 async function teacherTeachesSection(teacherId, sectionId) {
   const result = await pool.query(
     'SELECT 1 FROM class_offerings WHERE teacher_id = $1 AND section_id = $2 LIMIT 1',
     [teacherId, sectionId]
   );
   return result.rowCount > 0;
-}
-
-// Active students currently in the section a class_offering teaches — used
-// by the grade-entry UI to build its input sheet (grades aren't date-bound
-// the way attendance is, so there's no "roster for a date" to piggyback on).
-async function getActiveStudentsInOffering(classOfferingId) {
-  const result = await pool.query(
-    `SELECT s.id, s.first_name, s.last_name
-     FROM students s
-     JOIN class_offerings co ON co.section_id = s.current_section_id
-     WHERE co.id = $1 AND s.is_active = TRUE
-     ORDER BY s.last_name, s.first_name`,
-    [classOfferingId]
-  );
-  return result.rows;
 }
 
 async function listClassOfferingsForAdmin({ search, schoolYearId, sectionId, subjectId, includeInactive, page = 1, pageSize = 20 }) {
@@ -174,6 +132,19 @@ async function classOfferingHasHistory(id) {
   return result.rowCount > 0;
 }
 
+// Has anything been recorded in this class — a grade, or any Class Record
+// item (and so possibly scores)? Moving such a class to another section
+// would leave that work attached to learners no longer in it, so the
+// update handler refuses it.
+async function classOfferingHasRecordedWork(id) {
+  const result = await pool.query(
+    `SELECT EXISTS (SELECT 1 FROM grades WHERE class_offering_id = $1)
+         OR EXISTS (SELECT 1 FROM assessment_items WHERE class_offering_id = $1) AS has_work`,
+    [id]
+  );
+  return result.rows[0].has_work;
+}
+
 async function setClassOfferingActive(id, isActive) {
   const result = await pool.query(
     'UPDATE class_offerings SET is_active = $2 WHERE id = $1 RETURNING id, is_active',
@@ -186,12 +157,11 @@ module.exports = {
   listAllCurrent,
   getById,
   listByTeacher,
-  listBySection,
   teacherTeachesSection,
-  getActiveStudentsInOffering,
   listClassOfferingsForAdmin,
   createClassOffering,
   updateClassOffering,
   classOfferingHasHistory,
+  classOfferingHasRecordedWork,
   setClassOfferingActive,
 };

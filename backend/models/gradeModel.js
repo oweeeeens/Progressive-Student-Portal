@@ -6,18 +6,7 @@
 // engine (see riskEngine.js) must only ever read 'finalized' rows — see
 // migrations 20261001035311515 and 20261006120000000 for why.
 const { pool } = require('../config/db');
-
-async function getActiveStudentsInOffering(classOfferingId) {
-  const result = await pool.query(
-    `SELECT s.id, s.first_name, s.last_name
-     FROM students s
-     JOIN class_offerings co ON co.section_id = s.current_section_id
-     WHERE co.id = $1 AND s.is_active = TRUE
-     ORDER BY s.last_name, s.first_name`,
-    [classOfferingId]
-  );
-  return result.rows;
-}
+const enrollmentModel = require('./enrollmentModel');
 
 // Upsert: (re-)submitting a grade always resets it to 'submitted', even if it
 // was previously rejected, verified, or finalized — a corrected grade is
@@ -40,6 +29,16 @@ async function getActiveStudentsInOffering(classOfferingId) {
 // A row already finalized is now left exactly as it is, and the caller is
 // told which entries were refused rather than being told everything saved.
 async function upsertSubmittedGrades({ classOfferingId, gradingPeriodId, recordedBy, entries }) {
+  // Only learners ENROLLED in the class may receive a grade in it — the
+  // panel's rule, enforced here, beneath every caller, so no path (the Class
+  // Record, an import, a future endpoint) can write a grade for someone
+  // outside the roster. The whole request is refused, not silently trimmed.
+  const notEnrolled = await enrollmentModel.findNotEnrolled(classOfferingId, entries.map((e) => e.studentId));
+  if (notEnrolled.length > 0) {
+    const error = new Error(`A grade can only be given to learners enrolled in this class (not enrolled: student ${notEnrolled.join(', ')}).`);
+    error.statusCode = 400;
+    throw error;
+  }
   // `computation` is the Class Record breakdown the grade was computed from
   // (services/gradeCalculator.js), stored as a snapshot beside the value.
   const columns = ['student_id', 'class_offering_id', 'grading_period_id', 'grade_value', 'recorded_by', 'computation'];
@@ -319,7 +318,6 @@ async function getFinalizedAveragesByPeriod(studentId, schoolYearId) {
 }
 
 module.exports = {
-  getActiveStudentsInOffering,
   upsertSubmittedGrades,
   getSubmissionsForOffering,
   listSubmittedGrades,

@@ -472,6 +472,72 @@ spreadsheet. It is waiting on a copy of the school's actual file, so that it
 reads that exact layout and can cross-check the sheet's own computed grades
 against ours.
 
+## Subject Enrollment (panel revision, 2026-11-18): **16 tables now**
+
+**The panel's requirement:** enrollment in a class is a real record. A
+learner placed in a section is enrolled in every class of that section, and
+grade entry accepts only enrolled learners.
+
+**Before:** a class roster was never stored. It was derived as "students
+whose current section = the class's section" in about 15 places, so a
+learner who changed section silently vanished from their old class and kept
+no history.
+
+**Table `class_enrollments`** (migration
+`20261118100000000_create-class-enrollments.sql`):
+- **Columns:** `student_id`, `class_offering_id`, `status`, `enrolled_at`,
+  `ended_at`, with `UNIQUE(student_id, class_offering_id)`.
+- **Status:**
+  - `enrolled` means on the roster now;
+  - `moved` means the learner left the class but it is kept as history,
+    because their grades and scores stay on that class.
+
+**Enrollment is automatic, by database triggers,** so every path that
+changes a section enrolls with nothing to remember: the student form, bulk
+import, seeds and raw SQL.
+- **`students_enroll_in_section_classes`:** when a learner gets or changes a
+  section, their other-section enrollments become `moved`, and they are
+  enrolled in the new section's active classes. Moving back re-enrolls the
+  same row.
+- **`class_offerings_enroll_section`:** when a class is added (including
+  mid-year), reactivated or moved, the section's learners are enrolled.
+- **Grades, scores and attendance are never touched by either trigger.**
+- **Backfill:** the migration enrolled every current learner (exactly the
+  old derived roster: 282 rows on the dev DB). Every older grade or score
+  outside a current roster got a `moved` row, so it still lists its class.
+
+**One roster definition** (`models/enrollmentModel.js`):
+`getEnrolledStudents`, `findNotEnrolled`, `listOfferingsForStudent`. Every
+former section-derived reader uses it:
+- the Class Record (roster, score guard, submit);
+- the e-Class import and its template;
+- `/students/:id/subjects` and `/my-progress/subjects`;
+- the learner's class record (`includeMoved`, so a class they left still
+  shows, labelled by `enrollmentStatus` and `sectionName`);
+- the Learner Outlook rosters;
+- the teacher branch of `studentModel.appendScopeClause`;
+- `fillDemoClassRecords`.
+
+The daily SF2 register stays per section on purpose: it is the homeroom's.
+
+**Enforced server-side at three levels:**
+1. score saves refuse a non-enrolled learner (400);
+2. submit only reaches the roster;
+3. `gradeModel.upsertSubmittedGrades` itself refuses any non-enrolled
+   learner. It throws a 400 that `app.js`'s error handler now passes
+   through: errors carrying a 4xx `statusCode` keep their message.
+
+**Moving a class with recorded work** (grades or Class Record items) to
+another section or year is refused with 409, because it would orphan that
+work.
+
+**Subject attendance is not part of this:** it was removed on 2026-11-11 at
+the adviser's direction.
+
+**Tests:** `test/integration/enrollment.test.js` (9). The test teardown
+(`fixtures.deleteFixtures`) deletes enrollments before students and
+classes.
+
 ## e-Class Record Import, the Learner's Full Record, and Learner Outlook (2026-11-13)
 
 **The study's flow, in the group's words:** the school keeps its class

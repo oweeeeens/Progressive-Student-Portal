@@ -14,13 +14,13 @@
 // makes "only ever your own data" structural rather than a check someone
 // could forget to add to a new endpoint later.
 const studentModel = require('../models/studentModel');
+const enrollmentModel = require('../models/enrollmentModel');
 const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
 const interventionModel = require('../models/interventionModel');
 const gradeModel = require('../models/gradeModel');
 const dailyAttendanceModel = require('../models/dailyAttendanceModel');
-const classOfferingModel = require('../models/classOfferingModel');
 const { buildStudentAcademicProgress, determineBand } = require('../services/academicProgressCalculator');
 const { BAND_LABELS } = require('../config/academicProgress');
 const { GRADE_AT_RISK_THRESHOLD, ATTENDANCE_RISK_THRESHOLD } = require('../config/riskConfig');
@@ -159,10 +159,9 @@ async function getMySubjectGrades(req, res) {
 // Why this exists: the rest of this page tells a student they are failing
 // General Mathematics without ever naming the person who teaches it, so
 // "talk to your teacher about this" had no answer attached. The offerings
-// come from the section's own class list (classOfferingModel.listBySection
-// already filters to the current year and active offerings), so a student
-// sees exactly the subjects their section is enrolled in — never the
-// school's full catalogue.
+// are the classes the learner is ENROLLED in this school year
+// (enrollmentModel.listOfferingsForStudent), so a student sees exactly their
+// own subjects — never the school's full catalogue.
 async function getMySubjects(req, res) {
   const student = await getOwnStudentRecord(req);
   if (!student) return res.status(404).json({ error: 'No student record is linked to this account.' });
@@ -173,7 +172,7 @@ async function getMySubjects(req, res) {
 
   const schoolYearId = await studentModel.resolveSchoolYearId(student.id);
   const [offerings, finalized] = await Promise.all([
-    classOfferingModel.listBySection(student.current_section_id),
+    enrollmentModel.listOfferingsForStudent(student.id),
     // Same year scope as getMySubjectGrades above, and for the same reason.
     gradeModel.getFinalizedHistoryForStudent(student.id, schoolYearId),
   ]);

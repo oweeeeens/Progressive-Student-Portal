@@ -259,5 +259,6 @@ test('the grade history is scoped to one school year', async () => {
   );
   assert.ok(columns.rowCount >= 0);
 
+  await pool.query('DELETE FROM class_enrollments WHERE student_id = $1', [student.id]);
   await pool.query('DELETE FROM students WHERE id = $1', [student.id]);
 });

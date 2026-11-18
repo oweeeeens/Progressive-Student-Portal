@@ -134,19 +134,20 @@ async function main() {
         await client.query('BEGIN');
         const owner = offering.teacher_id || admin;
 
-        // Learners of the section with no score at all in this class and
-        // term. Asked before items are created, so a learner is only ever
-        // filled once.
+        // Learners ENROLLED in this class (class_enrollments) with no score
+        // at all in it this term. Asked before items are created, so a
+        // learner is only ever filled once.
         const learners = (
           await client.query(
-            `SELECT s.id FROM students s
-             WHERE s.current_section_id = $1 AND s.is_active = TRUE
+            `SELECT s.id FROM class_enrollments ce
+             JOIN students s ON s.id = ce.student_id
+             WHERE ce.class_offering_id = $1 AND ce.status = 'enrolled' AND s.is_active = TRUE
                AND NOT EXISTS (
                  SELECT 1 FROM assessment_scores sc
                  JOIN assessment_items ai ON ai.id = sc.assessment_item_id
-                 WHERE sc.student_id = s.id AND ai.class_offering_id = $2 AND ai.grading_period_id = $3)
+                 WHERE sc.student_id = s.id AND ai.class_offering_id = $1 AND ai.grading_period_id = $2)
              ORDER BY s.id`,
-            [offering.section_id, offering.id, period.id]
+            [offering.id, period.id]
           )
         ).rows;
         if (learners.length === 0) {

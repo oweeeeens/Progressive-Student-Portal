@@ -22,6 +22,7 @@
 // Record and submits it into the approval chain as usual.
 const { pool } = require('../config/db');
 const assessmentModel = require('../models/assessmentModel');
+const enrollmentModel = require('../models/enrollmentModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const bulkImportModel = require('../models/bulkImportModel');
 const { computeTermGrade } = require('./gradeCalculator');
@@ -38,13 +39,11 @@ function normalizeName(value) {
     .trim();
 }
 
-async function loadRoster(sectionId) {
-  const result = await pool.query(
-    `SELECT id, lrn, first_name, last_name FROM students
-     WHERE current_section_id = $1 AND is_active = TRUE ORDER BY last_name, first_name`,
-    [sectionId]
-  );
-  return result.rows;
+// The learners the workbook may be matched against: those ENROLLED in this
+// class (class_enrollments). A learner of the school who is not enrolled in
+// it is reported as not found, never given scores here.
+function loadRoster(offeringId) {
+  return enrollmentModel.getEnrolledStudents(offeringId);
 }
 
 // LRN first (it is unique); then "Last, First" at the start of the sheet's
@@ -93,7 +92,7 @@ function sanitizeTerms(terms) {
 async function buildImportPlan(offering, rawTerms) {
   const terms = sanitizeTerms(rawTerms);
   const periods = await gradingPeriodModel.listBySchoolYear(offering.school_year_id);
-  const roster = await loadRoster(offering.section_id);
+  const roster = await loadRoster(offering.id);
   const planTerms = [];
 
   for (const term of terms) {

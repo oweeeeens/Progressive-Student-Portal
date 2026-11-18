@@ -41,8 +41,8 @@ async function getClassRecordDataForPeriod(periodId) {
     )
   ).rows;
   const offeringIds = offerings.map((o) => o.id);
-  if (offeringIds.length === 0) return { offerings: [], items: [], scores: [], students: [], finalized: [] };
-  const [items, scores, students, finalized] = await Promise.all([
+  if (offeringIds.length === 0) return { offerings: [], items: [], scores: [], students: [], enrollments: [], finalized: [] };
+  const [items, scores, students, enrollments, finalized] = await Promise.all([
     pool.query(
       `SELECT id, class_offering_id, component, exam_part, title, highest_possible_score
        FROM assessment_items WHERE grading_period_id = $1 AND class_offering_id = ANY($2::int[])`,
@@ -54,11 +54,20 @@ async function getClassRecordDataForPeriod(periodId) {
        WHERE ai.grading_period_id = $1 AND ai.class_offering_id = ANY($2::int[])`,
       [periodId, offeringIds]
     ),
+    // The learners enrolled in these classes (class_enrollments).
     pool.query(
       `SELECT ${LEARNER_COLUMNS}
        FROM students s JOIN sections sec ON sec.id = s.current_section_id
-       WHERE s.is_active = TRUE AND s.current_section_id = ANY($1::int[])`,
-      [[...new Set(offerings.map((o) => o.section_id))]]
+       WHERE s.is_active = TRUE AND s.id IN (
+         SELECT student_id FROM class_enrollments
+         WHERE status = 'enrolled' AND class_offering_id = ANY($1::int[]))`,
+      [offeringIds]
+    ),
+    // Each class's roster: who is enrolled in which class.
+    pool.query(
+      `SELECT class_offering_id, student_id FROM class_enrollments
+       WHERE status = 'enrolled' AND class_offering_id = ANY($1::int[])`,
+      [offeringIds]
     ),
     // Grades already FINALIZED this term: official, so they are not part of
     // the provisional early warning (they count in the promotion outlook).
@@ -68,7 +77,7 @@ async function getClassRecordDataForPeriod(periodId) {
       [periodId, offeringIds]
     ),
   ]);
-  return { offerings, items: items.rows, scores: scores.rows, students: students.rows, finalized: finalized.rows };
+  return { offerings, items: items.rows, scores: scores.rows, students: students.rows, enrollments: enrollments.rows, finalized: finalized.rows };
 }
 
 // Absences per learner this school year, from the adviser's daily (SF2)

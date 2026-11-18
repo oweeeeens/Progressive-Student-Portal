@@ -4,7 +4,7 @@
 // rows and services/gradeCalculator.js for the arithmetic, so neither the
 // HTTP layer nor the SQL layer ever does grading maths.
 const assessmentModel = require('../models/assessmentModel');
-const gradeModel = require('../models/gradeModel');
+const enrollmentModel = require('../models/enrollmentModel');
 const { computeTermGrade } = require('./gradeCalculator');
 const { GRADING_MODE } = require('../config/gradingPolicy');
 const { offeringCoversPeriod } = require('../config/academicTerms');
@@ -33,7 +33,8 @@ async function buildClassRecord(offering, gradingPeriodId) {
   const [itemRows, scoreRows, roster, gradeRows] = await Promise.all([
     assessmentModel.listItems(offering.id, gradingPeriodId),
     assessmentModel.listScores(offering.id, gradingPeriodId),
-    gradeModel.getActiveStudentsInOffering(offering.id),
+    // The class roster: learners ENROLLED in this class (class_enrollments).
+    enrollmentModel.getEnrolledStudents(offering.id),
     assessmentModel.listGradesForOffering(offering.id, gradingPeriodId),
   ]);
   const items = itemRows.map(toItem);
@@ -79,7 +80,10 @@ async function buildClassRecord(offering, gradingPeriodId) {
 //   provisional  true when there are scores but no submitted grade yet —
 //                the page labels that figure as not official.
 async function buildStudentClassRecord(studentId, schoolYearId, gradingPeriods) {
-  const offerings = await assessmentModel.listOfferingsForStudent(studentId, schoolYearId);
+  // Every class the learner has been enrolled in this year — including one
+  // they have since left (changed section), whose scores and grades are
+  // still theirs and must keep showing on their record.
+  const offerings = await enrollmentModel.listOfferingsForStudent(studentId, { schoolYearId, includeMoved: true });
   const offeringIds = offerings.map((o) => o.id);
   const [itemRows, scoreRows, gradeRows] = await Promise.all([
     assessmentModel.listItemsForOfferings(offeringIds),
@@ -112,6 +116,11 @@ async function buildStudentClassRecord(studentId, schoolYearId, gradingPeriods) 
       subjectName: offering.subject_name,
       teacherName: offering.teacher_name,
       weightGroup: offering.weight_group,
+      // Which section the class belongs to, and whether the learner is still
+      // in it ('enrolled') or left it ('moved') — so a class from a previous
+      // section can be labelled as such rather than mistaken for a current one.
+      sectionName: offering.section_name,
+      enrollmentStatus: offering.enrollment_status,
       terms,
     };
   });

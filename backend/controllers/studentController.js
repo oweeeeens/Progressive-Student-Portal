@@ -2,11 +2,11 @@
 // happens inside studentModel (every query is passed req.user); this file
 // only handles input validation, error shaping, and who may write.
 const studentModel = require('../models/studentModel');
+const enrollmentModel = require('../models/enrollmentModel');
 const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const passwordReset = require('../services/passwordReset');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
-const classOfferingModel = require('../models/classOfferingModel');
 const {
   stripLearnerStatus,
   stripLearnerStatusFromList,
@@ -100,8 +100,9 @@ async function getStudent(req, res) {
   res.json({ student: stripLearnerStatus(req.user, student) });
 }
 
-// The subjects this student is currently taking, i.e. their section's
-// active class offerings for the current school year. Scoped by the exact
+// The subjects this student is currently taking: the classes they are
+// ENROLLED in this school year (models/enrollmentModel.js), each with its
+// teacher and term. Scoped by the exact
 // same findById() call getStudent uses, so a student asking for anyone
 // else's id gets the same 404 they'd get from the profile itself — this
 // route can't become a way to enumerate other sections' timetables.
@@ -110,11 +111,8 @@ async function getStudentSubjects(req, res) {
   if (!student) {
     return res.status(404).json({ error: 'Student not found.' });
   }
-  // Not an error — a student between section assignments simply has none yet.
-  if (!student.current_section_id) {
-    return res.json({ subjects: [] });
-  }
-  const subjects = await classOfferingModel.listBySection(student.current_section_id);
+  // A student with no section has no enrollments, so this is simply empty.
+  const subjects = await enrollmentModel.listOfferingsForStudent(student.id);
   res.json({ subjects });
 }
 

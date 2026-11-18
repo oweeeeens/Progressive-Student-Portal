@@ -1,4 +1,5 @@
 const classOfferingModel = require('../models/classOfferingModel');
+const enrollmentModel = require('../models/enrollmentModel');
 const { CLASS_TERMS } = require('../config/academicTerms');
 
 // For a subject teacher building the subject-attendance input sheet: which
@@ -31,7 +32,7 @@ async function getRoster(req, res) {
     return res.status(403).json({ error: 'You do not have permission to view this class.' });
   }
 
-  const roster = await classOfferingModel.getActiveStudentsInOffering(offering.id);
+  const roster = await enrollmentModel.getEnrolledStudents(offering.id);
   res.json({ roster });
 }
 
@@ -90,6 +91,19 @@ async function updateClassOffering(req, res) {
   if (validationError) return res.status(400).json({ error: validationError });
 
   const { subjectId, sectionId, teacherId, schoolYearId, term } = req.body;
+  // A class's learners are its section's, enrolled automatically
+  // (class_enrollments). Moving a class that already has grades or Class
+  // Record work to another section or year would leave that work attached
+  // to learners who are no longer in it, so it is refused. Changing the
+  // teacher, subject or term stays allowed.
+  const current = await classOfferingModel.getById(Number(req.params.id));
+  if (!current) return res.status(404).json({ error: 'Class offering not found.' });
+  const movesSectionOrYear = current.section_id !== Number(sectionId) || current.school_year_id !== Number(schoolYearId);
+  if (movesSectionOrYear && (await classOfferingModel.classOfferingHasRecordedWork(current.id))) {
+    return res.status(409).json({
+      error: 'This class already has grades or Class Record work, so it cannot be moved to another section or school year. Create a new class offering instead.',
+    });
+  }
   try {
     const offering = await classOfferingModel.updateClassOffering(Number(req.params.id), {
       subjectId: Number(subjectId),

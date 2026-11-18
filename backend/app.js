@@ -182,6 +182,13 @@ if (process.env.SERVE_FRONTEND === 'true') {
 // async rejections here automatically) so the API always replies with JSON,
 // never Express's default HTML error page.
 app.use((err, req, res, next) => {
+  // A model may refuse a request on a rule it enforces itself (e.g. a grade
+  // for a learner not enrolled in the class — gradeModel.upsertSubmittedGrades)
+  // by throwing an error carrying a 4xx statusCode. That message was written
+  // for the user, so it is passed on; anything else stays a generic 500.
+  if (Number.isInteger(err.statusCode) && err.statusCode >= 400 && err.statusCode < 500) {
+    return res.status(err.statusCode).json({ error: err.message });
+  }
   console.error(err);
   res.status(500).json({ error: 'Internal server error.' });
 });

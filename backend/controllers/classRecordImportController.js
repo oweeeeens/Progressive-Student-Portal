@@ -10,6 +10,7 @@
 // Only the teacher of the class (class_offerings.teacher_id) or the admin may
 // import into it — the same write rule as typing scores on the Class Record.
 const assessmentModel = require('../models/assessmentModel');
+const enrollmentModel = require('../models/enrollmentModel');
 const { parseEclassRecord } = require('../services/eclassRecordParser');
 const { buildImportPlan, commitImportPlan, DECISIONS } = require('../services/eclassRecordImport');
 const { buildEclassWorkbook } = require('../scripts/lib/eclassWorkbook');
@@ -88,13 +89,9 @@ async function commitImport(req, res) {
 async function downloadTemplate(req, res) {
   const offering = await loadWritableOffering(req, res, req.query.classOfferingId);
   if (!offering) return;
-  const roster = (
-    await pool.query(
-      `SELECT lrn, first_name, middle_name, last_name, sex FROM students
-       WHERE current_section_id = $1 AND is_active = TRUE ORDER BY last_name, first_name`,
-      [offering.section_id]
-    )
-  ).rows;
+  // The class's enrolled learners (class_enrollments), so the template lists
+  // exactly the roster the import will match against.
+  const roster = await enrollmentModel.getEnrolledStudents(offering.id);
   const schoolYear = (await pool.query('SELECT label FROM school_years WHERE id = $1', [offering.school_year_id])).rows[0];
   const teacher = offering.teacher_id
     ? (await pool.query('SELECT full_name FROM users WHERE id = $1', [offering.teacher_id])).rows[0]

@@ -344,6 +344,7 @@ test('a rejected grade can still be resubmitted — the guard is only about fina
     await pool.query('DELETE FROM risk_assessments WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM grades WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM assessment_scores WHERE student_id = $1', [other.id]);
+    await pool.query('DELETE FROM class_enrollments WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM students WHERE id = $1', [other.id]);
   }
 });
@@ -384,6 +385,7 @@ test('a bulk verify cannot reach outside the grading period it was given', async
     await pool.query('DELETE FROM risk_assessments WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM grades WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM assessment_scores WHERE student_id = $1', [other.id]);
+    await pool.query('DELETE FROM class_enrollments WHERE student_id = $1', [other.id]);
     await pool.query('DELETE FROM students WHERE id = $1', [other.id]);
   }
 });
