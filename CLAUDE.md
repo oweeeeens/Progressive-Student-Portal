@@ -622,6 +622,26 @@ page, and as PDF and Excel from **the same data object**
     has Learners and By Section sheets.
   - **Tests:** `test/integration/enrolledList.test.js`.
 
+- **Admin Monitoring:** a **"Monitoring" tab on Analytics**. Analytics was
+  extended, not duplicated.
+  - **API:** `GET /api/analytics/monitoring?gradingPeriodId=`, with
+    `/export/pdf|excel`.
+  - **Who:** the admin and the principal only, checked in the handler. The
+    tab is hidden for guidance and advisers.
+  - **Period:** the page's grading-period filter; it defaults to the
+    current period.
+  - **Content:**
+    - enrollment per section (learners, classes, class enrollments);
+    - grade status per class running in the period (submitted, verified,
+      finalized, returned, and **missing** = enrolled learners with no
+      grade), counted over the learners enrolled now;
+    - at-risk per section, using Analytics' own definition (risk score
+      above 0, by level). On the demo data that gives 13, the same as the
+      Overview.
+  - **Export buttons:** labelled "Export monitoring PDF / Excel" because
+    the page already has its own Export PDF. The browser walkthrough caught
+    the clash.
+
 **Shared export helpers** (moved, not copied):
 - `pdfPrimitives` measures the current page (`contentWidth`, `pageBottom`),
   supports landscape, and now holds `drawScopeBox` and `drawPageNumbers`.
@@ -636,6 +656,9 @@ after: the same lines, now on the right pages.
   plus 4 blank ones.
 - **Split tables:** `drawTable` added every page before drawing, so a table
   that split was drawn entirely on the last page.
+- **Overflowing cells:** with `ellipsis`, `drawTable` now cuts a cell to fit
+  (`fitToWidth`, ending in "…"). PDFKit's own ellipsis still wrapped at a
+  space and spilled onto the next row. This changed nothing in Analytics.
 
 **Tests:** `test/integration/reports.test.js`.
 

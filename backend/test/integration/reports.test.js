@@ -200,3 +200,61 @@ test('class grades exports: a PDF, and a workbook with grade and status per peri
   const a1 = [2, 3].map((r) => sheet.getRow(r)).find((r) => r.getCell(1).value === ctx.a1.lrn);
   assert.deepEqual([a1.getCell(3).value, a1.getCell(4).value, a1.getCell(5).value, a1.getCell(6).value], [85, 'Finalized', 90, 'Submitted']);
 });
+
+// --- Admin monitoring (Analytics → Monitoring) -----------------------------------
+
+const monitoringUrl = (period) => `/api/analytics/monitoring?gradingPeriodId=${period.id}`;
+
+test('monitoring: enrollment per section, and grade status per class counted over the enrolled learners', async () => {
+  const res = await api.get(monitoringUrl(ctx.t2), { token: ctx.admin.token });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  const sec = (s) => res.body.sections.find((r) => r.sectionId === s.id);
+  assert.deepEqual([sec(ctx.sectionA).learners, sec(ctx.sectionA).classes, sec(ctx.sectionA).enrollments], [2, 2, 4]);
+  assert.deepEqual([sec(ctx.sectionB).learners, sec(ctx.sectionB).classes, sec(ctx.sectionB).enrollments], [1, 1, 1]);
+
+  const cls = (o) => res.body.classes.find((c) => c.offeringId === o.id);
+  // Term 2: X has a1 submitted (a2 missing); Y has a2 verified (a1 missing); Z nobody graded.
+  assert.deepEqual(
+    [cls(ctx.x).enrolled, cls(ctx.x).submitted, cls(ctx.x).verified, cls(ctx.x).finalized, cls(ctx.x).missing],
+    [2, 1, 0, 0, 1]
+  );
+  assert.deepEqual([cls(ctx.y).verified, cls(ctx.y).missing], [1, 1]);
+  assert.deepEqual([cls(ctx.z).enrolled, cls(ctx.z).missing], [1, 1]);
+
+  // Term 1: the Term-2-only class Y is not listed; X is fully finalized.
+  const t1 = await api.get(monitoringUrl(ctx.t1), { token: ctx.admin.token });
+  assert.ok(!t1.body.classes.some((c) => c.offeringId === ctx.y.id));
+  const x1 = t1.body.classes.find((c) => c.offeringId === ctx.x.id);
+  assert.deepEqual([x1.finalized, x1.missing], [2, 0]);
+});
+
+test('monitoring: at-risk counts match the risk assessments (risk score above 0), per section', async () => {
+  const { pool } = require('../../config/db');
+  const res = await api.get(monitoringUrl(ctx.t1), { token: ctx.principal.token });
+  assert.equal(res.status, 200);
+  const expected = (await pool.query(
+    `SELECT COUNT(*)::int AS assessed, COUNT(*) FILTER (WHERE risk_score > 0)::int AS at_risk
+     FROM risk_assessments WHERE grading_period_id = $1 AND student_id = ANY($2::int[])`,
+    [ctx.t1.id, [ctx.a1.id, ctx.a2.id]]
+  )).rows[0];
+  const a = res.body.sections.find((r) => r.sectionId === ctx.sectionA.id);
+  assert.equal(a.assessed, expected.assessed);
+  assert.equal(a.atRisk.total, expected.at_risk);
+  assert.ok(a.assessed >= 2, 'finalizing T1 recalculated both learners\' risk');
+  assert.equal(a.atRisk.total, a.atRisk.high + a.atRisk.medium + a.atRisk.low);
+});
+
+test('monitoring: admin and principal only; exports are a PDF and a workbook', async () => {
+  for (const who of ['adviserA', 'teacher', 'registrar', 'studentUser']) {
+    assert.equal((await api.get(monitoringUrl(ctx.t2), { token: ctx[who].token })).status, 403, who);
+  }
+  assert.equal((await api.get('/api/analytics/monitoring?gradingPeriodId=abc', { token: ctx.admin.token })).status, 400);
+  const pdf = await download(`/api/analytics/monitoring/export/pdf?gradingPeriodId=${ctx.t2.id}`, ctx.principal.token);
+  assert.equal(pdf.status, 200);
+  assert.equal(pdf.buffer.subarray(0, 4).toString(), '%PDF');
+  const xlsx = await download(`/api/analytics/monitoring/export/excel?gradingPeriodId=${ctx.t2.id}`, ctx.admin.token);
+  assert.equal(xlsx.status, 200);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(xlsx.buffer);
+  assert.deepEqual(wb.worksheets.map((w) => w.name), ['Report Info', 'Sections', 'Classes']);
+});

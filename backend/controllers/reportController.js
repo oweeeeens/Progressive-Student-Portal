@@ -8,9 +8,11 @@
 //   enrolled list    the registrar or the admin
 const reportModel = require('../models/reportModel');
 const enrollmentModel = require('../models/enrollmentModel');
-const { buildGradesheet, buildClassGrades, buildEnrolledList } = require('../services/reportBuilder');
-const { buildGradesheetPdf, buildClassGradesPdf, buildEnrolledListPdf } = require('../services/reportPdf');
-const { buildGradesheetWorkbook, buildClassGradesWorkbook, buildEnrolledListWorkbook } = require('../services/reportWorkbook');
+const { buildGradesheet, buildClassGrades, buildEnrolledList, buildMonitoring } = require('../services/reportBuilder');
+const gradingPeriodModel = require('../models/gradingPeriodModel');
+const { todayInSchoolTimezone } = require('../utils/schoolDate');
+const { buildGradesheetPdf, buildClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf } = require('../services/reportPdf');
+const { buildGradesheetWorkbook, buildClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook } = require('../services/reportWorkbook');
 
 // The students.enrollment_status values (migration create-students).
 const ENROLLMENT_STATUSES = ['enrolled', 'pending', 'dropped', 'transferred', 'graduated'];
@@ -133,4 +135,37 @@ function enrolledStudents(format) {
   };
 }
 
-module.exports = { gradesheet, classGrades, enrolledStudents };
+// ADMIN MONITORING — GET /api/analytics/monitoring?gradingPeriodId=
+// The Monitoring tab on Analytics (extended there rather than a separate
+// page, per the panel). Admin and principal: both read school-wide, and the
+// principal is the one approving grades across every class.
+function monitoring(format) {
+  return async (req, res) => {
+    if (!['admin', 'principal'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Monitoring is for the admin and the principal.' });
+    }
+    let periodId = req.query.gradingPeriodId ? positiveId(req.query.gradingPeriodId) : null;
+    if (req.query.gradingPeriodId && !periodId) return res.status(400).json({ error: 'That grading period is not valid.' });
+    if (!periodId) {
+      const current = await gradingPeriodModel.findByDate(todayInSchoolTimezone());
+      periodId = current ? current.id : null;
+    }
+    if (!periodId) return res.status(400).json({ error: 'Choose a grading period — today falls outside every one.' });
+    const period = await reportModel.getPeriod(periodId);
+    if (!period) return res.status(404).json({ error: 'Grading period not found.' });
+
+    const [sections, classes, atRisk] = await Promise.all([
+      reportModel.listSectionEnrollment(period.school_year_id),
+      reportModel.listClassGradeStatus(period.school_year_id, period.id),
+      reportModel.listAtRiskBySection(period.id),
+    ]);
+    const data = buildMonitoring({ period, sections, classes, atRisk });
+    return sendReport(res, format, data, {
+      pdf: buildMonitoringPdf,
+      workbook: buildMonitoringWorkbook,
+      filename: `Monitoring-${slug(period.name)}-${dateStamp(data.generatedAt)}`,
+    });
+  };
+}
+
+module.exports = { gradesheet, classGrades, enrolledStudents, monitoring };

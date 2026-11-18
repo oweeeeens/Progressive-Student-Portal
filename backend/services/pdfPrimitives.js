@@ -62,6 +62,14 @@ function ensureSpace(doc, y, needed) {
   return PAGE_MARGIN;
 }
 
+// Shortens `text` until it fits `width` in the current font, ending in "…".
+function fitToWidth(doc, text, width) {
+  if (doc.widthOfString(text) <= width) return text;
+  let cut = text;
+  while (cut.length > 1 && doc.widthOfString(`${cut}…`) > width) cut = cut.slice(0, -1);
+  return `${cut.trimEnd()}…`;
+}
+
 // A bordered table with a shaded header row. `columnWidths` and each row's
 // cell array must be the same length. Returns the y-coordinate just below
 // the table so the caller can keep stacking sections underneath it.
@@ -123,8 +131,13 @@ function drawTable(doc, {
         doc
           .fontSize(fontSize)
           .fillColor(isHeader ? '#FFFFFF' : isEmphasized ? NAVY : BLACK)
-          .font(isHeader || isEmphasized ? 'Helvetica-Bold' : 'Helvetica')
-          .text(String(cellText), cellX + 4, rowY + rowHeight / 2 - fontSize / 2 - 1, {
+          .font(isHeader || isEmphasized ? 'Helvetica-Bold' : 'Helvetica');
+        // With `ellipsis`, a cell is cut to fit its column ("General
+        // Mathem…"). PDFKit's own ellipsis option does not stop it wrapping
+        // at a space, so a long value used to spill onto the row below.
+        const text = ellipsis ? fitToWidth(doc, String(cellText), colWidth - 8) : String(cellText);
+        doc
+          .text(text, cellX + 4, rowY + rowHeight / 2 - fontSize / 2 - 1, {
             width: colWidth - 8,
             align: leftAlign.includes(colIndex) ? 'left' : 'center',
             ...(ellipsis ? { ellipsis: true, lineBreak: false } : {}),

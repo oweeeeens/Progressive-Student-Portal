@@ -155,4 +155,65 @@ async function buildEnrolledListWorkbook(data) {
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { buildGradesheetWorkbook, buildClassGradesWorkbook, buildEnrolledListWorkbook };
+// ADMIN MONITORING — Report Info, Sections, Classes.
+async function buildMonitoringWorkbook(data) {
+  const workbook = newWorkbook();
+  const t = data.totals;
+  addInfoSheet(workbook, [
+    { item: 'Report', value: 'Admin monitoring' },
+    { item: 'Grading period', value: data.period.name },
+    { item: 'School year', value: data.period.schoolYear || '—' },
+    { item: 'Learners', value: t.learners },
+    { item: 'Class enrollments', value: t.enrollments },
+    { item: 'At risk (any factor)', value: t.atRisk.total },
+    { item: 'Assessed', value: t.assessed },
+    { item: 'Generated on', value: today(data.generatedAt) },
+    { item: 'Note', value: 'At risk = risk score above 0, as on Analytics. Missing = enrolled learners with no grade for the period.' },
+  ]);
+  addSheet(
+    workbook,
+    'Sections',
+    [
+      { header: 'Grade level', key: 'grade', width: 12 },
+      { header: 'Section', key: 'section', width: 18 },
+      { header: 'Strand', key: 'strand', width: 10 },
+      { header: 'Adviser', key: 'adviser', width: 26 },
+      { header: 'Learners', key: 'learners', width: 10 },
+      { header: 'Classes', key: 'classes', width: 10 },
+      { header: 'Enrollments', key: 'enrollments', width: 12 },
+      { header: 'Assessed', key: 'assessed', width: 10 },
+      { header: 'At risk', key: 'atRisk', width: 10 },
+      { header: 'High', key: 'high', width: 8 },
+      { header: 'Medium', key: 'medium', width: 9 },
+      { header: 'Low', key: 'low', width: 8 },
+    ],
+    data.sections.map((s) => ({
+      grade: s.gradeLevel, section: s.sectionName, strand: s.strand || '', adviser: s.adviserName || '',
+      learners: s.learners, classes: s.classes, enrollments: s.enrollments, assessed: s.assessed,
+      atRisk: s.atRisk.total, high: s.atRisk.high, medium: s.atRisk.medium, low: s.atRisk.low,
+    }))
+  );
+  addSheet(
+    workbook,
+    'Classes',
+    [
+      { header: 'Grade level', key: 'grade', width: 12 },
+      { header: 'Section', key: 'section', width: 16 },
+      { header: 'Subject', key: 'subject', width: 36 },
+      { header: 'Teacher', key: 'teacher', width: 26 },
+      { header: 'Enrolled', key: 'enrolled', width: 10 },
+      { header: 'Submitted', key: 'submitted', width: 11 },
+      { header: 'Verified', key: 'verified', width: 10 },
+      { header: 'Finalized', key: 'finalized', width: 10 },
+      { header: 'Returned', key: 'rejected', width: 10 },
+      { header: 'Missing', key: 'missing', width: 10 },
+    ],
+    data.classes.map((c) => ({
+      grade: c.gradeLevel, section: c.sectionName, subject: c.subjectName, teacher: c.teacherName || '',
+      enrolled: c.enrolled, submitted: c.submitted, verified: c.verified, finalized: c.finalized, rejected: c.rejected, missing: c.missing,
+    }))
+  );
+  return workbook.xlsx.writeBuffer();
+}
+
+module.exports = { buildGradesheetWorkbook, buildClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook };

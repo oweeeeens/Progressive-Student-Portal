@@ -14,6 +14,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Compass,
+  Activity,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useMediaQuery, PHONE_QUERY } from '../hooks/useMediaQuery'
@@ -37,6 +38,7 @@ import { describeTrend, describeTrendAgainstThreshold, describeLargestShare, des
 import { BUCKET_ORDER, BUCKET_LABELS, SEGMENT_SPEC, BAND_SEGMENT_SPEC } from '../utils/performanceBands'
 import { Alert } from '../components/Alert'
 import { LearnerOutlookTab } from '../components/analytics/LearnerOutlookTab'
+import { MonitoringTab } from '../components/analytics/MonitoringTab'
 import { useAuth } from '../context/AuthContext'
 
 // The band order, labels and colours now live in one place shared with the
@@ -1505,6 +1507,11 @@ export function AnalyticsPage() {
           { key: 'attendance', label: 'Attendance', icon: CalendarCheck, content: attendanceTab },
           { key: 'interventions', label: 'Interventions', icon: HeartHandshake, content: interventionsTab },
           { key: 'factors', label: 'Factors', icon: AlertTriangle, content: factorsTab },
+          // Monitoring (panel revision): admin and principal only — the
+          // server refuses everyone else as well.
+          ...(['admin', 'principal'].includes(user?.role)
+            ? [{ key: 'monitoring', label: 'Monitoring', icon: Activity, content: <MonitoringTab gradingPeriodId={filters.gradingPeriodId} /> }]
+            : []),
         ]}
       />
         </>

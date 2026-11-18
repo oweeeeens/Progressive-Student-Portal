@@ -145,6 +145,94 @@ async function listCurrentSections() {
   return result.rows;
 }
 
+// --- Admin monitoring (the Monitoring tab on Analytics) ------------------------
+
+// One grading period with its school year's label.
+async function getPeriod(periodId) {
+  const result = await pool.query(
+    `SELECT gp.id, gp.name, gp.sequence_number, gp.school_year_id, sy.label AS school_year
+     FROM grading_periods gp JOIN school_years sy ON sy.id = gp.school_year_id
+     WHERE gp.id = $1`,
+    [periodId]
+  );
+  return result.rows[0] || null;
+}
+
+// Enrollment per section in a school year: learners in the section, its
+// active classes, and the class enrollments those add up to.
+async function listSectionEnrollment(schoolYearId) {
+  const result = await pool.query(
+    `SELECT sec.id, sec.name, sec.grade_level, sec.strand, u.full_name AS adviser_name,
+            (SELECT COUNT(*)::int FROM students s
+              WHERE s.current_section_id = sec.id AND s.is_active = TRUE) AS learners,
+            (SELECT COUNT(*)::int FROM class_offerings co
+              WHERE co.section_id = sec.id AND co.is_active = TRUE) AS classes,
+            (SELECT COUNT(*)::int FROM class_enrollments ce
+               JOIN class_offerings co ON co.id = ce.class_offering_id
+               JOIN students s ON s.id = ce.student_id
+              WHERE co.section_id = sec.id AND co.is_active = TRUE
+                AND ce.status = 'enrolled' AND s.is_active = TRUE) AS enrollments
+     FROM sections sec
+     LEFT JOIN users u ON u.id = sec.adviser_id
+     WHERE sec.school_year_id = $1 AND sec.is_active = TRUE
+     ORDER BY sec.grade_level, sec.name`,
+    [schoolYearId]
+  );
+  return result.rows;
+}
+
+// Grade status per class for one period, counted over the learners ENROLLED
+// in the class now (so "missing" = enrolled − graded is meaningful).
+async function listClassGradeStatus(schoolYearId, periodId) {
+  const result = await pool.query(
+    `SELECT co.id, co.term, subj.name AS subject_name, subj.code AS subject_code, subj.category AS subject_category,
+            sec.name AS section_name, sec.grade_level, u.full_name AS teacher_name,
+            roster.enrolled, COALESCE(g.submitted, 0) AS submitted, COALESCE(g.principal_verified, 0) AS principal_verified,
+            COALESCE(g.finalized, 0) AS finalized, COALESCE(g.rejected, 0) AS rejected
+     FROM class_offerings co
+     JOIN subjects subj ON subj.id = co.subject_id
+     JOIN sections sec ON sec.id = co.section_id
+     LEFT JOIN users u ON u.id = co.teacher_id
+     CROSS JOIN LATERAL (
+       SELECT COUNT(*)::int AS enrolled FROM class_enrollments ce
+       JOIN students s ON s.id = ce.student_id
+       WHERE ce.class_offering_id = co.id AND ce.status = 'enrolled' AND s.is_active = TRUE
+     ) roster
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*) FILTER (WHERE gr.status = 'submitted')::int AS submitted,
+              COUNT(*) FILTER (WHERE gr.status = 'principal_verified')::int AS principal_verified,
+              COUNT(*) FILTER (WHERE gr.status = 'finalized')::int AS finalized,
+              COUNT(*) FILTER (WHERE gr.status = 'rejected')::int AS rejected
+       FROM grades gr
+       JOIN class_enrollments ce ON ce.student_id = gr.student_id AND ce.class_offering_id = gr.class_offering_id AND ce.status = 'enrolled'
+       JOIN students s ON s.id = gr.student_id AND s.is_active = TRUE
+       WHERE gr.class_offering_id = co.id AND gr.grading_period_id = $2
+     ) g ON TRUE
+     WHERE co.school_year_id = $1 AND co.is_active = TRUE
+     ORDER BY sec.grade_level, sec.name, subj.name`,
+    [schoolYearId, periodId]
+  );
+  return result.rows;
+}
+
+// At-risk learners per section for one period, by Analytics' definition: a
+// risk score above 0 (any factor triggered), split by risk level.
+async function listAtRiskBySection(periodId) {
+  const result = await pool.query(
+    `SELECT s.current_section_id AS section_id,
+            COUNT(*)::int AS assessed,
+            COUNT(*) FILTER (WHERE ra.risk_score > 0 AND ra.risk_level = 'high')::int AS high,
+            COUNT(*) FILTER (WHERE ra.risk_score > 0 AND ra.risk_level = 'medium')::int AS medium,
+            COUNT(*) FILTER (WHERE ra.risk_score > 0 AND ra.risk_level = 'low')::int AS low
+     FROM risk_assessments ra
+     JOIN students s ON s.id = ra.student_id AND s.is_active = TRUE
+     WHERE ra.grading_period_id = $1 AND s.current_section_id IS NOT NULL
+     GROUP BY s.current_section_id`,
+    [periodId]
+  );
+  return result.rows;
+}
+
 // --- Shared -------------------------------------------------------------------
 
 async function listPeriods(schoolYearId) {
@@ -166,4 +254,8 @@ module.exports = {
   listPeriods,
   listEnrolledStudents,
   listCurrentSections,
+  getPeriod,
+  listSectionEnrollment,
+  listClassGradeStatus,
+  listAtRiskBySection,
 };

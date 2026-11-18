@@ -5,6 +5,7 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { scopeAnalytics } = require('../middleware/analyticsScope');
+const { monitoring } = require('../controllers/reportController');
 const {
   getLearnerOutlook,
   getRiskDistribution,
@@ -39,5 +40,13 @@ router.get('/factors-trend', getFactorsTrend);
 // wrapper, so it can't be reachable by anyone who can't already see it.
 router.get('/export/pdf', exportPdf);
 router.get('/export/excel', exportExcel);
+
+// The Monitoring tab (panel revision, 2026-11-18): enrollment per section,
+// grade status per class, at-risk per section — admin and principal only,
+// checked in the handler (the router.use above also admits guidance and
+// advisers, who do not get this tab).
+router.get('/monitoring', monitoring('json'));
+router.get('/monitoring/export/pdf', monitoring('pdf'));
+router.get('/monitoring/export/excel', monitoring('excel'));
 
 module.exports = router;

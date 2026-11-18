@@ -21,6 +21,8 @@ const { CLASS_TERM_LABELS } = require('../config/academicTerms');
 
 // The same words the app uses (frontend utils/gradeMatrix.js GRADE_STATUS_LABELS).
 const STATUS_LABELS = { submitted: 'Submitted', principal_verified: 'Verified by principal', finalized: 'Finalized', rejected: 'Returned to teacher' };
+// Short forms for a narrow PDF cell; the note above the table spells them out.
+const SHORT_STATUS = { submitted: 'Submitted', principal_verified: 'Verified', finalized: 'Finalized', rejected: 'Returned' };
 const runsLabel = (s) => (s.subjectCategory === 'specialized' ? CLASS_TERM_LABELS.full_year : CLASS_TERM_LABELS[s.term] || CLASS_TERM_LABELS.full_year);
 const show = (v) => (v === null || v === undefined ? '—' : String(v));
 
@@ -104,7 +106,7 @@ function buildClassGradesPdf(data) {
     ],
     y
   );
-  y = drawMutedNote(doc, 'Each grade with its stage in the approval chain. — = no grade submitted yet. Finalized average = average of finalized grades only.', y);
+  y = drawMutedNote(doc, 'Stage of each grade: Submitted, Verified (by the principal), Finalized, or Returned (to the teacher). — = not submitted yet.', y);
 
   if (data.rows.length === 0 || data.periods.length === 0) {
     drawMutedNote(doc, data.periods.length === 0 ? 'This class runs in no grading period.' : 'No learners are enrolled in this class.', y);
@@ -119,7 +121,7 @@ function buildClassGradesPdf(data) {
       bodyRows: data.rows.map((r, i) => [
         String(i + 1),
         r.name,
-        ...r.cells.map((c) => (c ? `${c.value} · ${STATUS_LABELS[c.status]}` : '—')),
+        ...r.cells.map((c) => (c ? `${c.value} · ${SHORT_STATUS[c.status]}` : '—')),
         show(r.finalizedAverage),
       ]),
       fontSize: 8,
@@ -206,4 +208,66 @@ function buildEnrolledListPdf(data) {
   return doc;
 }
 
-module.exports = { buildGradesheetPdf, buildClassGradesPdf, buildEnrolledListPdf, STATUS_LABELS, SEX_LABELS, filterRows };
+// ADMIN MONITORING — landscape: enrollment and at-risk per section, then
+// grade status per class.
+function buildMonitoringPdf(data) {
+  const doc = createDocument({ landscape: true });
+  const width = contentWidth(doc);
+  const t = data.totals;
+  let y = drawBrandHeader(doc, SCHOOL, 'ADMIN MONITORING REPORT');
+  y = drawScopeBox(
+    doc,
+    [
+      ['Grading period', data.period.name],
+      ['School year', data.period.schoolYear || '—'],
+      ['Learners / class enrollments', `${t.learners} / ${t.enrollments}`],
+      ['At risk (any factor)', `${t.atRisk.total} of ${t.assessed} assessed`],
+      ['Grades finalized / missing', `${t.finalized} / ${t.missing}`],
+      ['Generated on', formatDate(data.generatedAt)],
+    ],
+    y
+  );
+
+  y = drawSectionHeading(doc, 'Enrollment and at-risk learners per section', y);
+  y = drawTable(doc, {
+    x: PAGE_MARGIN,
+    y,
+    columnWidths: [width - 70 * 8, 70, 70, 70, 70, 70, 70, 70, 70],
+    headerRow: ['Section', 'Learners', 'Classes', 'Enrollments', 'Assessed', 'At risk', 'High', 'Medium', 'Low'],
+    bodyRows: [
+      ...data.sections.map((s) => [
+        `Grade ${s.gradeLevel} – ${s.sectionName}`,
+        s.learners, s.classes, s.enrollments, s.assessed, s.atRisk.total, s.atRisk.high, s.atRisk.medium, s.atRisk.low,
+      ].map(String)),
+      ['Total', t.learners, '', t.enrollments, t.assessed, t.atRisk.total, t.atRisk.high, t.atRisk.medium, t.atRisk.low].map(String),
+    ],
+    emphasizeLastRow: true,
+    fontSize: 8,
+    rowHeight: 18,
+  }) + 14;
+
+  y = drawSectionHeading(doc, `Grade status per class — ${data.period.name}`, y);
+  if (data.classes.length === 0) {
+    drawMutedNote(doc, 'No class runs in this grading period.', y);
+  } else {
+    drawTable(doc, {
+      x: PAGE_MARGIN,
+      y,
+      // Subject gets the slack: its names are the longest text here.
+      columnWidths: [80, width - 80 - 130 - 52 * 6, 130, 52, 52, 52, 52, 52, 52],
+      headerRow: ['Section', 'Subject', 'Teacher', 'Enrolled', 'Submitted', 'Verified', 'Finalized', 'Returned', 'Missing'],
+      bodyRows: data.classes.map((c) => [
+        `${c.gradeLevel} – ${c.sectionName}`, c.subjectName, c.teacherName || '—',
+        c.enrolled, c.submitted, c.verified, c.finalized, c.rejected, c.missing,
+      ].map(String)),
+      fontSize: 8,
+      rowHeight: 18,
+      ellipsis: true,
+      leftAlign: [0, 1, 2],
+    });
+  }
+  drawPageNumbers(doc);
+  return doc;
+}
+
+module.exports = { buildGradesheetPdf, buildClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf, STATUS_LABELS, SEX_LABELS, filterRows };

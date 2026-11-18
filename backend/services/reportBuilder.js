@@ -175,4 +175,72 @@ function buildEnrolledList({ students, sections, filters }) {
   };
 }
 
-module.exports = { buildGradesheet, buildClassGrades, buildEnrolledList, average };
+// ADMIN MONITORING — the school at a glance for one grading period:
+// enrollment per section, grade submission/approval status per class (only
+// classes that run in that period), and at-risk learners per section.
+function buildMonitoring({ period, sections, classes, atRisk }) {
+  const riskBySection = new Map(atRisk.map((r) => [r.section_id, r]));
+  const sectionRows = sections.map((s) => {
+    const r = riskBySection.get(s.id) || { assessed: 0, high: 0, medium: 0, low: 0 };
+    return {
+      sectionId: s.id,
+      sectionName: s.name,
+      gradeLevel: s.grade_level,
+      strand: s.strand,
+      adviserName: s.adviser_name,
+      learners: s.learners,
+      classes: s.classes,
+      enrollments: s.enrollments,
+      atRisk: { high: r.high, medium: r.medium, low: r.low, total: r.high + r.medium + r.low },
+      assessed: r.assessed,
+    };
+  });
+
+  const classRows = classes
+    .filter((c) => offeringCoversPeriod({ term: c.term, subjectCategory: c.subject_category, periodSequenceNumber: period.sequence_number }))
+    .map((c) => {
+      const graded = c.submitted + c.principal_verified + c.finalized + c.rejected;
+      return {
+        offeringId: c.id,
+        subjectName: c.subject_name,
+        subjectCode: c.subject_code,
+        sectionName: c.section_name,
+        gradeLevel: c.grade_level,
+        teacherName: c.teacher_name,
+        enrolled: c.enrolled,
+        submitted: c.submitted,
+        verified: c.principal_verified,
+        finalized: c.finalized,
+        rejected: c.rejected,
+        // Enrolled learners with no grade at all yet for this period.
+        missing: Math.max(0, c.enrolled - graded),
+      };
+    });
+
+  const sum = (rows, pick) => rows.reduce((a, r) => a + pick(r), 0);
+  return {
+    period: { id: period.id, name: period.name, schoolYear: period.school_year },
+    sections: sectionRows,
+    classes: classRows,
+    totals: {
+      learners: sum(sectionRows, (r) => r.learners),
+      enrollments: sum(sectionRows, (r) => r.enrollments),
+      classes: classRows.length,
+      submitted: sum(classRows, (r) => r.submitted),
+      verified: sum(classRows, (r) => r.verified),
+      finalized: sum(classRows, (r) => r.finalized),
+      rejected: sum(classRows, (r) => r.rejected),
+      missing: sum(classRows, (r) => r.missing),
+      atRisk: {
+        high: sum(sectionRows, (r) => r.atRisk.high),
+        medium: sum(sectionRows, (r) => r.atRisk.medium),
+        low: sum(sectionRows, (r) => r.atRisk.low),
+        total: sum(sectionRows, (r) => r.atRisk.total),
+      },
+      assessed: sum(sectionRows, (r) => r.assessed),
+    },
+    generatedAt: new Date(),
+  };
+}
+
+module.exports = { buildGradesheet, buildClassGrades, buildEnrolledList, buildMonitoring, average };
