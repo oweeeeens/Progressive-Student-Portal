@@ -52,9 +52,12 @@ async function findByIdWithHash(id) {
 // mustChangePassword defaults false so seed scripts (which call this
 // directly, not through the HTTP API) keep producing immediately-usable
 // accounts — only the staff/student account-provisioning flows pass true.
-async function createUser({ email, password, fullName, role, mustChangePassword = false }) {
+// `client` is optional: account creation passes its transaction client so
+// the new user and its section/class links are written together or not at
+// all (services/staffAssignment.js).
+async function createUser({ email, password, fullName, role, mustChangePassword = false }, client = pool) {
   const passwordHash = await hashPassword(password);
-  const result = await pool.query(
+  const result = await client.query(
     `INSERT INTO users (email, password_hash, full_name, role, must_change_password)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING ${PUBLIC_COLUMNS}`,
@@ -117,18 +120,21 @@ async function listStaff() {
 // since each role's assignment table is shaped differently (sections.adviser_id
 // is one-to-many, class_offerings is many-to-many via a join table, a
 // student's section is a single column on a different table entirely).
+//
+// The two teaching roles share one branch on purpose: either may advise a
+// section AND teach classes (assignment decides, never the label), so the
+// summary shows both — "Advises STEM A · Teaches ABM A". Keyed on the role
+// it used to show only one half, hiding a teaching adviser's classes.
 const ASSIGNMENT_SUMMARY_SQL = `
-  CASE u.role
-    WHEN 'adviser' THEN (
-      SELECT STRING_AGG(sec.name, ', ' ORDER BY sec.name)
-      FROM sections sec WHERE sec.adviser_id = u.id AND sec.is_active = TRUE
-    )
-    WHEN 'subject_teacher' THEN (
-      SELECT STRING_AGG(DISTINCT sec.name, ', ' ORDER BY sec.name)
-      FROM class_offerings co JOIN sections sec ON sec.id = co.section_id
-      WHERE co.teacher_id = u.id AND co.is_active = TRUE
-    )
-    WHEN 'student' THEN (
+  CASE
+    WHEN u.role IN ('adviser', 'subject_teacher') THEN NULLIF(CONCAT_WS(' · ',
+      (SELECT 'Advises ' || STRING_AGG(sec.name, ', ' ORDER BY sec.name)
+       FROM sections sec WHERE sec.adviser_id = u.id AND sec.is_active = TRUE),
+      (SELECT 'Teaches ' || STRING_AGG(DISTINCT sec.name, ', ' ORDER BY sec.name)
+       FROM class_offerings co JOIN sections sec ON sec.id = co.section_id
+       WHERE co.teacher_id = u.id AND co.is_active = TRUE)
+    ), '')
+    WHEN u.role = 'student' THEN (
       SELECT sec.name FROM students s LEFT JOIN sections sec ON sec.id = s.current_section_id
       WHERE s.user_id = u.id
     )
@@ -137,8 +143,8 @@ const ASSIGNMENT_SUMMARY_SQL = `
 `;
 
 const ASSIGNMENT_FILTER_SQL = `(
-  (u.role = 'adviser' AND EXISTS (SELECT 1 FROM sections sec WHERE sec.adviser_id = u.id AND sec.id = $SECTION_PARAM))
-  OR (u.role = 'subject_teacher' AND EXISTS (
+  (u.role IN ('adviser', 'subject_teacher') AND EXISTS (SELECT 1 FROM sections sec WHERE sec.adviser_id = u.id AND sec.id = $SECTION_PARAM))
+  OR (u.role IN ('adviser', 'subject_teacher') AND EXISTS (
     SELECT 1 FROM class_offerings co WHERE co.teacher_id = u.id AND co.section_id = $SECTION_PARAM
   ))
   OR (u.role = 'student' AND EXISTS (
@@ -231,7 +237,7 @@ async function hasActiveAssignments(id) {
 // admin actually changed.
 const UPDATABLE_FIELDS = { fullName: 'full_name', email: 'email', role: 'role' };
 
-async function updateUser(id, data) {
+async function updateUser(id, data, client = pool) {
   const setClauses = [];
   const params = [];
 
@@ -245,13 +251,14 @@ async function updateUser(id, data) {
   }
 
   if (setClauses.length === 0) {
-    return findById(id);
+    const current = await client.query(`SELECT ${PUBLIC_COLUMNS} FROM users WHERE id = $1`, [id]);
+    return current.rows[0] || null;
   }
 
   setClauses.push('updated_at = now()');
   params.push(id);
 
-  const result = await pool.query(
+  const result = await client.query(
     `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING ${PUBLIC_COLUMNS}`,
     params
   );

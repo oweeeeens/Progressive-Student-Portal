@@ -42,9 +42,22 @@ export function AuthProvider({ children }) {
   // answer cannot have changed.
   const userId = user?.id
   const userRole = user?.role
+  // Bumped to re-count. Two moments matter: right after the forced first
+  // password change (before it the server refuses /sections/mine, so a
+  // brand-new account's counts always failed), and when the window regains
+  // focus, so an account the admin links while it is signed in picks up its
+  // section without signing out.
+  const [assignmentsVersion, setAssignmentsVersion] = useState(0)
+  const mustChangePassword = Boolean(user?.mustChangePassword)
 
   useEffect(() => {
-    if (!userId || userRole === 'student') {
+    const onFocus = () => setAssignmentsVersion((v) => v + 1)
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
+
+  useEffect(() => {
+    if (!userId || userRole === 'student' || mustChangePassword) {
       setAssignments(null)
       return
     }
@@ -65,7 +78,7 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [userId, userRole])
+  }, [userId, userRole, mustChangePassword, assignmentsVersion])
 
   // `remember` is sent to the server as well as deciding the storage: the
   // server makes a remembered sign-in last 30 days instead of 8 hours. Before

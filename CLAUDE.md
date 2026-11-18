@@ -817,6 +817,35 @@ Registration stays admin-only (no public self-signup) — but here's how each ro
 - Admin shares credentials with the staff member directly (no school email system exists)
 - Force a password change on first login
 
+**Linked to their section and classes at creation (2026-11-18).** Found in the
+group's demo: a new adviser signed in to a near-empty menu. Every adviser and
+teacher feature is earned by `sections.adviser_id` / `class_offerings.teacher_id`,
+and creating the account set neither. Now:
+- **The forms link them.** New Account and Edit Account have an *Advisory
+  section* and a *Classes taught* picker (`components/AssignmentPicker.jsx`,
+  `GET /api/users/assignable-targets`) for the two teaching roles.
+  - `POST /auth/register` and `PATCH /users/:id` take `advisorySectionId` and
+    `classOfferingIds` and write them in the **same transaction** as the
+    account (`services/staffAssignment.js`).
+  - **Admin only,** like Academic Setup. A registrar still creates the bare
+    account and is told an admin links it.
+  - **Current school year, active rows only:** the same filter as
+    `/sections/mine`.
+  - A section has one adviser, so picking a held one **moves** it, after a
+    confirm naming who loses it.
+- **Unlinked accounts are guided, not hidden.** A role's own half of the menu
+  always shows: an adviser's advising pages, a subject teacher's teaching
+  pages (`utils/permissions.js`, `showsAdvisingWork` / `showsTeachingWork`).
+  - Each of those pages shows `components/NoAssignmentNotice.jsx` ("You have
+    no advisory section yet — ask the admin").
+  - The other half, and Analytics, still need a real assignment. The server
+    is unchanged.
+- **Counts refresh** (`AuthContext`) after the forced first password change
+  (before it the server refuses `/sections/mine`) and on window focus.
+- User Management's Assignment column now shows both halves ("Advises STEM A ·
+  Teaches ABM A") instead of choosing by role.
+- **Tests:** `test/integration/accountAssignment.test.js`.
+
 **Students:**
 - No school-issued email exists — students use personal email, collected directly when the registrar adds their record to Student Records (enrollment now happens on paper, not through the portal — see REMOVED: Enrollment Management above)
 - Registrar/admin manually creates the student's portal account after adding their Student Record, using the same account-creation form/flow as staff

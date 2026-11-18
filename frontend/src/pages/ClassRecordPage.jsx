@@ -17,6 +17,7 @@ import { useGradeBreakdown } from '../components/GradeBreakdown'
 import { previewTermGrade } from '../utils/gradeCalculator'
 import './GradesShared.css'
 import './ClassRecord.css'
+import { NoAssignmentNotice } from '../components/NoAssignmentNotice'
 
 // The Class Record — where a term grade comes from.
 //
@@ -306,6 +307,7 @@ export function ClassRecordPage() {
           </label>
         </div>
       </div>
+      <NoAssignmentNotice kind="class" />
 
       {offeringsError && <Alert>{offeringsError}</Alert>}
       {periodsError && <Alert>{periodsError}</Alert>}

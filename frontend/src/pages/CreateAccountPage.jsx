@@ -3,6 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { api } from '../api/client'
 import { Alert } from '../components/Alert'
+import { useAuth } from '../context/AuthContext'
+import { useConfirm } from '../hooks/useConfirm'
+import { AssignmentPicker, EMPTY_ASSIGNMENT, describeTakeovers, assignmentPayload } from '../components/AssignmentPicker'
 
 const ROLE_LABELS = {
   adviser: 'Adviser',
@@ -22,7 +25,17 @@ const ROLE_LABELS = {
 // password is shown exactly once, right after creation — it cannot be
 // retrieved again after leaving this page, so the admin/registrar must relay
 // it to the new user right now.
+// Linking roles: an adviser or subject teacher is given its section and
+// classes here, in the same request, so the account has its features the
+// first time it signs in (components/AssignmentPicker.jsx).
+const LINKABLE_ROLES = ['adviser', 'subject_teacher']
+
 export function CreateAccountPage() {
+  const { user: currentUser } = useAuth()
+  const isAdmin = currentUser?.role === 'admin'
+  const [assignment, setAssignment] = useState(EMPTY_ASSIGNMENT)
+  const [targets, setTargets] = useState(null)
+  const [confirm, confirmDialog] = useConfirm()
   const [searchParams] = useSearchParams()
   const preselectedStudentId = searchParams.get('studentId')
 
@@ -88,14 +101,37 @@ export function CreateAccountPage() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    const linking = isAdmin && LINKABLE_ROLES.includes(role)
+    // Taking a section or class away from someone else is not a quiet
+    // change: their menu loses it. Name who, and ask first.
+    const takeovers = linking ? describeTakeovers(targets, assignment, null) : []
+    if (takeovers.length > 0) {
+      const ok = await confirm({
+        title: 'Move these to the new account?',
+        message: 'A section has one adviser and a class has one teacher, so these will be taken from the person who has them now.',
+        details: (
+          <ul>
+            {takeovers.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ),
+        confirmLabel: 'Create and move',
+        danger: true,
+      })
+      if (!ok) return
+    }
     setSubmitting(true)
     try {
       const payload =
-        role === 'student' ? { role: 'student', studentId: selectedStudent.id } : { email, fullName, role }
+        role === 'student'
+          ? { role: 'student', studentId: selectedStudent.id }
+          : { email, fullName, role, ...(linking ? assignmentPayload(assignment) : {}) }
       const result = await api.post('/auth/register', payload)
       setCreated(result)
       setEmail('')
       setFullName('')
+      setAssignment(EMPTY_ASSIGNMENT)
       setRole('adviser')
       setSelectedStudent(null)
       setStudentSearch('')
@@ -162,6 +198,29 @@ export function CreateAccountPage() {
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
+          {created.linked && (created.linked.section || created.linked.offerings.length > 0) ? (
+            <ul className="form-note">
+              {created.linked.section && (
+                <li>
+                  Advises Grade {created.linked.section.gradeLevel} – {created.linked.section.name}
+                  {created.linked.section.previousAdviser ? ` (moved from ${created.linked.section.previousAdviser})` : ''}
+                </li>
+              )}
+              {created.linked.offerings.map((o) => (
+                <li key={o.id}>
+                  Teaches {o.sectionName} – {o.subjectName}
+                  {o.previousTeacher ? ` (moved from ${o.previousTeacher})` : ''}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            LINKABLE_ROLES.includes(created.user.role) && (
+              <p className="form-note">
+                Not linked to a section or class yet, so their attendance and grade pages will say so until the admin
+                links them (User Management → Edit).
+              </p>
+            )
+          )}
         </Alert>
       )}
 
@@ -266,6 +325,15 @@ export function CreateAccountPage() {
               Email
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
+            {LINKABLE_ROLES.includes(role) &&
+              (isAdmin ? (
+                <AssignmentPicker value={assignment} onChange={setAssignment} onTargetsLoaded={setTargets} />
+              ) : (
+                <p className="form-note">
+                  An admin links this account to the section it advises and the classes it teaches (User Management →
+                  Edit, or Academic Setup). Until then its attendance and grade pages say there is nothing assigned.
+                </p>
+              ))}
           </>
         )}
 
@@ -283,6 +351,7 @@ export function CreateAccountPage() {
           </p>
         )}
       </form>
+      {confirmDialog}
     </div>
   )
 }

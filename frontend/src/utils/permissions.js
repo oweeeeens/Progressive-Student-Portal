@@ -33,6 +33,24 @@ export function canManageAcademicSetup(role) {
 const advisesAny = (has) => has == null || has.sections > 0
 const teachesAny = (has) => has == null || has.offerings > 0
 
+// --- Advising and teaching work (sidebar links, import cards) --------------
+//
+// Assignment decides, never the label — EXCEPT that a role's own half of the
+// menu always shows. An adviser always sees the advising pages and a subject
+// teacher the teaching pages, even before an admin has linked them to a
+// section or class. Hiding them made a brand-new account look broken (found
+// in the group's demo); now each such page says "no section assigned yet"
+// instead (components/NoAssignmentNotice.jsx). The OTHER half still appears
+// only when actually assigned: a teaching adviser earns the teaching pages
+// by teaching. The server refuses anything not assigned either way.
+export function showsAdvisingWork(role, has) {
+  return role === 'adviser' || (role === 'subject_teacher' && advisesAny(has))
+}
+
+export function showsTeachingWork(role, has) {
+  return role === 'subject_teacher' || (role === 'adviser' && teachesAny(has))
+}
+
 // The school's student information spreadsheet → student records.
 export function canImportStudents(role) {
   return ['admin', 'registrar'].includes(role)
@@ -40,12 +58,12 @@ export function canImportStudents(role) {
 
 // SF2 attendance sheets → the daily register: whoever may mark it.
 export function canImportAttendance(role, has) {
-  return ['admin', 'registrar'].includes(role) || (['adviser', 'subject_teacher'].includes(role) && advisesAny(has))
+  return ['admin', 'registrar'].includes(role) || showsAdvisingWork(role, has)
 }
 
 // A subject's DepEd e-Class Record → its class record: whoever teaches it.
 export function canImportClassRecord(role, has) {
-  return role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && teachesAny(has))
+  return role === 'admin' || showsTeachingWork(role, has)
 }
 
 export function canImportAnything(role, has) {

@@ -8,6 +8,8 @@ const studentModel = require('../models/studentModel');
 const passwordReset = require('../services/passwordReset');
 const { createStudentAccount } = require('../services/accountCreation');
 const { CREATABLE_ROLES } = require('../config/auth');
+const staffAssignment = require('../services/staffAssignment');
+const { pool } = require('../config/db');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -128,8 +130,44 @@ async function updateAccount(req, res) {
     data.role = role;
   }
 
-  const updated = await userModel.updateUser(id, data);
-  res.json({ user: updated });
+  // Optional: link this account to a section it will advise and classes it
+  // will teach — the same rules as at creation (services/staffAssignment.js),
+  // checked against the role the account will have AFTER this edit.
+  const requested = staffAssignment.readRequestedAssignments(req.body);
+  let validated = null;
+  if (requested) {
+    validated = await staffAssignment.validateAssignments(requested, {
+      actorRole: req.user.role,
+      targetRole: data.role || existing.role,
+    });
+    if (!validated.ok) return res.status(validated.status).json({ error: validated.error });
+  }
+
+  // The edit and its links are saved together or not at all.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const updated = await userModel.updateUser(id, data, client);
+    const linked = validated ? await staffAssignment.applyAssignments(client, id, validated) : null;
+    await client.query('COMMIT');
+    res.json({ user: updated, linked });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// What the account forms' "Advisory section" and "Classes taught" pickers
+// offer: the current school year's active sections and classes, each with
+// whoever holds it now, so the form can say who would lose it. Admin only,
+// like the linking itself.
+async function listAssignableTargets(req, res) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Only the admin can link accounts to sections and classes.' });
+  }
+  res.json(await staffAssignment.listAssignableTargets());
 }
 
 // Activate/deactivate — never a hard delete, so historical records (grades
@@ -213,6 +251,7 @@ module.exports = {
   listAccounts,
   getStats,
   updateAccount,
+  listAssignableTargets,
   setAccountActive,
   resetPassword,
   bulkCreateStudentAccounts,

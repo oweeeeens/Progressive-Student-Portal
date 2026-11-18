@@ -23,6 +23,7 @@ import { useStatExplainer } from '../hooks/useStatExplainer'
 import { Alert } from '../components/Alert'
 import { StatusPill } from '../components/StatusPill'
 import { SpotIllustration } from '../components/illustrations/SpotIllustration'
+import { NoAssignmentNotice } from '../components/NoAssignmentNotice'
 
 // Bulk import of the school's existing SF2 spreadsheets — students down the
 // side, school days across the top, a mark in each cell. Marking attendance
@@ -405,6 +406,7 @@ export function BulkImportAttendancePage() {
       <div className="page-header">
         <h1>Bulk Import Attendance</h1>
       </div>
+      <NoAssignmentNotice kind="section" />
 
       {/* Read-only, like the student importer's: you cannot jump to Review
           before a file has been read and its grid located. */}

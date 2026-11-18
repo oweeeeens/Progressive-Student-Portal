@@ -12,6 +12,7 @@ import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 import { weightSplit } from '../utils/gradingPolicy'
 import './GradesShared.css'
 import './ClassRecord.css'
+import { NoAssignmentNotice } from '../components/NoAssignmentNotice'
 
 // Import the school's DepEd e-Class Record into the Class Record.
 //
@@ -138,6 +139,7 @@ export function ClassRecordImportPage() {
       <div className="page-header">
         <h1>Import e-Class Record</h1>
       </div>
+      <NoAssignmentNotice kind="class" />
 
       <ol className="form-steps form-steps--static">
         {STEPS.map((s, index) => (

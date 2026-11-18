@@ -28,7 +28,7 @@ import { useAuth } from '../context/AuthContext'
 import { confirmLeave, hasUnsavedChanges } from '../utils/unsavedChangesGuard'
 import { useConfirm } from '../hooks/useConfirm'
 import { roleLabel } from '../utils/roleLabel'
-import { canViewAcademicSetup, canImportAnything } from '../utils/permissions'
+import { canViewAcademicSetup, canImportAnything, showsAdvisingWork, showsTeachingWork } from '../utils/permissions'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import './Sidebar.css'
 
@@ -59,14 +59,15 @@ const canWrite = (role) => role === 'admin' || role === 'registrar'
 // teacher's own grade sheet from them because a request timed out. Failing
 // open here is safe — the server is the actual boundary, this is only a menu.
 const advises = (has) => has === null || has.sections > 0
-const teaches = (has) => has === null || has.offerings > 0
 
-const canMarkDaily = (role, has) =>
-  ['admin', 'registrar'].includes(role) || (['adviser', 'subject_teacher'].includes(role) && advises(has))
-const canEnterGrades = (role, has) =>
-  role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && teaches(has))
-const canFinalizeGrades = (role, has) =>
-  role === 'admin' || (['adviser', 'subject_teacher'].includes(role) && advises(has))
+// A role's own half always shows, even before the account is linked to a
+// section or class: an adviser's advising pages, a subject teacher's
+// teaching pages. Each of those pages then says "nothing assigned yet"
+// rather than the link silently vanishing (utils/permissions.js,
+// showsAdvisingWork / showsTeachingWork, explains why).
+const canMarkDaily = (role, has) => ['admin', 'registrar'].includes(role) || showsAdvisingWork(role, has)
+const canEnterGrades = (role, has) => role === 'admin' || showsTeachingWork(role, has)
+const canFinalizeGrades = (role, has) => role === 'admin' || showsAdvisingWork(role, has)
 // Verify Grades stays role-based on purpose: there's no "principal
 // assignment" table, it's a single school-wide position, so a literal role
 // check is the correct and only boundary (unlike the four above).
@@ -77,7 +78,8 @@ const canSeeAcademicProgress = (role) => ['admin', 'principal', 'adviser', 'guid
 // assignment, not a role, so the link is earned by advising a section,
 // exactly like Finalize Grades — plus the admin (full access, restored
 // 2026-11-13). No principal or guidance counselor link.
-const canSeeInterventions = (role, has) => role === 'admin' || (role !== 'student' && advises(has))
+const canSeeInterventions = (role, has) =>
+  role === 'admin' || showsAdvisingWork(role, has) || (role !== 'student' && advises(has))
 // Deliberately NOT advisers — they keep the per-section Academic Progress
 // Tracking view above; this is the school-wide rollup, admin/principal/
 // guidance_counselor only, matching routes/analyticsRoutes.js's server-side gate.

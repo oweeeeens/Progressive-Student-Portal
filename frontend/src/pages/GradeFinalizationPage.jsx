@@ -13,6 +13,7 @@ import { SpotIllustration } from '../components/illustrations/SpotIllustration'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { useConfirm } from '../hooks/useConfirm'
 import { useGradeBreakdown } from '../components/GradeBreakdown'
+import { NoAssignmentNotice } from '../components/NoAssignmentNotice'
 
 // The final stage of CLAUDE.md's 3-stage grade approval chain, done by
 // whoever actually advises the section (sections.adviser_id, not whoever's
@@ -179,6 +180,7 @@ export function GradeFinalizationPage() {
           </label>
         </div>
       </div>
+      <NoAssignmentNotice kind="section" />
 
       {sectionsError && <Alert>{sectionsError}</Alert>}
       {periodsError && <Alert>{periodsError}</Alert>}

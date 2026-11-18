@@ -4940,6 +4940,59 @@ textarea[aria-invalid='true']:focus-visible {
   overflow-y: auto;
 }
 
+/* Linking an adviser/teacher account to its section and classes
+   (components/AssignmentPicker.jsx), on New Account and in Edit Account. */
+.assignment-picker {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.assignment-picker legend {
+  padding: 0 var(--space-1);
+  font-weight: 600;
+}
+.assignment-picker__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 500;
+  margin-bottom: var(--space-1);
+}
+.assignment-picker select {
+  width: 100%;
+}
+/* A capped, scrolling checklist: a school year has dozens of classes. */
+.assignment-picker__classes {
+  max-height: 13.75rem;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+}
+.assignment-picker__class {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  margin: 0;
+  font-weight: 400;
+  cursor: pointer;
+}
+/* Overrides .account-form input { width: 100% } for the checkboxes. */
+.assignment-picker__class input[type='checkbox'] {
+  width: auto;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.assignment-picker__class small {
+  color: var(--color-text-muted);
+}
+
 /* =============================================================================
    Step indicator
    =============================================================================

@@ -18,6 +18,8 @@ const { verifyPassword, generateTempPassword } = require('../utils/password');
 const passwordReset = require('../services/passwordReset');
 const emailService = require('../services/emailService');
 const { createStudentAccount } = require('../services/accountCreation');
+const staffAssignment = require('../services/staffAssignment');
+const { pool } = require('../config/db');
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -126,9 +128,32 @@ async function register(req, res) {
     return res.status(409).json({ error: 'An account with that email already exists.' });
   }
 
+  // Optional: link the new adviser/teacher to the section they advise and
+  // the classes they teach in the same step, so the account has its
+  // features the first time it signs in (services/staffAssignment.js).
+  const requested = staffAssignment.readRequestedAssignments(req.body);
+  let validated = null;
+  if (requested) {
+    validated = await staffAssignment.validateAssignments(requested, { actorRole: req.user.role, targetRole: role });
+    if (!validated.ok) return res.status(validated.status).json({ error: validated.error });
+  }
+
+  // One transaction: the account and its links exist together or not at
+  // all — never a new adviser with half their classes attached.
   const tempPassword = generateTempPassword();
-  const user = await userModel.createUser({ email, password: tempPassword, fullName, role, mustChangePassword: true });
-  res.status(201).json({ user: toPublicUser(user), tempPassword });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const user = await userModel.createUser({ email, password: tempPassword, fullName, role, mustChangePassword: true }, client);
+    const linked = validated ? await staffAssignment.applyAssignments(client, user.id, validated) : null;
+    await client.query('COMMIT');
+    res.status(201).json({ user: toPublicUser(user), tempPassword, linked });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // The forced first-login flow, and also usable as a general "change my

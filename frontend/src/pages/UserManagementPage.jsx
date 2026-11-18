@@ -27,6 +27,10 @@ import { TableToolbar, TableFilter } from '../components/table/TableToolbar'
 import { Alert } from '../components/Alert'
 import { Modal } from '../components/Modal'
 import { SkeletonTable } from '../components/Skeleton'
+import { AssignmentPicker, EMPTY_ASSIGNMENT, describeTakeovers, assignmentPayload } from '../components/AssignmentPicker'
+
+// The roles that can advise a section or teach a class (backend/services/staffAssignment.js).
+const LINKABLE_ROLES = ['adviser', 'subject_teacher']
 
 const PAGE_SIZE = 15
 
@@ -78,6 +82,10 @@ function AllAccountsTab() {
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ fullName: '', email: '', role: '' })
   const [saving, setSaving] = useState(false)
+  // Linking the account to a section/classes (admin only): what to add or
+  // move to it, and the pickers' options for the confirm dialog.
+  const [editAssignment, setEditAssignment] = useState(EMPTY_ASSIGNMENT)
+  const [assignTargets, setAssignTargets] = useState(null)
 
   const [resetResult, setResetResult] = useState(null) // { email, tempPassword } | null
   const [resettingId, setResettingId] = useState(null)
@@ -122,6 +130,7 @@ function AllAccountsTab() {
     setResetResult(null)
     setEditingId(account.id)
     setEditForm({ fullName: account.full_name, email: account.email, role: account.role })
+    setEditAssignment(EMPTY_ASSIGNMENT)
   }
 
   async function handleSaveEdit(e) {
@@ -132,7 +141,9 @@ function AllAccountsTab() {
     const original = (accounts || []).find((a) => a.id === editingId)
     const roleChanged = original && original.role !== editForm.role
     const emailChanged = original && original.email.trim().toLowerCase() !== editForm.email.trim().toLowerCase()
-    if (roleChanged || emailChanged) {
+    const linking = currentUser?.role === 'admin' && LINKABLE_ROLES.includes(editForm.role)
+    const takeovers = linking ? describeTakeovers(assignTargets, editAssignment, editingId) : []
+    if (roleChanged || emailChanged || takeovers.length > 0) {
       const ok = await confirm({
         title: `Change ${editForm.fullName}'s account?`,
         message: 'Check these before saving — they change how this person signs in and what they can access.',
@@ -148,6 +159,9 @@ function AllAccountsTab() {
                 Email: {original.email} → <strong>{editForm.email.trim()}</strong>. They must sign in with the new address from now on.
               </li>
             )}
+            {takeovers.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
           </ul>
         ),
         confirmLabel: 'Save changes',
@@ -157,7 +171,7 @@ function AllAccountsTab() {
     setError(null)
     setSaving(true)
     try {
-      await api.patch(`/users/${editingId}`, editForm)
+      await api.patch(`/users/${editingId}`, { ...editForm, ...(linking ? assignmentPayload(editAssignment) : {}) })
       setEditingId(null)
       // The modal closing was the only sign the save had worked.
       showToast(`Saved changes to ${editForm.fullName}.`)
@@ -392,10 +406,29 @@ function AllAccountsTab() {
               </select>
             )}
           </div>
+          {LINKABLE_ROLES.includes(editForm.role) && (
+            <>
+              <p className="text-muted text-sm">
+                Linked now: <strong>{(accounts || []).find((a) => a.id === editingId)?.assignment_summary || 'nothing yet'}</strong>.
+                {currentUser?.role === 'admin'
+                  ? ' Pick below to add a section or classes, or to move them to this account.'
+                  : ' An admin links accounts to sections and classes.'}
+              </p>
+              {currentUser?.role === 'admin' && editingId && (
+                <AssignmentPicker
+                  key={editingId}
+                  value={editAssignment}
+                  onChange={setEditAssignment}
+                  userId={editingId}
+                  onTargetsLoaded={setAssignTargets}
+                />
+              )}
+            </>
+          )}
           <p className="text-muted text-sm">
-            Section/class assignments are managed from Academic Setup (
+            To take a section or class away, give it to someone else in Academic Setup (
             <Link to="/academic-setup/sections">Sections</Link>, <Link to="/academic-setup/class-offerings">Class Offerings</Link>) —
-            reassigning a role here is blocked while the account still holds one.
+            moving this account out of a teaching role is blocked while it still holds one.
           </p>
           <div className="button-row">
             <button type="submit" className="btn-primary" disabled={saving}>

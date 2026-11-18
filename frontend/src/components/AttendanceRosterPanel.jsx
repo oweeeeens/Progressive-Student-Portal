@@ -52,6 +52,8 @@ export function AttendanceRosterPanel({
   resetKey,
   onSave,
   saving,
+  // Optional: shown under the header, e.g. "you have no advisory section yet".
+  notice = null,
 }) {
   const [search, setSearch] = useState('')
   const [expandedNoteIds, setExpandedNoteIds] = useState(() => new Set())
@@ -149,6 +151,7 @@ export function AttendanceRosterPanel({
           )}
         </div>
       </div>
+      {notice}
 
       {error && <Alert>{error}</Alert>}
       {/* These four screens are where the real work of a school week gets

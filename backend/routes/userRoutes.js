@@ -5,6 +5,7 @@ const {
   listAccounts,
   getStats,
   updateAccount,
+  listAssignableTargets,
   setAccountActive,
   resetPassword,
   bulkCreateStudentAccounts,
@@ -22,6 +23,8 @@ router.get('/', listStaff);
 
 router.get('/accounts', listAccounts);
 router.get('/accounts/stats', getStats);
+// The account forms' section/class pickers (admin only; checked in the handler).
+router.get('/assignable-targets', listAssignableTargets);
 router.post('/bulk-create-student-accounts', bulkCreateStudentAccounts);
 router.patch('/:id', updateAccount);
 router.patch('/:id/active', setAccountActive);

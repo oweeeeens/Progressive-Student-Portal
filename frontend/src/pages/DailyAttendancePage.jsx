@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { AttendanceRosterPanel } from '../components/AttendanceRosterPanel'
 import { todayDateString } from '../utils/dateUtils'
 import { useConfirm } from '../hooks/useConfirm'
+import { NoAssignmentNotice } from '../components/NoAssignmentNotice'
 
 // The daily/homeroom register (DepEd SF2). admin/registrar can record for
 // any section; anyone else only sees sections they actually advise in the
@@ -144,6 +145,7 @@ export function DailyAttendancePage() {
     <AttendanceRosterPanel
       breadcrumbItems={[{ label: 'Home', to: '/' }, { label: 'Attendance' }, { label: 'Daily (SF2)' }]}
       title="Daily Attendance (SF2)"
+      notice={<NoAssignmentNotice kind="section" />}
       pickerLabel="Section"
       pickerValue={sectionId}
       onPickerChange={setSectionId}

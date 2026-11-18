@@ -18,6 +18,7 @@ import { TableToolbar, TableFilter } from '../components/table/TableToolbar'
 import { Alert } from '../components/Alert'
 import { useWriteFeedback } from '../hooks/useWriteFeedback'
 import { useAuth } from '../context/AuthContext'
+import { NoAssignmentNotice } from '../components/NoAssignmentNotice'
 
 const PAGE_SIZE = 15
 
@@ -222,6 +223,7 @@ export function InterventionsPage() {
       <div className="page-header">
         <h1>Interventions</h1>
       </div>
+      <NoAssignmentNotice kind="section" />
       {/* Adviser only (no third parties): this lists the learners in the
           reader's own advisory section, and nobody else's. */}
       <p className="help-text mb-3">
