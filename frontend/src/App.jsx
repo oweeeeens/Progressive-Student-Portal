@@ -31,6 +31,7 @@ import { ClassOfferingsPage } from './pages/ClassOfferingsPage'
 import { StudentGradesPage } from './pages/StudentGradesPage'
 import { StudentAttendancePage } from './pages/StudentAttendancePage'
 import { StudentRecordPage } from './pages/StudentRecordPage'
+import { StudentRegistrationPage, MyRegistrationPage } from './pages/StudentRegistrationPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
@@ -75,6 +76,7 @@ function App() {
                 <Route path="/students/bulk-import" element={<BulkImportStudentsPage />} />
                 <Route path="/students/:id" element={<StudentDetailPage />} />
                 <Route path="/students/:id/edit" element={<StudentFormPage />} />
+                <Route path="/students/:id/registration" element={<StudentRegistrationPage />} />
                 {/* A student has three pages and no deeper nesting: Home
                     carries the figures, the advice and the trends — what a
                     flagged student must see on arrival — while the detail
@@ -88,6 +90,7 @@ function App() {
                 {/* The learner's own record, read-only (was a redirect to
                     Home, where the record sat hidden at the bottom). */}
                 <Route path="/my-record" element={<StudentRecordPage />} />
+                <Route path="/my-registration" element={<MyRegistrationPage />} />
                 {/* The old redirect-to-home stub is now a real page, and
                     /my-profile keeps working as an alias so any link or
                     bookmark from before it existed still lands somewhere

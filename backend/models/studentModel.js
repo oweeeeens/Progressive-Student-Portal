@@ -393,6 +393,28 @@ async function countsByEnrollmentStatus(user) {
 // keys on grading_periods.sequence_number, which repeats
 // across years — so every one of those queries has to be told WHICH year, and
 // they should all answer that question the same way.
+// The details printed on a learner's registration form: identity, contact,
+// and enrollment — section, grade level, strand, the section's SCHOOL YEAR
+// and its adviser. Unscoped: the caller (studentController.getRegistration)
+// decides who may see it. The PWD / 4Ps / ALS learner-status flags are
+// deliberately not selected; they are not part of a registration form.
+async function getRegistrationDetails(studentId) {
+  const result = await pool.query(
+    `SELECT s.id, s.lrn, s.first_name, s.middle_name, s.last_name, s.sex, s.date_of_birth,
+            s.address, s.email, s.guardian_name, s.guardian_contact_number, s.enrollment_status,
+            s.is_active, s.user_id, s.current_section_id,
+            sec.name AS section_name, sec.grade_level, sec.strand, sec.school_year_id,
+            sy.label AS school_year, u.full_name AS adviser_name
+     FROM students s
+     LEFT JOIN sections sec ON sec.id = s.current_section_id
+     LEFT JOIN school_years sy ON sy.id = sec.school_year_id
+     LEFT JOIN users u ON u.id = sec.adviser_id
+     WHERE s.id = $1`,
+    [studentId]
+  );
+  return result.rows[0] || null;
+}
+
 async function resolveSchoolYearId(studentId) {
   const result = await pool.query(
     `SELECT COALESCE(sec.school_year_id, (SELECT id FROM school_years WHERE is_current = TRUE LIMIT 1))
@@ -406,6 +428,7 @@ async function resolveSchoolYearId(studentId) {
 }
 
 module.exports = {
+  getRegistrationDetails,
   appendAdviserOnlyClause,
   appendInterventionScopeClause,
   isAdvisedBy,

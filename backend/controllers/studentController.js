@@ -116,6 +116,44 @@ async function getStudentSubjects(req, res) {
   res.json({ subjects });
 }
 
+// GET /api/students/:id/registration — the learner's registration form:
+// name, LRN, grade level, section, strand, school year, adviser, and the
+// classes they are enrolled in with each teacher (the panel's requirement).
+//
+// Who may open it: the registrar and the admin (who keep the record and can
+// edit it), and the learner themself, read-only. Nobody else — an adviser or
+// teacher already has the student page; this is the registrar's document.
+async function getRegistration(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid student id.' });
+  const details = await studentModel.getRegistrationDetails(id);
+  const isOwnRecord = req.user.role === 'student' && details && details.user_id === req.user.id;
+  if (!['admin', 'registrar'].includes(req.user.role) && !isOwnRecord) {
+    return res.status(403).json({ error: 'Only the registrar, the admin, or the learner can open a registration form.' });
+  }
+  if (!details) return res.status(404).json({ error: 'Student not found.' });
+
+  // The classes of the section's own school year (a learner in a past
+  // year's section still sees that year's form, not an empty one).
+  const subjects = await enrollmentModel.listOfferingsForStudent(id, { schoolYearId: details.school_year_id });
+  const { user_id: userId, school_year_id: schoolYearId, ...publicDetails } = details;
+  res.json({
+    registration: {
+      ...publicDetails,
+      has_portal_account: Boolean(userId),
+      subjects: subjects.map((s) => ({
+        id: s.id,
+        subject_code: s.subject_code,
+        subject_name: s.subject_name,
+        subject_category: s.subject_category,
+        teacher_name: s.teacher_name,
+        term: s.term,
+      })),
+    },
+    canEdit: ['admin', 'registrar'].includes(req.user.role),
+  });
+}
+
 // A writer can only set learner-status fields they're allowed to SEE. In
 // practice both roles that can write students (admin, registrar) can see
 // all three, so this changes nothing today — it's here so that adding a
@@ -250,6 +288,7 @@ async function getAcademicProgress(req, res) {
 }
 
 module.exports = {
+  getRegistration,
   listStudents,
   getStats,
   getStudent,

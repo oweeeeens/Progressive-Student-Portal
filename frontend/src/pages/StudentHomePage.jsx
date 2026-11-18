@@ -12,6 +12,7 @@ import {
   Target,
   ChevronRight,
   IdCard,
+  FileText,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
@@ -573,6 +574,10 @@ export function StudentHomePage() {
               <Link to="/my-record" className="btn-subtle">
                 <IdCard size={14} strokeWidth={1.75} />
                 View your full record
+              </Link>
+              <Link to="/my-registration" className="btn-subtle">
+                <FileText size={14} strokeWidth={1.75} />
+                Your registration form
               </Link>
             </div>
           </section>

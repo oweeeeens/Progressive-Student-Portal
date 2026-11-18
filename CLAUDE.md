@@ -538,6 +538,37 @@ the adviser's direction.
 (`fixtures.deleteFixtures`) deletes enrollments before students and
 classes.
 
+## Student Registration Form (panel revision, 2026-11-18)
+
+An in-system page, not a printable: name, LRN, grade level, section,
+strand, school year, adviser, and the enrolled subjects with their teachers.
+- **Pages:** `pages/StudentRegistrationPage.jsx`.
+  - `/students/:id/registration` is for the registrar and admin, reached
+    from a "Registration Form" button on the student page.
+  - `/my-registration` is the learner's own read-only copy, reached from
+    the student sidebar and the Home namecard.
+- **Endpoint:** `GET /api/students/:id/registration`
+  (`studentController.getRegistration`).
+  - Admin, registrar or the learner themself; 403 for everyone else,
+    advisers and teachers included.
+  - The school year comes from the section's own year.
+  - The subjects are the learner's enrollments.
+  - No PWD / 4Ps / ALS flags.
+- **Editing reuses the one student form:** "Edit details" opens
+  `/students/:id/edit?returnTo=registration`, and saving returns to the
+  form.
+- **Two old bugs in that form were fixed while testing it:**
+  - **Next skipped the Review step.** On the step before Review it
+    re-rendered, mid-click, as the submit button, so the student was saved
+    unreviewed. Fixed with distinct `key`s, and `handleSubmit` now refuses
+    before the last step.
+  - **Next needed two clicks.** "Looks good" appearing on blur shifted the
+    button away from the click. `FormField`'s new `reserveFeedback` keeps
+    the line's space.
+- **Tests:** `test/integration/registration.test.js` (6).
+- **Browser check:** the registrar created a learner through the UI. They
+  were enrolled in all 7 STEM A classes, and their form listed them.
+
 ## e-Class Record Import, the Learner's Full Record, and Learner Outlook (2026-11-13)
 
 **The study's flow, in the group's words:** the school keeps its class

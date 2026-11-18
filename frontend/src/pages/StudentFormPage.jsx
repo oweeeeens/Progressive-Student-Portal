@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   IdCard,
   User,
@@ -131,6 +131,10 @@ export function StudentFormPage() {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
+  // ?returnTo=registration: opened from the Registration Form's "Edit
+  // details", so saving goes back there instead of to the student page.
+  const [searchParams] = useSearchParams()
+  const returnToRegistration = isEdit && searchParams.get('returnTo') === 'registration'
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [sections, setSections] = useState([])
@@ -197,6 +201,12 @@ export function StudentFormPage() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    // Only the Review step submits. Any submit arriving earlier (a stray
+    // Enter, or a button re-rendered mid-click) just advances a step.
+    if (currentStep < STEPS.length - 1) {
+      handleNext()
+      return
+    }
     setError(null)
 
     // The authoritative check, across every validated field regardless of
@@ -225,7 +235,7 @@ export function StudentFormPage() {
       // creates one as a deliberate separate step (Student Detail page's
       // "Create Portal Account" button, or User Management) once this
       // record exists. See CLAUDE.md's "REMOVED: Enrollment Management".
-      navigate(`/students/${data.student.id}`)
+      navigate(returnToRegistration ? `/students/${data.student.id}/registration` : `/students/${data.student.id}`)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -277,6 +287,7 @@ export function StudentFormPage() {
         items={[
           { label: 'Home', to: '/' },
           { label: 'Students', to: '/students' },
+          ...(returnToRegistration ? [{ label: 'Registration Form', to: `/students/${id}/registration` }] : []),
           { label: isEdit ? 'Edit' : 'New' },
         ]}
       />
@@ -322,6 +333,7 @@ export function StudentFormPage() {
                     required
                     error={touched.lrn ? validateField('lrn', form.lrn) : null}
                     showSuccess={touched.lrn && Boolean(form.lrn)}
+                    reserveFeedback
                   >
                     <input
                       id="lrn"
@@ -339,6 +351,7 @@ export function StudentFormPage() {
                     required
                     error={touched.firstName ? validateField('firstName', form.firstName) : null}
                     showSuccess={touched.firstName && Boolean(form.firstName)}
+                    reserveFeedback
                   >
                     <input
                       id="firstName"
@@ -359,6 +372,7 @@ export function StudentFormPage() {
                     required
                     error={touched.lastName ? validateField('lastName', form.lastName) : null}
                     showSuccess={touched.lastName && Boolean(form.lastName)}
+                    reserveFeedback
                   >
                     <input
                       id="lastName"
@@ -385,6 +399,7 @@ export function StudentFormPage() {
                     required
                     error={touched.dateOfBirth ? validateField('dateOfBirth', form.dateOfBirth) : null}
                     showSuccess={touched.dateOfBirth && Boolean(form.dateOfBirth)}
+                    reserveFeedback
                   >
                     <input
                       id="dateOfBirth"
@@ -411,6 +426,7 @@ export function StudentFormPage() {
                     label="Personal email"
                     error={touched.email ? validateField('email', form.email) : null}
                     showSuccess={touched.email && Boolean(form.email) && !validateField('email', form.email)}
+                    reserveFeedback
                   >
                     <input
                       id="email"
@@ -554,12 +570,17 @@ export function StudentFormPage() {
                   <span />
                 )}
 
+                {/* Distinct keys on purpose. Without them React reuses ONE
+                    button element: clicking Next on the step before Review
+                    re-rendered it, mid-click, as type="submit", and the
+                    browser then submitted the form — saving the student
+                    without ever showing the Review step. */}
                 {currentStep < STEPS.length - 1 ? (
-                  <button type="button" className="btn-primary" onClick={handleNext}>
+                  <button key="next-step" type="button" className="btn-primary" onClick={handleNext}>
                     Next <ChevronRight size={16} strokeWidth={1.75} />
                   </button>
                 ) : (
-                  <button type="submit" className="btn-primary" disabled={submitting}>
+                  <button key="submit" type="submit" className="btn-primary" disabled={submitting}>
                     {submitting ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Student'}
                   </button>
                 )}

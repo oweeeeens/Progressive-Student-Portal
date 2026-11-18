@@ -3246,6 +3246,11 @@ svg[data-chart-density='compact'] .chart-reference-label {
 .form-field__feedback--hint {
   color: var(--color-text-muted);
 }
+/* Holds the feedback line's space while it is empty (FormField's
+   reserveFeedback), so a message appearing never shifts the layout. */
+.form-field__feedback--placeholder {
+  visibility: hidden;
+}
 
 /* The visual half of aria-invalid. Set on the attribute rather than on a
    class so it cannot drift from what a screen reader is told: one of the two

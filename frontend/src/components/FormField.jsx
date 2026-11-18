@@ -21,7 +21,7 @@ import { Check, CircleAlert } from 'lucide-react'
 // attributes. Exactly one element child is expected — an <input>, <select>
 // or <textarea>; anything else is rendered untouched rather than throwing,
 // since a missing aria attribute is a smaller failure than a blank page.
-export function FormField({ id, icon: Icon, label, required, error, hint, showSuccess, width, children }) {
+export function FormField({ id, icon: Icon, label, required, error, hint, showSuccess, reserveFeedback = false, width, children }) {
   const errorId = `${id}-error`
   const hintId = `${id}-hint`
 
@@ -60,6 +60,16 @@ export function FormField({ id, icon: Icon, label, required, error, hint, showSu
       )}
       {!error && showSuccess && (
         <p className="form-field__feedback form-field__feedback--success">
+          <Check size={14} strokeWidth={1.75} /> Looks good
+        </p>
+      )}
+      {/* A field that validates as you go passes `reserveFeedback`, which
+          keeps its feedback line reserved even while empty. Otherwise "Looks good"
+          appearing on blur pushed everything below it down by a line —
+          including the Next button the person was pressing, so the click
+          landed beside it and Next seemed to need two clicks. */}
+      {reserveFeedback && !error && !showSuccess && !hint && (
+        <p className="form-field__feedback form-field__feedback--placeholder" aria-hidden="true">
           <Check size={14} strokeWidth={1.75} /> Looks good
         </p>
       )}

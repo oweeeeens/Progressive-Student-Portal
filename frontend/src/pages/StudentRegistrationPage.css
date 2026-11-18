@@ -1,0 +1,114 @@
+/* Student Registration Form (StudentRegistrationPage.jsx).
+   Reads as a school form — a document with a header and numbered parts —
+   built from the existing tokens only, so it sits in the app's look and
+   follows dark mode. */
+
+.reg-form {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+  max-width: 60rem;
+}
+
+.reg-form__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
+  /* The brand's gold rule under the header, as on the school's documents. */
+  border-bottom: 3px solid var(--color-accent);
+}
+.reg-form__logo {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+.reg-form__school {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.reg-form__title {
+  margin: var(--space-1) 0;
+  color: var(--color-primary);
+}
+.reg-form__year {
+  margin: 0;
+  font-weight: 600;
+}
+
+.reg-form__part + .reg-form__part {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+.reg-form__part h3 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+  color: var(--color-primary);
+}
+
+.reg-form__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+}
+.reg-form__entry dt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+.reg-form__entry dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.reg-form__entry--wide {
+  grid-column: span 2;
+}
+
+/* The subject list spans the form, like the parts above it. */
+.reg-form .table-card {
+  width: 100%;
+}
+.reg-form__subjects {
+  width: 100%;
+}
+.reg-form__subjects td:first-child,
+.reg-form__subjects th:first-child {
+  width: 3rem;
+  color: var(--color-text-muted);
+}
+.reg-form__code {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.reg-form__count {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Phone: one column, the header stacks, and the form loses its outer
+   padding so the subject table has room. */
+@media (max-width: 720px) {
+  .reg-form {
+    padding: var(--space-4);
+  }
+  .reg-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reg-form__entry--wide {
+    grid-column: auto;
+  }
+  .reg-form__head {
+    align-items: flex-start;
+  }
+  .reg-form__logo {
+    width: 44px;
+    height: 44px;
+  }
+}

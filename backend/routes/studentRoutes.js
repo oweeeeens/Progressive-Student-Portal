@@ -10,6 +10,7 @@ const {
   getStats,
   getStudent,
   getStudentSubjects,
+  getRegistration,
   getLearnerStatusFields,
   getAcademicProgress,
   createStudent,
@@ -35,6 +36,8 @@ router.get('/:id', getStudent);
 // No role gate: visibility is scoped per-student inside the controller, the
 // same way GET /:id is — a student sees their own subjects, nobody else's.
 router.get('/:id/subjects', getStudentSubjects);
+// The registration form: admin, registrar, or the learner themself (checked in the handler).
+router.get('/:id/registration', getRegistration);
 // Principal included: they already see the school-wide rollup of exactly
 // this data on the Analytics dashboard, so withholding the per-student
 // version only broke the drill-down, it didn't protect anything.

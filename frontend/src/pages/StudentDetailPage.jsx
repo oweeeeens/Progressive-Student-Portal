@@ -14,6 +14,7 @@ import {
   HeartHandshake,
   ClipboardList,
   Compass,
+  FileText,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -383,6 +384,9 @@ export function StudentDetailPage() {
         <div className="button-row">
           <button type="button" onClick={() => navigate(`/students/${id}/edit`)}>
             <Pencil size={16} strokeWidth={1.75} /> Edit Profile
+          </button>
+          <button type="button" onClick={() => navigate(`/students/${id}/registration`)}>
+            <FileText size={16} strokeWidth={1.75} /> Registration Form
           </button>
           <button type="button" onClick={toggleActive} disabled={busyKey !== null}>
             {student.is_active ? <UserX size={16} strokeWidth={1.75} /> : <UserCheck size={16} strokeWidth={1.75} />}
