@@ -194,8 +194,17 @@ export function ProfilePage() {
               label="Full name"
               required
               error={nameChanged ? nameError : null}
+              // A learner's name comes from their student record (the
+              // server refuses a change here), so it is shown, not edited.
+              hint={user?.role === 'student' ? 'From your student record. Ask the registrar if it needs correcting.' : undefined}
             >
-              <input id="profile-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+              <input
+                id="profile-name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                readOnly={user?.role === 'student'}
+                required
+              />
             </FormField>
 
             <FormField

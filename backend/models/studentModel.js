@@ -302,7 +302,10 @@ const UPDATABLE_FIELDS = {
   isAlsGraduate: 'is_als_graduate',
 };
 
-async function updateStudent(studentId, data) {
+// `client` is optional: studentController.updateStudent passes its
+// transaction so the record and its linked portal account (syncLinkedAccount
+// below) change together.
+async function updateStudent(studentId, data, client = pool) {
   const setClauses = [];
   const params = [];
 
@@ -314,18 +317,40 @@ async function updateStudent(studentId, data) {
   }
 
   if (setClauses.length === 0) {
-    const existing = await pool.query('SELECT id FROM students WHERE id = $1', [studentId]);
+    const existing = await client.query('SELECT id FROM students WHERE id = $1', [studentId]);
     return existing.rows[0] || null;
   }
 
   setClauses.push('updated_at = now()');
   params.push(studentId);
 
-  const result = await pool.query(
+  const result = await client.query(
     `UPDATE students SET ${setClauses.join(', ')} WHERE id = $${params.length} RETURNING id`,
     params
   );
   return result.rows[0] || null;
+}
+
+// ONE SOURCE OF TRUTH for a learner's name and email: the student record,
+// which the registrar keeps. A learner's portal account (users) needs a name
+// and a login email too, and used to receive a COPY of them only when the
+// account was created — so a registrar's correction never reached the
+// account, and the learner went on signing in with the old address. Every
+// record edit now carries those two fields through to the linked account,
+// inside the same transaction. A record with no email keeps the account's
+// (an account cannot sign in without one).
+async function syncLinkedAccount(client, studentId) {
+  await client.query(
+    `UPDATE users u
+        SET full_name = s.first_name || ' ' || s.last_name,
+            email = COALESCE(lower(trim(s.email)), u.email),
+            updated_at = now()
+       FROM students s
+      WHERE s.id = $1 AND u.id = s.user_id
+        AND (u.full_name IS DISTINCT FROM s.first_name || ' ' || s.last_name
+             OR (s.email IS NOT NULL AND lower(u.email) IS DISTINCT FROM lower(trim(s.email))))`,
+    [studentId]
+  );
 }
 
 async function setActive(studentId, isActive) {
@@ -438,6 +463,7 @@ module.exports = {
   findByIdUnscoped,
   createStudent,
   updateStudent,
+  syncLinkedAccount,
   setActive,
   getAccountProvisioningInfo,
   linkUserAccount,

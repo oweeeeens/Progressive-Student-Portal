@@ -310,9 +310,15 @@ async function updateProfile(req, res) {
 
   const data = {};
 
+  // A learner's name lives on their student record, which the registrar
+  // keeps (the account only mirrors it — studentModel.syncLinkedAccount).
+  // Changing it here would make the two disagree, so it is refused.
   if (fullName !== undefined) {
     if (!String(fullName).trim()) {
       return res.status(400).json({ error: 'Name cannot be empty.' });
+    }
+    if (req.user.role === 'student' && String(fullName).trim() !== req.user.full_name) {
+      return res.status(400).json({ error: 'Your name comes from your student record. Ask the registrar to correct it.' });
     }
     data.fullName = String(fullName).trim();
   }
@@ -351,8 +357,27 @@ async function updateProfile(req, res) {
     return res.json({ user: toPublicUser(req.user) });
   }
 
-  const updated = await userModel.updateUser(req.user.id, data);
-  res.json({ user: toPublicUser(updated), message: 'Profile updated.' });
+  // A learner's personal email is on their student record as well as their
+  // account, so both change together — the record stays the one source of
+  // truth the registrar and the reports read.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const updated = await userModel.updateUser(req.user.id, data, client);
+    if (req.user.role === 'student' && data.email) {
+      await client.query('UPDATE students SET email = $1, updated_at = now() WHERE user_id = $2', [data.email, req.user.id]);
+    }
+    await client.query('COMMIT');
+    res.json({ user: toPublicUser(updated), message: 'Profile updated.' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'That email address is already in use.' });
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function me(req, res) {

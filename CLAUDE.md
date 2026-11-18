@@ -662,6 +662,26 @@ after: the same lines, now on the right pages.
 
 **Tests:** `test/integration/reports.test.js`.
 
+## One Source of Truth for a Learner's Name and Email (2026-11-18)
+
+This came out of the panel's item 5 check, "no duplicated copies of student
+data". A learner's portal account (`users`) received a **copy** of the
+record's name and email when it was created, and nothing kept them in step
+afterwards. One of the six dev accounts had already drifted.
+- **The student record (registrar-owned) is the original.**
+  - `studentModel.syncLinkedAccount` carries the name and login email to
+    the linked account in the same transaction as every record edit
+    (`studentController.updateStudent`).
+  - An email another account uses → 409, and the whole edit rolls back.
+- **In Profile (`authController.updateProfile`), a learner:**
+  - may change their email, which updates the record too;
+  - may not change their name: 400, "ask the registrar". The field is
+    read-only on the page.
+- **Staff are unchanged.**
+- **Existing drift is not rewritten by any migration.** It corrects itself
+  the next time that record is saved.
+- **Tests:** `test/integration/recordAccountSync.test.js` (5).
+
 ## e-Class Record Import, the Learner's Full Record, and Learner Outlook (2026-11-13)
 
 **The study's flow, in the group's words:** the school keeps its class

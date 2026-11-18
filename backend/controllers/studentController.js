@@ -3,6 +3,7 @@
 // only handles input validation, error shaping, and who may write.
 const studentModel = require('../models/studentModel');
 const enrollmentModel = require('../models/enrollmentModel');
+const { pool } = require('../config/db');
 const { todayInSchoolTimezone } = require('../utils/schoolDate');
 const passwordReset = require('../services/passwordReset');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
@@ -31,6 +32,11 @@ function handleWriteError(error, res) {
   if (error.code === '23505') {
     if (error.constraint === 'students_email_key') {
       return res.status(409).json({ error: 'A student with that email already exists.' });
+    }
+    // The learner's portal account follows the record's email; another
+    // account already signing in with that address blocks it.
+    if (error.constraint === 'idx_users_email_lower') {
+      return res.status(409).json({ error: 'Another portal account already uses that email address.' });
     }
     return res.status(409).json({ error: 'A student with that LRN already exists.' });
   }
@@ -202,15 +208,26 @@ async function updateStudent(req, res) {
     return res.status(400).json({ error: errors.join(' ') });
   }
 
+  // The record and the learner's portal account change together: the
+  // account's name and login email follow the record (studentModel.
+  // syncLinkedAccount), so the two can never disagree.
+  const client = await pool.connect();
   try {
-    const updated = await studentModel.updateStudent(Number(req.params.id), stripUnwritableLearnerStatus(req));
+    await client.query('BEGIN');
+    const updated = await studentModel.updateStudent(Number(req.params.id), stripUnwritableLearnerStatus(req), client);
     if (!updated) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Student not found.' });
     }
+    await studentModel.syncLinkedAccount(client, updated.id);
+    await client.query('COMMIT');
     const student = await studentModel.findByIdUnscoped(updated.id);
     res.json({ student: stripLearnerStatus(req.user, student) });
   } catch (error) {
+    await client.query('ROLLBACK');
     handleWriteError(error, res);
+  } finally {
+    client.release();
   }
 }
 
