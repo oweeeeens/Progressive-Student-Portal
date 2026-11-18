@@ -609,6 +609,19 @@ page, and as PDF and Excel from **the same data object**
   - **Content:** the learners **enrolled** in the class × the periods it
     runs, each grade with its approval stage, using the app's wording.
 
+- **Enrolled Student List** (`/reports/enrolled-students`, `GET /api/reports/enrolled-students`).
+  - **Who:** the registrar or the admin. This one is role-based on
+    purpose: the student register is the registrar's.
+  - **Content:** active learners in a section of the **current** school
+    year, filterable by grade level, section, strand and enrollment
+    status. The status defaults to **Enrolled**; dropped and transferred
+    learners are not "enrolled", but "All statuses" shows them.
+  - **Counts:** the total, the count per section (a section with no
+    learners shows 0) and by sex.
+  - **Exports:** the PDF has the per-section counts and the list; Excel
+    has Learners and By Section sheets.
+  - **Tests:** `test/integration/enrolledList.test.js`.
+
 **Shared export helpers** (moved, not copied):
 - `pdfPrimitives` measures the current page (`contentWidth`, `pageBottom`),
   supports landscape, and now holds `drawScopeBox` and `drawPageNumbers`.

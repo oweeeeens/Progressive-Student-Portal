@@ -34,6 +34,7 @@ import { StudentRecordPage } from './pages/StudentRecordPage'
 import { StudentRegistrationPage, MyRegistrationPage } from './pages/StudentRegistrationPage'
 import { GradesheetReportPage } from './pages/GradesheetReportPage'
 import { ClassGradesReportPage } from './pages/ClassGradesReportPage'
+import { EnrolledStudentsReportPage } from './pages/EnrolledStudentsReportPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
@@ -110,6 +111,7 @@ function App() {
                 <Route path="/academic-progress" element={<AcademicProgressPage />} />
                 <Route path="/reports/gradesheet" element={<GradesheetReportPage />} />
                 <Route path="/reports/class-grades" element={<ClassGradesReportPage />} />
+                <Route path="/reports/enrolled-students" element={<EnrolledStudentsReportPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/interventions" element={<InterventionsPage />} />
                 <Route path="/academic-setup/school-years" element={<SchoolYearsPage />} />

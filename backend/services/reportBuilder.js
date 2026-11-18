@@ -124,4 +124,55 @@ function buildClassGrades({ header, periods, students, grades }) {
   };
 }
 
-module.exports = { buildGradesheet, buildClassGrades, average };
+// ENROLLED STUDENT LIST — the current school year's learners placed in a
+// section, as filtered, with the total and a count per section. Every
+// section in the filtered view is listed, so one with no learner shows 0
+// rather than disappearing.
+function buildEnrolledList({ students, sections, filters }) {
+  const inView = sections.filter(
+    (sec) =>
+      (!filters.gradeLevel || sec.grade_level === filters.gradeLevel) &&
+      (!filters.sectionId || sec.id === filters.sectionId) &&
+      (!filters.strand || sec.strand === filters.strand)
+  );
+  const countBySection = new Map();
+  for (const s of students) countBySection.set(s.section_id, (countBySection.get(s.section_id) || 0) + 1);
+  const bySex = { M: 0, F: 0, unrecorded: 0 };
+  for (const s of students) bySex[s.sex === 'M' || s.sex === 'F' ? s.sex : 'unrecorded'] += 1;
+
+  return {
+    schoolYear: sections[0]?.school_year || students[0]?.school_year || null,
+    filters,
+    total: students.length,
+    bySex,
+    bySection: inView.map((sec) => ({
+      sectionId: sec.id,
+      sectionName: sec.name,
+      gradeLevel: sec.grade_level,
+      strand: sec.strand,
+      count: countBySection.get(sec.id) || 0,
+    })),
+    students: students.map((s) => ({
+      id: s.id,
+      lrn: s.lrn,
+      name: fullName(s),
+      sex: s.sex,
+      gradeLevel: s.grade_level,
+      sectionId: s.section_id,
+      sectionName: s.section_name,
+      strand: s.strand,
+      adviserName: s.adviser_name,
+      enrollmentStatus: s.enrollment_status,
+      subjectCount: s.subject_count,
+    })),
+    // What the page's filter pickers offer.
+    options: {
+      gradeLevels: [...new Set(sections.map((s) => s.grade_level))].sort(),
+      strands: [...new Set(sections.map((s) => s.strand).filter(Boolean))].sort(),
+      sections: sections.map((s) => ({ id: s.id, name: s.name, gradeLevel: s.grade_level, strand: s.strand })),
+    },
+    generatedAt: new Date(),
+  };
+}
+
+module.exports = { buildGradesheet, buildClassGrades, buildEnrolledList, average };

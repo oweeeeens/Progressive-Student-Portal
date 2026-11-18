@@ -133,4 +133,77 @@ function buildClassGradesPdf(data) {
   return doc;
 }
 
-module.exports = { buildGradesheetPdf, buildClassGradesPdf, STATUS_LABELS };
+const SEX_LABELS = { M: 'Male', F: 'Female' };
+const titleCase = (text) => (text ? text.charAt(0).toUpperCase() + text.slice(1) : '—');
+
+// The filters a list was made with, as scope-box rows ("All" when unset).
+function filterRows(data) {
+  const sectionName = data.filters.sectionId ? data.options.sections.find((s) => s.id === data.filters.sectionId)?.name : null;
+  return [
+    ['Grade level', data.filters.gradeLevel ? `Grade ${data.filters.gradeLevel}` : 'All'],
+    ['Section', sectionName || 'All'],
+    ['Strand', data.filters.strand || 'All'],
+    ['Enrollment status', data.filters.status === 'all' ? 'All statuses' : titleCase(data.filters.status)],
+  ];
+}
+
+// ENROLLED STUDENT LIST — portrait: the count per section, then the list.
+function buildEnrolledListPdf(data) {
+  const doc = createDocument();
+  const width = contentWidth(doc);
+  let y = drawBrandHeader(doc, SCHOOL, 'ENROLLED STUDENT LIST');
+  y = drawScopeBox(
+    doc,
+    [
+      ...filterRows(data),
+      ['School year', data.schoolYear || '—'],
+      ['Learners', `${data.total} (${data.bySex.M} male, ${data.bySex.F} female)`],
+      ['Generated on', formatDate(data.generatedAt)],
+    ],
+    y
+  );
+
+  y = drawSectionHeading(doc, 'Learners per section', y);
+  y = drawTable(doc, {
+    x: PAGE_MARGIN,
+    y,
+    columnWidths: [width - 240, 120, 120],
+    headerRow: ['Section', 'Strand', 'Learners'],
+    bodyRows: [
+      ...data.bySection.map((s) => [`Grade ${s.gradeLevel} – ${s.sectionName}`, s.strand || '—', String(s.count)]),
+      ['Total', '', String(data.total)],
+    ],
+    emphasizeLastRow: true,
+    fontSize: 9,
+    rowHeight: 20,
+  }) + 16;
+
+  y = drawSectionHeading(doc, 'Learners', y);
+  if (data.students.length === 0) {
+    drawMutedNote(doc, 'No learner matches these filters.', y);
+  } else {
+    drawTable(doc, {
+      x: PAGE_MARGIN,
+      y,
+      columnWidths: [24, 82, width - 24 - 82 - 50 - 120 - 60 - 70, 50, 120, 60, 70],
+      headerRow: ['#', 'LRN', 'Learner', 'Sex', 'Grade & section', 'Strand', 'Status'],
+      bodyRows: data.students.map((s, i) => [
+        String(i + 1),
+        s.lrn,
+        s.name,
+        SEX_LABELS[s.sex] || '—',
+        `${s.gradeLevel} – ${s.sectionName}`,
+        s.strand || '—',
+        titleCase(s.enrollmentStatus),
+      ]),
+      fontSize: 8,
+      rowHeight: 18,
+      ellipsis: true,
+      leftAlign: [0, 1, 2, 4],
+    });
+  }
+  drawPageNumbers(doc);
+  return doc;
+}
+
+module.exports = { buildGradesheetPdf, buildClassGradesPdf, buildEnrolledListPdf, STATUS_LABELS, SEX_LABELS, filterRows };

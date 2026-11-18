@@ -90,6 +90,61 @@ async function listOfferingGrades(offeringId) {
   return result.rows;
 }
 
+// --- Enrolled student list -----------------------------------------------------
+
+// Active learners placed in a section of the CURRENT school year, with the
+// number of classes each is enrolled in (class_enrollments). Filters are
+// optional and combine; each is a query parameter, never interpolated.
+async function listEnrolledStudents({ gradeLevel, sectionId, strand, status } = {}) {
+  const clauses = ['s.is_active = TRUE', 'sy.is_current = TRUE'];
+  const params = [];
+  // Enrollment status (enrolled / dropped / transferred / ...). The report
+  // defaults to 'enrolled' in the controller; null means every status.
+  if (status) {
+    params.push(status);
+    clauses.push(`s.enrollment_status = $${params.length}`);
+  }
+  if (gradeLevel) {
+    params.push(gradeLevel);
+    clauses.push(`sec.grade_level = $${params.length}`);
+  }
+  if (sectionId) {
+    params.push(sectionId);
+    clauses.push(`sec.id = $${params.length}`);
+  }
+  if (strand) {
+    params.push(strand);
+    clauses.push(`sec.strand = $${params.length}`);
+  }
+  const result = await pool.query(
+    `SELECT s.id, s.lrn, s.first_name, s.middle_name, s.last_name, s.sex, s.enrollment_status,
+            sec.id AS section_id, sec.name AS section_name, sec.grade_level, sec.strand,
+            sy.label AS school_year, u.full_name AS adviser_name,
+            (SELECT COUNT(*)::int FROM class_enrollments ce
+              WHERE ce.student_id = s.id AND ce.status = 'enrolled') AS subject_count
+     FROM students s
+     JOIN sections sec ON sec.id = s.current_section_id
+     JOIN school_years sy ON sy.id = sec.school_year_id
+     LEFT JOIN users u ON u.id = sec.adviser_id
+     WHERE ${clauses.join(' AND ')}
+     ORDER BY sec.grade_level, sec.name, s.last_name, s.first_name, s.id`,
+    params
+  );
+  return result.rows;
+}
+
+// What the filters can offer: the current year's active sections, each with
+// its grade level, strand and the year's label.
+async function listCurrentSections() {
+  const result = await pool.query(
+    `SELECT sec.id, sec.name, sec.grade_level, sec.strand, sy.label AS school_year
+     FROM sections sec JOIN school_years sy ON sy.id = sec.school_year_id
+     WHERE sy.is_current = TRUE AND sec.is_active = TRUE
+     ORDER BY sec.grade_level, sec.name`
+  );
+  return result.rows;
+}
+
 // --- Shared -------------------------------------------------------------------
 
 async function listPeriods(schoolYearId) {
@@ -109,4 +164,6 @@ module.exports = {
   getOfferingHeader,
   listOfferingGrades,
   listPeriods,
+  listEnrolledStudents,
+  listCurrentSections,
 };

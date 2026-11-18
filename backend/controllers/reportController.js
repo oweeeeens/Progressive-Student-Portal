@@ -8,9 +8,12 @@
 //   enrolled list    the registrar or the admin
 const reportModel = require('../models/reportModel');
 const enrollmentModel = require('../models/enrollmentModel');
-const { buildGradesheet, buildClassGrades } = require('../services/reportBuilder');
-const { buildGradesheetPdf, buildClassGradesPdf } = require('../services/reportPdf');
-const { buildGradesheetWorkbook, buildClassGradesWorkbook } = require('../services/reportWorkbook');
+const { buildGradesheet, buildClassGrades, buildEnrolledList } = require('../services/reportBuilder');
+const { buildGradesheetPdf, buildClassGradesPdf, buildEnrolledListPdf } = require('../services/reportPdf');
+const { buildGradesheetWorkbook, buildClassGradesWorkbook, buildEnrolledListWorkbook } = require('../services/reportWorkbook');
+
+// The students.enrollment_status values (migration create-students).
+const ENROLLMENT_STATUSES = ['enrolled', 'pending', 'dropped', 'transferred', 'graduated'];
 
 const PDF_TYPE = 'application/pdf';
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -94,4 +97,40 @@ function classGrades(format) {
   };
 }
 
-module.exports = { gradesheet, classGrades };
+// ENROLLED STUDENT LIST — GET /api/reports/enrolled-students?gradeLevel=&sectionId=&strand=
+// The registrar's list (and the admin's): school-wide by nature, so this
+// one is role-based — keeping the student register is the registrar's job.
+function enrolledStudents(format) {
+  return async (req, res) => {
+    if (!['admin', 'registrar'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'The enrolled student list is for the registrar and the admin.' });
+    }
+    const filters = {
+      gradeLevel: req.query.gradeLevel ? Number(req.query.gradeLevel) : null,
+      sectionId: req.query.sectionId ? positiveId(req.query.sectionId) : null,
+      strand: req.query.strand ? String(req.query.strand).slice(0, 40) : null,
+      // An ENROLLED list by default: a dropped or transferred learner is not
+      // enrolled. "all" includes every status; any single status may be asked for.
+      status: req.query.status || 'enrolled',
+    };
+    if (
+      (req.query.gradeLevel && ![11, 12].includes(filters.gradeLevel)) ||
+      (req.query.sectionId && !filters.sectionId) ||
+      !['all', ...ENROLLMENT_STATUSES].includes(filters.status)
+    ) {
+      return res.status(400).json({ error: 'That filter is not valid.' });
+    }
+    const [students, sections] = await Promise.all([
+      reportModel.listEnrolledStudents({ ...filters, status: filters.status === 'all' ? null : filters.status }),
+      reportModel.listCurrentSections(),
+    ]);
+    const data = buildEnrolledList({ students, sections, filters });
+    return sendReport(res, format, data, {
+      pdf: buildEnrolledListPdf,
+      workbook: buildEnrolledListWorkbook,
+      filename: `Enrolled-students-${dateStamp(data.generatedAt)}`,
+    });
+  };
+}
+
+module.exports = { gradesheet, classGrades, enrolledStudents };

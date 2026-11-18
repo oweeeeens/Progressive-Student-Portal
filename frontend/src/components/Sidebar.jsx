@@ -172,6 +172,7 @@ function getNavSections(role, has) {
       items: [
         { to: '/reports/gradesheet', label: 'Gradesheet', icon: Sheet, show: role === 'admin' || showsAdvisingWork(role, has) },
         { to: '/reports/class-grades', label: 'Class Grades', icon: ClipboardList, show: role === 'admin' || showsTeachingWork(role, has) },
+        { to: '/reports/enrolled-students', label: 'Enrolled Students', icon: Users, show: ['admin', 'registrar'].includes(role) },
       ],
     },
     {

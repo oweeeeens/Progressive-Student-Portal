@@ -6,7 +6,7 @@
 const ExcelJS = require('exceljs');
 const { addSheet, addInfoSheet, orBlank } = require('./workbookPrimitives');
 const { CLASS_TERM_LABELS } = require('../config/academicTerms');
-const { STATUS_LABELS } = require('./reportPdf');
+const { STATUS_LABELS, SEX_LABELS, filterRows } = require('./reportPdf');
 
 const runsLabel = (s) => (s.subjectCategory === 'specialized' ? CLASS_TERM_LABELS.full_year : CLASS_TERM_LABELS[s.term] || CLASS_TERM_LABELS.full_year);
 const today = (d) => d.toISOString().slice(0, 10);
@@ -100,4 +100,59 @@ async function buildClassGradesWorkbook(data) {
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { buildGradesheetWorkbook, buildClassGradesWorkbook };
+// ENROLLED STUDENT LIST — Report Info, Learners, and By Section.
+async function buildEnrolledListWorkbook(data) {
+  const workbook = newWorkbook();
+  addInfoSheet(workbook, [
+    { item: 'Report', value: 'Enrolled student list' },
+    ...filterRows(data).map(([item, value]) => ({ item, value })),
+    { item: 'School year', value: data.schoolYear || '—' },
+    { item: 'Learners', value: data.total },
+    { item: 'Male', value: data.bySex.M },
+    { item: 'Female', value: data.bySex.F },
+    { item: 'Generated on', value: today(data.generatedAt) },
+  ]);
+  addSheet(
+    workbook,
+    'Learners',
+    [
+      { header: 'LRN', key: 'lrn', width: 16 },
+      { header: 'Learner', key: 'name', width: 32 },
+      { header: 'Sex', key: 'sex', width: 8 },
+      { header: 'Grade level', key: 'grade', width: 12 },
+      { header: 'Section', key: 'section', width: 16 },
+      { header: 'Strand', key: 'strand', width: 10 },
+      { header: 'Adviser', key: 'adviser', width: 26 },
+      { header: 'Enrollment status', key: 'status', width: 18 },
+      { header: 'Subjects enrolled', key: 'subjects', width: 16 },
+    ],
+    data.students.map((s) => ({
+      lrn: s.lrn,
+      name: s.name,
+      sex: SEX_LABELS[s.sex] || '',
+      grade: s.gradeLevel,
+      section: s.sectionName,
+      strand: s.strand || '',
+      adviser: s.adviserName || '',
+      status: s.enrollmentStatus,
+      subjects: s.subjectCount,
+    }))
+  );
+  addSheet(
+    workbook,
+    'By Section',
+    [
+      { header: 'Grade level', key: 'grade', width: 12 },
+      { header: 'Section', key: 'section', width: 18 },
+      { header: 'Strand', key: 'strand', width: 10 },
+      { header: 'Learners', key: 'count', width: 12 },
+    ],
+    [
+      ...data.bySection.map((s) => ({ grade: s.gradeLevel, section: s.sectionName, strand: s.strand || '', count: s.count })),
+      { grade: '', section: 'Total', strand: '', count: data.total },
+    ]
+  );
+  return workbook.xlsx.writeBuffer();
+}
+
+module.exports = { buildGradesheetWorkbook, buildClassGradesWorkbook, buildEnrolledListWorkbook };
