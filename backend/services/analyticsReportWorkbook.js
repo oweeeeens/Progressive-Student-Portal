@@ -15,34 +15,10 @@
 const ExcelJS = require('exceljs');
 const { BUCKET_KEYS, BUCKET_LABELS, FACTOR_LABELS } = require('./analyticsCalculator');
 const { INTERVENTION_TYPE_LABELS } = require('../config/interventions');
+// addSheet / orBlank are shared with the panel's reports (workbookPrimitives.js).
+const { addSheet, orBlank } = require('./workbookPrimitives');
 
-const NAVY_ARGB = 'FF1A3A6B'; // brand navy, in ExcelJS's AARRGGBB form
 const FACTOR_ORDER = ['low_grade', 'declining_grade', 'low_attendance', 'declining_attendance'];
-
-// Adds a sheet with a styled header row and sensible column widths.
-// `columns`: [{ header, key, width }]. `rows`: array of plain objects.
-function addSheet(workbook, name, columns, rows) {
-  const sheet = workbook.addWorksheet(name);
-  sheet.columns = columns;
-
-  const headerRow = sheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY_ARGB } };
-  headerRow.alignment = { vertical: 'middle' };
-
-  rows.forEach((row) => sheet.addRow(row));
-
-  // Freeze the header so a long sheet stays readable while scrolling.
-  sheet.views = [{ state: 'frozen', ySplit: 1 }];
-  return sheet;
-}
-
-// A null percentage/rate is MISSING, not zero (e.g. a cohort with no
-// students in that period) — written as an empty cell rather than a 0 that
-// would silently skew any average the school calculates over the column.
-function orBlank(value) {
-  return value == null ? null : value;
-}
 
 // Sheet 1: what this file is scoped to. A workbook detached from the app
 // has to carry its own provenance, or a filtered figure gets quoted as if

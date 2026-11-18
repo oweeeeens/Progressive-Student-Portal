@@ -8,6 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const { IS_PRODUCTION } = require('./config/environment');
 const healthRoutes = require('./routes/healthRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 const authRoutes = require('./routes/authRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const studentBulkImportRoutes = require('./routes/studentBulkImportRoutes');
@@ -93,6 +94,7 @@ app.use('/api/students/:studentId/interventions', studentInterventionRoutes);
 app.use('/api/interventions', interventionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/reports', reportRoutes);
 
 // An unknown /api path is an API call, so it gets an API answer. Without
 // this it falls through to the SPA fallback below and a mistyped endpoint

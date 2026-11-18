@@ -11,8 +11,6 @@
 // only the drawing is different.
 const {
   NAVY,
-  BLACK,
-  GRAY,
   PAGE_MARGIN,
   CONTENT_WIDTH,
   createDocument,
@@ -21,6 +19,8 @@ const {
   drawBrandHeader,
   drawSectionHeading,
   drawMutedNote,
+  drawScopeBox,
+  drawPageNumbers,
   formatDate,
 } = require('./pdfPrimitives');
 const { BUCKET_KEYS, BUCKET_LABELS, FACTOR_LABELS } = require('./analyticsCalculator');
@@ -42,39 +42,6 @@ function formatPercent(value) {
 
 function atRiskTotal(counts) {
   return counts.at_risk_high + counts.at_risk_medium + counts.at_risk_low;
-}
-
-// The "what is this report actually showing" box. Printed directly under
-// the title because a filtered report quoted without its scope is worse
-// than no report.
-function drawScopeBox(doc, appliedFilters, generatedAt, schoolYearLabel, y) {
-  const rows = [
-    ...appliedFilters.map((f) => [f.label, f.value]),
-    ['School year', schoolYearLabel || '—'],
-    ['Generated on', formatDate(generatedAt)],
-  ];
-  const boxHeight = 16 + Math.ceil(rows.length / 2) * 20;
-
-  doc.rect(PAGE_MARGIN, y, CONTENT_WIDTH, boxHeight).strokeColor(NAVY).lineWidth(1).stroke();
-  const colX = [PAGE_MARGIN + 12, PAGE_MARGIN + CONTENT_WIDTH / 2 + 12];
-
-  rows.forEach((row, i) => {
-    const colIndex = i % 2;
-    const rowIndex = Math.floor(i / 2);
-    const rowY = y + 10 + rowIndex * 20;
-    doc
-      .fontSize(8)
-      .fillColor(GRAY)
-      .font('Helvetica')
-      .text(String(row[0]).toUpperCase(), colX[colIndex], rowY, { width: CONTENT_WIDTH / 2 - 24 });
-    doc
-      .fontSize(10)
-      .fillColor(BLACK)
-      .font('Helvetica-Bold')
-      .text(String(row[1]), colX[colIndex], rowY + 10, { width: CONTENT_WIDTH / 2 - 24, ellipsis: true, lineBreak: false });
-  });
-
-  return y + boxHeight + 18;
 }
 
 function drawOverview(doc, data, y) {
@@ -333,23 +300,6 @@ function drawFactors(doc, data, y) {
   );
 }
 
-// Page numbers, written after everything else so the total is known. Uses
-// PDFKit's buffered-pages mode (set in createDocument).
-function drawPageNumbers(doc) {
-  const range = doc.bufferedPageRange();
-  for (let i = 0; i < range.count; i++) {
-    doc.switchToPage(range.start + i);
-    doc
-      .fontSize(8)
-      .fillColor(GRAY)
-      .font('Helvetica')
-      .text(`Page ${i + 1} of ${range.count}`, PAGE_MARGIN, 792 - PAGE_MARGIN + 4, {
-        width: CONTENT_WIDTH,
-        align: 'center',
-      });
-  }
-}
-
 // data: the snapshot from analyticsReport.buildAnalyticsReportData.
 // Returns a PDFDocument — the caller pipes it to the HTTP response and
 // calls .end().
@@ -357,7 +307,15 @@ function buildAnalyticsReportPdf(data) {
   const doc = createDocument();
 
   let y = drawBrandHeader(doc, data.school, 'ACADEMIC ANALYTICS REPORT');
-  y = drawScopeBox(doc, data.appliedFilters, data.generatedAt, data.schoolYearLabel, y);
+  y = drawScopeBox(
+    doc,
+    [
+      ...data.appliedFilters.map((f) => [f.label, f.value]),
+      ['School year', data.schoolYearLabel || '—'],
+      ['Generated on', formatDate(data.generatedAt)],
+    ],
+    y
+  );
   y = drawOverview(doc, data, y);
   y = ensureSpace(doc, y, 120);
   y = drawTrends(doc, data, y);

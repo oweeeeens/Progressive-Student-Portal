@@ -36,8 +36,20 @@ function formatDate(date) {
   return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-function createDocument() {
-  return new PDFDocument({ size: 'LETTER', margin: PAGE_MARGIN, bufferPages: true });
+// `landscape` for the wide reports (a gradesheet has a column per subject).
+// Every helper below measures the CURRENT page through contentWidth() and
+// pageBottom(), so the same code lays out a portrait or a landscape sheet;
+// for portrait Letter those equal CONTENT_WIDTH and PAGE_BOTTOM exactly.
+function createDocument({ landscape = false } = {}) {
+  return new PDFDocument({ size: 'LETTER', layout: landscape ? 'landscape' : 'portrait', margin: PAGE_MARGIN, bufferPages: true });
+}
+
+// The usable width and lowest drawable y of the document's pages.
+function contentWidth(doc) {
+  return doc.page.width - PAGE_MARGIN * 2;
+}
+function pageBottom(doc) {
+  return doc.page.height - PAGE_MARGIN - 20;
 }
 
 // Starts a new page if `needed` points of vertical space aren't left on the
@@ -45,7 +57,7 @@ function createDocument() {
 // there was room. Absolute-positioned drawing gets no automatic page breaks
 // from PDFKit, so every multi-section document has to ask this itself.
 function ensureSpace(doc, y, needed) {
-  if (y + needed <= PAGE_BOTTOM) return y;
+  if (y + needed <= pageBottom(doc)) return y;
   doc.addPage();
   return PAGE_MARGIN;
 }
@@ -66,26 +78,31 @@ function drawTable(doc, {
   emphasizeLastRow = false,
   fontSize = 9,
   ellipsis = false,
+  // Column indexes drawn left-aligned (text such as names); the rest are
+  // centred. Defaults to the first column, as every table had before.
+  leftAlign = [0],
 }) {
   const tableWidth = columnWidths.reduce((a, b) => a + b, 0);
 
   // Split the body across pages up front, so each chunk is drawn as a
-  // self-contained table (own header, own grid, own border).
+  // self-contained table (own header, own grid, own border). Only the SPLIT
+  // is worked out here; the pages are added while drawing, below. (Adding
+  // them here, as this once did, drew every chunk on the LAST page — a
+  // table that ran onto a second page landed on top of itself there, and
+  // left the first page empty under its heading.)
   const chunks = [];
   let remaining = bodyRows;
   let cursorY = y;
   while (remaining.length > 0 || chunks.length === 0) {
-    const availableRows = Math.max(1, Math.floor((PAGE_BOTTOM - cursorY) / rowHeight) - 1);
+    const availableRows = Math.max(1, Math.floor((pageBottom(doc) - cursorY) / rowHeight) - 1);
     chunks.push({ y: cursorY, rows: remaining.slice(0, availableRows) });
     remaining = remaining.slice(availableRows);
-    if (remaining.length > 0) {
-      doc.addPage();
-      cursorY = PAGE_MARGIN;
-    }
+    cursorY = PAGE_MARGIN;
   }
 
   let endY = y;
   chunks.forEach((chunk, chunkIndex) => {
+    if (chunkIndex > 0) doc.addPage();
     const allRows = [headerRow, ...chunk.rows];
     const isLastChunk = chunkIndex === chunks.length - 1;
 
@@ -109,7 +126,7 @@ function drawTable(doc, {
           .font(isHeader || isEmphasized ? 'Helvetica-Bold' : 'Helvetica')
           .text(String(cellText), cellX + 4, rowY + rowHeight / 2 - fontSize / 2 - 1, {
             width: colWidth - 8,
-            align: colIndex === 0 ? 'left' : 'center',
+            align: leftAlign.includes(colIndex) ? 'left' : 'center',
             ...(ellipsis ? { ellipsis: true, lineBreak: false } : {}),
           });
         cellX += colWidth;
@@ -139,6 +156,7 @@ function drawTable(doc, {
 // The branded letterhead every PDF opens with: logo, school name/address, a
 // gold rule, then the document's own centred title.
 function drawBrandHeader(doc, school, title) {
+  const width = contentWidth(doc);
   let cursorY = PAGE_MARGIN;
   try {
     doc.image(LOGO_PATH, PAGE_MARGIN, cursorY, { width: 56, height: 56 });
@@ -151,22 +169,22 @@ function drawBrandHeader(doc, school, title) {
     .fontSize(15)
     .fillColor(NAVY)
     .font('Helvetica-Bold')
-    .text(school.name, PAGE_MARGIN + 68, cursorY + 2, { width: CONTENT_WIDTH - 68 });
+    .text(school.name, PAGE_MARGIN + 68, cursorY + 2, { width: width - 68 });
   doc
     .fontSize(9)
     .fillColor(GRAY)
     .font('Helvetica')
-    .text(school.address, PAGE_MARGIN + 68, cursorY + 22, { width: CONTENT_WIDTH - 68 });
+    .text(school.address, PAGE_MARGIN + 68, cursorY + 22, { width: width - 68 });
 
   cursorY += 64;
-  doc.rect(PAGE_MARGIN, cursorY, CONTENT_WIDTH, 3).fill(GOLD);
+  doc.rect(PAGE_MARGIN, cursorY, width, 3).fill(GOLD);
   cursorY += 14;
 
   doc
     .fontSize(13)
     .fillColor(BLACK)
     .font('Helvetica-Bold')
-    .text(title, PAGE_MARGIN, cursorY, { width: CONTENT_WIDTH, align: 'center' });
+    .text(title, PAGE_MARGIN, cursorY, { width, align: 'center' });
 
   return cursorY + 26;
 }
@@ -175,13 +193,69 @@ function drawBrandHeader(doc, school, title) {
 // the heading would otherwise be stranded at the very bottom.
 function drawSectionHeading(doc, text, y, { spaceBelow = 18 } = {}) {
   const cursorY = ensureSpace(doc, y, 60);
-  doc.fontSize(11).fillColor(NAVY).font('Helvetica-Bold').text(text, PAGE_MARGIN, cursorY, { width: CONTENT_WIDTH });
+  doc.fontSize(11).fillColor(NAVY).font('Helvetica-Bold').text(text, PAGE_MARGIN, cursorY, { width: contentWidth(doc) });
   return cursorY + spaceBelow;
 }
 
 function drawMutedNote(doc, text, y) {
-  doc.fontSize(9).fillColor(GRAY).font('Helvetica-Oblique').text(text, PAGE_MARGIN, y, { width: CONTENT_WIDTH });
+  doc.fontSize(9).fillColor(GRAY).font('Helvetica-Oblique').text(text, PAGE_MARGIN, y, { width: contentWidth(doc) });
   return y + 20;
+}
+
+// The "what is this report actually showing" box, printed under the title:
+// a filtered report quoted without its scope is worse than no report.
+// `rows` are [label, value] pairs, laid out two to a line. (Moved here from
+// analyticsReportPdf.js so every report states its scope the same way.)
+function drawScopeBox(doc, rows, y) {
+  const width = contentWidth(doc);
+  const boxHeight = 16 + Math.ceil(rows.length / 2) * 20;
+
+  doc.rect(PAGE_MARGIN, y, width, boxHeight).strokeColor(NAVY).lineWidth(1).stroke();
+  const colX = [PAGE_MARGIN + 12, PAGE_MARGIN + width / 2 + 12];
+
+  rows.forEach((row, i) => {
+    const colIndex = i % 2;
+    const rowIndex = Math.floor(i / 2);
+    const rowY = y + 10 + rowIndex * 20;
+    doc
+      .fontSize(8)
+      .fillColor(GRAY)
+      .font('Helvetica')
+      .text(String(row[0]).toUpperCase(), colX[colIndex], rowY, { width: width / 2 - 24 });
+    doc
+      .fontSize(10)
+      .fillColor(BLACK)
+      .font('Helvetica-Bold')
+      .text(String(row[1]), colX[colIndex], rowY + 10, { width: width / 2 - 24, ellipsis: true, lineBreak: false });
+  });
+
+  return y + boxHeight + 18;
+}
+
+// "Page N of M" on every page, written last so the total is known. Uses
+// PDFKit's buffered-pages mode (set in createDocument). (Moved here from
+// analyticsReportPdf.js.)
+function drawPageNumbers(doc) {
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(range.start + i);
+    // The number sits in the bottom margin. PDFKit treats any text below
+    // the margin as overflow and starts a NEW page for it — which used to
+    // add one blank page per real page, each holding only its number. The
+    // margin is lifted just while the number is written.
+    const bottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+    doc
+      .fontSize(8)
+      .fillColor(GRAY)
+      .font('Helvetica')
+      .text(`Page ${i + 1} of ${range.count}`, PAGE_MARGIN, doc.page.height - PAGE_MARGIN + 4, {
+        width: contentWidth(doc),
+        align: 'center',
+        lineBreak: false,
+      });
+    doc.page.margins.bottom = bottomMargin;
+  }
 }
 
 module.exports = {
@@ -195,10 +269,14 @@ module.exports = {
   PAGE_BOTTOM,
   CONTENT_WIDTH,
   createDocument,
+  contentWidth,
+  pageBottom,
   ensureSpace,
   drawTable,
   drawBrandHeader,
   drawSectionHeading,
   drawMutedNote,
+  drawScopeBox,
+  drawPageNumbers,
   formatDate,
 };

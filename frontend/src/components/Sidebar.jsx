@@ -9,6 +9,8 @@ import {
   GraduationCap,
   IdCard,
   FileText,
+  Sheet,
+  ClipboardList,
   PenLine,
   ShieldCheck,
   CheckCircle2,
@@ -159,6 +161,17 @@ function getNavSections(role, has) {
         { to: '/academic-progress', label: 'Progress Tracking', icon: TrendingUp, show: canSeeAcademicProgress(role) },
         { to: '/interventions', label: 'Interventions', icon: HeartHandshake, show: canSeeInterventions(role, has) },
         { to: '/analytics', label: 'Analytics', icon: BarChart3, show: canSeeAnalytics(role, has) },
+      ],
+    },
+    // The panel's reports (2026-11-18). Each link follows the same rule as
+    // the server: the gradesheet is for whoever advises a section, the class
+    // report for whoever teaches a class, the enrolled list for the
+    // registrar — and the admin sees all of them.
+    {
+      label: 'Reports',
+      items: [
+        { to: '/reports/gradesheet', label: 'Gradesheet', icon: Sheet, show: role === 'admin' || showsAdvisingWork(role, has) },
+        { to: '/reports/class-grades', label: 'Class Grades', icon: ClipboardList, show: role === 'admin' || showsTeachingWork(role, has) },
       ],
     },
     {

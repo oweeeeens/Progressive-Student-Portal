@@ -3252,6 +3252,14 @@ svg[data-chart-density='compact'] .chart-reference-label {
   visibility: hidden;
 }
 
+/* Class Grade Report: a grade beside its approval stage. */
+.report-grade-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 /* The visual half of aria-invalid. Set on the attribute rather than on a
    class so it cannot drift from what a screen reader is told: one of the two
    can no longer be present without the other. Colour is not the only signal

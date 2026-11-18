@@ -585,6 +585,47 @@ Both lists come from the enrollment data (`GET /students/:id/subjects` →
 - **Test:** the subjects endpoint returns exactly the learner's enrollments
   and none of another section's classes (`enrollment.test.js`).
 
+## Reports (panel revision, 2026-11-18)
+
+All reports sit in a "Reports" sidebar group. Each answers as JSON for the
+page, and as PDF and Excel from **the same data object**
+(`services/reportBuilder.js`), so a download always matches the screen.
+- **Routes:** `routes/reportRoutes.js` → `controllers/reportController.js`.
+- **Data:** `models/reportModel.js`.
+- **Exports:** `services/reportPdf.js` and `services/reportWorkbook.js`.
+
+**Access is by assignment, checked against the requested section or class.**
+
+- **Adviser Gradesheet** (`/reports/gradesheet`, `GET /api/reports/gradesheet?sectionId=`).
+  - **Who:** the section's adviser or the admin.
+  - **Content:** learners × subjects, **finalized grades only**, one table
+    per grading period. A Term-limited subject appears only in its own
+    term. Each learner gets an "average of the grades finalized so far" and
+    an "N of M finalized" count.
+  - **Exports:** a landscape PDF with a subject key; Excel has one sheet
+    per period, and an unfinalized grade is a blank cell, never 0.
+- **Class Grade Report** (`/reports/class-grades`, `GET /api/reports/class-grades?classOfferingId=`).
+  - **Who:** the class's teacher or the admin.
+  - **Content:** the learners **enrolled** in the class × the periods it
+    runs, each grade with its approval stage, using the app's wording.
+
+**Shared export helpers** (moved, not copied):
+- `pdfPrimitives` measures the current page (`contentWidth`, `pageBottom`),
+  supports landscape, and now holds `drawScopeBox` and `drawPageNumbers`.
+- `drawTable` takes `leftAlign`.
+- `workbookPrimitives.js` holds `addSheet`, `orBlank` and `addInfoSheet`.
+
+**Two PDF bugs fixed in those shared helpers.** Both had also affected the
+live Analytics PDF. The fix was proven by comparing page text before and
+after: the same lines, now on the right pages.
+- **Blank pages:** `drawPageNumbers` wrote below the bottom margin, so
+  PDFKit added a blank page per real page. The Analytics PDF was 4 pages
+  plus 4 blank ones.
+- **Split tables:** `drawTable` added every page before drawing, so a table
+  that split was drawn entirely on the last page.
+
+**Tests:** `test/integration/reports.test.js`.
+
 ## e-Class Record Import, the Learner's Full Record, and Learner Outlook (2026-11-13)
 
 **The study's flow, in the group's words:** the school keeps its class
