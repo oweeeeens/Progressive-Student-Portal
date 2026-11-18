@@ -112,7 +112,10 @@ async function getStudentSubjects(req, res) {
     return res.status(404).json({ error: 'Student not found.' });
   }
   // A student with no section has no enrollments, so this is simply empty.
-  const subjects = await enrollmentModel.listOfferingsForStudent(student.id);
+  // The school year is the learner's own section's (falling back to the
+  // current one) — the same year the registration form shows.
+  const schoolYearId = await studentModel.resolveSchoolYearId(student.id);
+  const subjects = await enrollmentModel.listOfferingsForStudent(student.id, { schoolYearId });
   res.json({ subjects });
 }
 

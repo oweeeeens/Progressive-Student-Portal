@@ -569,6 +569,22 @@ strand, school year, adviser, and the enrolled subjects with their teachers.
 - **Browser check:** the registrar created a learner through the UI. They
   were enrolled in all 7 STEM A classes, and their form listed them.
 
+## Enrolled Subjects on the Student Record (panel revision, 2026-11-18)
+
+Both lists come from the enrollment data (`GET /students/:id/subjects` →
+`enrollmentModel.listOfferingsForStudent`):
+- **Staff student page:** "Enrolled Subjects" shows Subject, Type, Teacher
+  and Runs.
+- **Student Home:** a "Your subjects" card (`components/EnrolledSubjectsCard.jsx`)
+  sits beside the record namecard, with its own loading and error states.
+- **School year:** both subject endpoints use the learner's **section's**
+  school year (`resolveSchoolYearId`), not just the year flagged current,
+  the same year the registration form shows.
+- **A class from a section the learner left** stays on their Class Record
+  tab, labelled "Previous section".
+- **Test:** the subjects endpoint returns exactly the learner's enrollments
+  and none of another section's classes (`enrollment.test.js`).
+
 ## e-Class Record Import, the Learner's Full Record, and Learner Outlook (2026-11-13)
 
 **The study's flow, in the group's words:** the school keeps its class

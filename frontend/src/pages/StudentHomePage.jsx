@@ -31,6 +31,7 @@ import { describeTrendAgainstThreshold } from '../utils/chartInterpretation'
 import './StudentHomePage.css'
 import { Alert } from '../components/Alert'
 import { LearnerInsights } from '../components/LearnerInsights'
+import { EnrolledSubjectsCard } from '../components/EnrolledSubjectsCard'
 
 const RISK_VARIANTS = { low: 'risk-low', medium: 'risk-medium', high: 'risk-high' }
 const RISK_LABELS = { low: 'Low', medium: 'Medium', high: 'High' }
@@ -582,6 +583,9 @@ export function StudentHomePage() {
             </div>
           </section>
         </div>
+
+        {/* The subjects this learner is enrolled in (class_enrollments). */}
+        {student && <EnrolledSubjectsCard studentId={student.id} />}
 
       </div>
 

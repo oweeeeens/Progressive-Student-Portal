@@ -32,6 +32,7 @@ import { LoadingAnnouncement, Skeleton, SkeletonTable } from '../components/Skel
 import { humanize } from '../utils/humanize'
 import { StudentClassRecord } from '../components/StudentClassRecord'
 import { LearnerInsights } from '../components/LearnerInsights'
+import { CLASS_TERM_SHORT, SUBJECT_CATEGORY_LABELS } from '../utils/academicTerms'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
 // Academic standing is more sensitive than a roster entry, so both of
@@ -350,7 +351,9 @@ export function StudentDetailPage() {
           days on a class offering, so this is a subject list with who
           teaches each, not a period-by-period timetable. */}
       <div className="panel mb-5">
-        <h2>Current Subjects</h2>
+        {/* The classes this learner is ENROLLED in this school year
+            (class_enrollments), each with its teacher and when it runs. */}
+        <h2>Enrolled Subjects</h2>
         {subjectsError ? (
           <p className="form-note form-note--danger">{subjectsError}</p>
         ) : subjects === null ? (
@@ -365,7 +368,11 @@ export function StudentDetailPage() {
           <DataTable
             columns={[
               { key: 'subject', header: 'Subject', render: (x) => x.subject_name },
+              { key: 'type', header: 'Type', render: (x) => SUBJECT_CATEGORY_LABELS[x.subject_category] || fieldValue(x.subject_category) },
               { key: 'teacher', header: 'Teacher', render: (x) => fieldValue(x.teacher_name) },
+              // A specialized subject runs all year whatever its class says
+              // (utils/academicTerms.js).
+              { key: 'runs', header: 'Runs', render: (x) => (x.subject_category === 'specialized' ? 'Whole year' : CLASS_TERM_SHORT[x.term] || 'Whole year') },
             ]}
             rows={subjects || []}
             rowKey={(x) => x.id}

@@ -104,6 +104,12 @@ export function StudentClassRecord({ studentId }) {
                           <th scope="row">
                             {subject.subjectName}
                             {subject.teacherName && <span className="student-cr__teacher">{subject.teacherName}</span>}
+                            {/* A class from a section the learner has since
+                                left: its grades stay theirs, so it stays here,
+                                labelled rather than mistaken for a current one. */}
+                            {subject.enrollmentStatus === 'moved' && (
+                              <span className="student-cr__teacher">Previous section{subject.sectionName ? `: ${subject.sectionName}` : ''}</span>
+                            )}
                           </th>
                           <td><ComponentCell items={byComponent('ww')} component={comp('ww')} /></td>
                           <td><ComponentCell items={byComponent('pt')} component={comp('pt')} /></td>

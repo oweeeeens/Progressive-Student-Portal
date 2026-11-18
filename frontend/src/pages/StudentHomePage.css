@@ -2,11 +2,59 @@
    index.css (namecard, context cards, stat row, chart cards, tables). This
    file just decides where they sit. */
 
-/* The record on file. A single column: until 2026-11-11 the school's
-   noticeboard sat beside it in a fixed 320px column, and announcements were
-   removed to keep the System to its title. */
+/* The record on file beside the learner's enrolled subjects (panel
+   revision, 2026-11-18). Two columns from 1024px; stacked below. */
 .student-home__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
   margin-bottom: var(--space-5);
+}
+@media (min-width: 1024px) {
+  .student-home__split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* "Your subjects" (components/EnrolledSubjectsCard.jsx). */
+.enrolled-subjects h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+}
+.enrolled-subjects h2 svg {
+  color: var(--color-primary);
+}
+.enrolled-subjects__count {
+  margin-left: auto;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.enrolled-subjects__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.enrolled-subjects__list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border);
+}
+.enrolled-subjects__list li:first-child {
+  border-top: 0;
+}
+.enrolled-subjects__name {
+  font-weight: 500;
+}
+.enrolled-subjects__meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 /* Namecard above its stat tiles, as one column. */

@@ -250,3 +250,14 @@ test("a learner's subject list is their enrollments, each with its teacher", asy
   assert.deepEqual(ids, [ctx.b1.id, ctx.a3.id].sort());
   assert.ok(subjects.every((s) => s.teacher_name && s.subject_name));
 });
+
+test("the student record's subject list (GET /students/:id/subjects) is the learner's enrollments, never another section's classes", async () => {
+  const res = await api.get(`/api/students/${ctx.s3.id}/subjects`, { token: ctx.adviserB.token });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  const enrolled = (await pool.query(
+    `SELECT class_offering_id FROM class_enrollments WHERE student_id = $1 AND status = 'enrolled'`, [ctx.s3.id])).rows.map((r) => r.class_offering_id);
+  assert.deepEqual(res.body.subjects.map((s) => s.id).sort(), enrolled.sort());
+  // None of section A's current classes appear for a learner of section B.
+  for (const aClass of [ctx.a1.id, ctx.a2.id]) assert.ok(!res.body.subjects.some((s) => s.id === aClass));
+  assert.ok(res.body.subjects.every((s) => s.enrollment_status === 'enrolled' && s.teacher_name && s.term));
+});

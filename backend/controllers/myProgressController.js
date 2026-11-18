@@ -172,7 +172,8 @@ async function getMySubjects(req, res) {
 
   const schoolYearId = await studentModel.resolveSchoolYearId(student.id);
   const [offerings, finalized] = await Promise.all([
-    enrollmentModel.listOfferingsForStudent(student.id),
+    // The learner's section's school year — the same scope as the grades.
+    enrollmentModel.listOfferingsForStudent(student.id, { schoolYearId }),
     // Same year scope as getMySubjectGrades above, and for the same reason.
     gradeModel.getFinalizedHistoryForStudent(student.id, schoolYearId),
   ]);
