@@ -4,7 +4,7 @@
 // decided by ASSIGNMENT (the section's adviser, the class's teacher), which
 // the controller checks against the specific section or class requested.
 const express = require('express');
-const { gradesheet, classGrades, enrolledStudents } = require('../controllers/reportController');
+const { gradesheet, classGrades, allClassGrades, enrolledStudents } = require('../controllers/reportController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -19,6 +19,10 @@ router.get('/gradesheet/export/excel', gradesheet('excel'));
 router.get('/class-grades', classGrades('json'));
 router.get('/class-grades/export/pdf', classGrades('pdf'));
 router.get('/class-grades/export/excel', classGrades('excel'));
+// Every class the teacher teaches (the admin: every class, optionally one section).
+router.get('/class-grades/all', allClassGrades('json'));
+router.get('/class-grades/all/export/pdf', allClassGrades('pdf'));
+router.get('/class-grades/all/export/excel', allClassGrades('excel'));
 
 // Enrolled student list: registrar and admin (checked in the handler).
 router.get('/enrolled-students', enrolledStudents('json'));

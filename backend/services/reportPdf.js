@@ -106,31 +106,70 @@ function buildClassGradesPdf(data) {
     ],
     y
   );
-  y = drawMutedNote(doc, 'Stage of each grade: Submitted, Verified (by the principal), Finalized, or Returned (to the teacher). — = not submitted yet.', y);
+  y = drawMutedNote(doc, CLASS_STAGE_NOTE, y);
+  drawClassGradesTable(doc, data, y, width);
+  drawPageNumbers(doc);
+  return doc;
+}
 
+const CLASS_STAGE_NOTE = 'Stage of each grade: Submitted, Verified (by the principal), Finalized, or Returned (to the teacher). — = not submitted yet.';
+
+// One class's learners × periods table — shared by the single-class report
+// and the all-classes report, so both draw a class the same way. Returns
+// the y below it.
+function drawClassGradesTable(doc, data, y, width) {
   if (data.rows.length === 0 || data.periods.length === 0) {
-    drawMutedNote(doc, data.periods.length === 0 ? 'This class runs in no grading period.' : 'No learners are enrolled in this class.', y);
-  } else {
-    const fixed = [24, 190, 70];
-    const each = (width - fixed.reduce((a, b) => a + b, 0)) / data.periods.length;
-    drawTable(doc, {
-      x: PAGE_MARGIN,
-      y,
-      columnWidths: [fixed[0], fixed[1], ...data.periods.map(() => each), fixed[2]],
-      headerRow: ['#', 'Learner', ...data.periods.map((p) => p.periodName), 'Finalized avg.'],
-      bodyRows: data.rows.map((r, i) => [
-        String(i + 1),
-        r.name,
-        ...r.cells.map((c) => (c ? `${c.value} · ${SHORT_STATUS[c.status]}` : '—')),
-        show(r.finalizedAverage),
-      ]),
-      fontSize: 8,
-      rowHeight: 18,
-      ellipsis: true,
-      leftAlign: [0, 1],
-    });
+    return drawMutedNote(doc, data.periods.length === 0 ? 'This class runs in no grading period.' : 'No learners are enrolled in this class.', y);
   }
+  const fixed = [24, 190, 70];
+  const each = (width - fixed.reduce((a, b) => a + b, 0)) / data.periods.length;
+  return drawTable(doc, {
+    x: PAGE_MARGIN,
+    y,
+    columnWidths: [fixed[0], fixed[1], ...data.periods.map(() => each), fixed[2]],
+    headerRow: ['#', 'Learner', ...data.periods.map((p) => p.periodName), 'Finalized avg.'],
+    bodyRows: data.rows.map((r, i) => [
+      String(i + 1),
+      r.name,
+      ...r.cells.map((c) => (c ? `${c.value} · ${SHORT_STATUS[c.status]}` : '—')),
+      show(r.finalizedAverage),
+    ]),
+    fontSize: 8,
+    rowHeight: 18,
+    ellipsis: true,
+    leftAlign: [0, 1],
+  });
+}
 
+// ALL OF A TEACHER'S CLASSES in one document (panel item 4b: "students in
+// each of the teacher's own class offerings"): one titled table per class.
+function buildAllClassGradesPdf(data) {
+  const doc = createDocument();
+  const width = contentWidth(doc);
+  let y = drawBrandHeader(doc, SCHOOL, 'CLASS GRADE REPORT — ALL CLASSES');
+  y = drawScopeBox(
+    doc,
+    [
+      ['Classes', data.scopeLabel],
+      ['School year', data.schoolYear || '—'],
+      ['Number of classes', String(data.classes.length)],
+      ['Generated on', formatDate(data.generatedAt)],
+    ],
+    y
+  );
+  y = drawMutedNote(doc, CLASS_STAGE_NOTE, y);
+  if (data.classes.length === 0) {
+    drawMutedNote(doc, 'No classes to report.', y);
+  }
+  for (const cls of data.classes) {
+    const o = cls.offering;
+    y = drawSectionHeading(
+      doc,
+      `Grade ${o.gradeLevel} – ${o.sectionName} · ${o.subjectName}${o.subjectCode ? ` (${o.subjectCode})` : ''} · ${o.teacherName || 'no teacher'} · ${cls.studentCount} learners`,
+      y + 6
+    );
+    y = drawClassGradesTable(doc, cls, y, width) + 10;
+  }
   drawPageNumbers(doc);
   return doc;
 }
@@ -270,4 +309,4 @@ function buildMonitoringPdf(data) {
   return doc;
 }
 
-module.exports = { buildGradesheetPdf, buildClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf, STATUS_LABELS, SEX_LABELS, filterRows };
+module.exports = { buildGradesheetPdf, buildClassGradesPdf, buildAllClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf, STATUS_LABELS, SEX_LABELS, filterRows };

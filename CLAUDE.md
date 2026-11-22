@@ -608,6 +608,16 @@ page, and as PDF and Excel from **the same data object**
   - **Who:** the class's teacher or the admin.
   - **Content:** the learners **enrolled** in the class × the periods it
     runs, each grade with its approval stage, using the app's wording.
+  - **"All my classes" (2026-11-22, panel wording "each of the teacher's
+    classes"):** `GET /api/reports/class-grades/all` (+ `/export/pdf|excel`).
+    - **Who sees what:** a teacher gets exactly the classes they teach
+      this school year; the admin gets every current class (optionally
+      `?sectionId=`); anyone teaching nothing gets an empty list.
+    - **Output:** the page shows one titled table per class; the PDF has
+      one section per class; the Excel has a sheet per class.
+    - **Shared code:** `loadClassGrades` and the per-class table and sheet
+      helpers are shared with the one-class report.
+    - **Tests:** `test/integration/classGradesAll.test.js`.
 
 - **Enrolled Student List** (`/reports/enrolled-students`, `GET /api/reports/enrolled-students`).
   - **Who:** the registrar or the admin. This one is role-based on

@@ -81,6 +81,13 @@ async function buildClassGradesWorkbook(data) {
     { item: 'Learners enrolled', value: data.studentCount },
     { item: 'Generated on', value: today(data.generatedAt) },
   ]);
+  addClassGradesSheet(workbook, 'Grades', data);
+  return workbook.xlsx.writeBuffer();
+}
+
+// One class's learners, with each period's grade and stage side by side —
+// shared by the single-class and all-classes workbooks.
+function addClassGradesSheet(workbook, name, data) {
   const columns = [
     { header: 'LRN', key: 'lrn', width: 16 },
     { header: 'Learner', key: 'name', width: 32 },
@@ -96,7 +103,33 @@ async function buildClassGradesWorkbook(data) {
     ...Object.fromEntries(r.cells.flatMap((c, i) => [[`g${i}`, c ? c.value : null], [`st${i}`, c ? STATUS_LABELS[c.status] : 'Not submitted']])),
     avg: orBlank(r.finalizedAverage),
   }));
-  addSheet(workbook, 'Grades', columns, rows);
+  return addSheet(workbook, name, columns, rows);
+}
+
+// ALL OF A TEACHER'S CLASSES — Report Info listing every class, then one
+// sheet per class. Sheet names must be unique and ≤ 31 characters, so a
+// clash gets a number.
+async function buildAllClassGradesWorkbook(data) {
+  const workbook = newWorkbook();
+  addInfoSheet(workbook, [
+    { item: 'Report', value: 'Class grade report — all classes' },
+    { item: 'Classes', value: data.scopeLabel },
+    { item: 'School year', value: data.schoolYear || '—' },
+    { item: 'Number of classes', value: data.classes.length },
+    { item: 'Generated on', value: today(data.generatedAt) },
+    ...data.classes.map((c, i) => ({
+      item: `Class ${i + 1}`,
+      value: `Grade ${c.offering.gradeLevel} – ${c.offering.sectionName} · ${c.offering.subjectName} · ${c.offering.teacherName || '—'} · ${c.studentCount} learners`,
+    })),
+  ]);
+  const used = new Set(['Report Info']);
+  for (const cls of data.classes) {
+    const base = sheetName(`${cls.offering.sectionName} ${cls.offering.subjectCode || cls.offering.subjectName}`);
+    let name = base;
+    for (let n = 2; used.has(name); n += 1) name = sheetName(`${base.slice(0, 27)} (${n})`);
+    used.add(name);
+    addClassGradesSheet(workbook, name, cls);
+  }
   return workbook.xlsx.writeBuffer();
 }
 
@@ -216,4 +249,4 @@ async function buildMonitoringWorkbook(data) {
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { buildGradesheetWorkbook, buildClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook };
+module.exports = { buildGradesheetWorkbook, buildClassGradesWorkbook, buildAllClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook };

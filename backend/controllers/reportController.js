@@ -11,8 +11,9 @@ const enrollmentModel = require('../models/enrollmentModel');
 const { buildGradesheet, buildClassGrades, buildEnrolledList, buildMonitoring } = require('../services/reportBuilder');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const { todayInSchoolTimezone } = require('../utils/schoolDate');
-const { buildGradesheetPdf, buildClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf } = require('../services/reportPdf');
-const { buildGradesheetWorkbook, buildClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook } = require('../services/reportWorkbook');
+const { buildGradesheetPdf, buildClassGradesPdf, buildAllClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf } = require('../services/reportPdf');
+const { buildGradesheetWorkbook, buildClassGradesWorkbook, buildAllClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook } = require('../services/reportWorkbook');
+const classOfferingModel = require('../models/classOfferingModel');
 
 // The students.enrollment_status values (migration create-students).
 const ENROLLMENT_STATUSES = ['enrolled', 'pending', 'dropped', 'transferred', 'graduated'];
@@ -84,17 +85,56 @@ function classGrades(format) {
     if (req.user.role !== 'admin' && header.teacher_id !== req.user.id) {
       return res.status(403).json({ error: 'A class grade report is for the class\'s own teacher (or the admin).' });
     }
-    const [periods, students, grades] = await Promise.all([
-      reportModel.listPeriods(header.school_year_id),
-      // The class roster: learners ENROLLED in it (class_enrollments).
-      enrollmentModel.getEnrolledStudents(offeringId),
-      reportModel.listOfferingGrades(offeringId),
-    ]);
-    const data = buildClassGrades({ header, periods, students, grades });
+    const data = await loadClassGrades(header);
     return sendReport(res, format, data, {
       pdf: buildClassGradesPdf,
       workbook: buildClassGradesWorkbook,
       filename: `Class-grades-${slug(header.subject_name)}-${slug(header.section_name)}-${dateStamp(data.generatedAt)}`,
+    });
+  };
+}
+
+// One class's report data: the periods it runs, its ENROLLED learners
+// (class_enrollments) and every grade. Shared by the one-class and the
+// all-classes report so both say the same thing about a class.
+async function loadClassGrades(header) {
+  const [periods, students, grades] = await Promise.all([
+    reportModel.listPeriods(header.school_year_id),
+    enrollmentModel.getEnrolledStudents(header.id),
+    reportModel.listOfferingGrades(header.id),
+  ]);
+  return buildClassGrades({ header, periods, students, grades });
+}
+
+// ALL CLASSES — GET /api/reports/class-grades/all  (+ /export/pdf|excel)
+// The panel's wording is "students in EACH of the teacher's own class
+// offerings", so a teacher can see and export every class they teach at once.
+//   a teacher   exactly the classes they teach this school year (by assignment)
+//   the admin   every current class, optionally narrowed to one section
+// Anyone teaching nothing gets an empty list, never someone else's classes.
+function allClassGrades(format) {
+  return async (req, res) => {
+    const isAdmin = req.user.role === 'admin';
+    const sectionId = req.query.sectionId ? positiveId(req.query.sectionId) : null;
+    if (req.query.sectionId && !sectionId) return res.status(400).json({ error: 'That section is not valid.' });
+
+    const offerings = isAdmin ? await classOfferingModel.listAllCurrent() : await classOfferingModel.listByTeacher(req.user.id);
+    const classes = [];
+    for (const offering of offerings) {
+      const header = await reportModel.getOfferingHeader(offering.id);
+      if (!header || (isAdmin && sectionId && header.section_id !== sectionId)) continue;
+      classes.push(await loadClassGrades(header));
+    }
+    const data = {
+      scopeLabel: isAdmin ? (sectionId ? `All classes of ${classes[0]?.offering.sectionName || 'the section'}` : 'All classes') : `Classes taught by ${req.user.full_name}`,
+      schoolYear: classes[0]?.offering.schoolYear || null,
+      classes,
+      generatedAt: new Date(),
+    };
+    return sendReport(res, format, data, {
+      pdf: buildAllClassGradesPdf,
+      workbook: buildAllClassGradesWorkbook,
+      filename: `Class-grades-all-${dateStamp(data.generatedAt)}`,
     });
   };
 }
@@ -168,4 +208,4 @@ function monitoring(format) {
   };
 }
 
-module.exports = { gradesheet, classGrades, enrolledStudents, monitoring };
+module.exports = { gradesheet, classGrades, allClassGrades, enrolledStudents, monitoring };
