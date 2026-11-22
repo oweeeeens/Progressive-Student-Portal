@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { moduleForPath } from '../utils/moduleTheme'
 import { useMediaQuery, PHONE_QUERY } from '../hooks/useMediaQuery'
+import { useShortcuts } from '../hooks/useShortcuts'
 import './Layout.css'
 
 const SIDEBAR_COLLAPSED_KEY = 'studentPortal.sidebarCollapsed'
@@ -37,6 +38,8 @@ export function Layout() {
   const { pathname } = useLocation()
   const contentRef = useRef(null)
   const menuButtonRef = useRef(null)
+  // "/" to search, "?" for Help — on every signed-in page (hooks/useShortcuts.js).
+  useShortcuts()
 
   // The shell, not the window, is the scroll container (see Layout.css), so
   // nothing resets it on navigation: arriving at a new page while scrolled

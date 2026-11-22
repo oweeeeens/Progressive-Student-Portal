@@ -19,6 +19,13 @@ export function AuthProvider({ children }) {
   // degrade to a slightly cluttered menu, never to a teacher who cannot
   // reach their own grade sheet.
   const [assignments, setAssignments] = useState(null)
+  // Whether the last count FAILED, as opposed to not having arrived yet.
+  // The two used to be the same null, so on every sign-in the menu showed
+  // every role-eligible link for a moment and then removed the ones this
+  // person does not hold — a guidance counselor watched "Interventions"
+  // appear and vanish (found by the HCI audit, 2026-11-22: navigation that
+  // shifts under the pointer breaks "no surprises").
+  const [assignmentsFailed, setAssignmentsFailed] = useState(false)
 
   // On load, if a token is already stored, confirm it's still valid and
   // fetch the current user rather than trusting a locally-cached profile.
@@ -59,6 +66,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!userId || userRole === 'student' || mustChangePassword) {
       setAssignments(null)
+      setAssignmentsFailed(false)
       return
     }
     let cancelled = false
@@ -69,7 +77,11 @@ export function AuthProvider({ children }) {
       if (cancelled) return
       // Either request failing leaves this null, so the sidebar falls back
       // to role-only visibility rather than hiding a page someone needs.
-      if (!sec || !off) return
+      if (!sec || !off) {
+        setAssignmentsFailed(true)
+        return
+      }
+      setAssignmentsFailed(false)
       setAssignments({
         sections: (sec.sections || []).length,
         offerings: (off.classOfferings || []).length,
@@ -84,6 +96,15 @@ export function AuthProvider({ children }) {
   // server makes a remembered sign-in last 30 days instead of 8 hours. Before
   // 2026-11-15 only the storage changed, so a "remembered" sign-in still
   // expired overnight.
+  // What the MENUS use (sidebar, Help, Import Data):
+  //   - the real counts once known;
+  //   - zero while they are on their way, so the role's own links show at
+  //     once and the assignment-only links appear when earned, instead of
+  //     every link showing and some then disappearing;
+  //   - null if the count FAILED, which the menus treat as "show every
+  //     role-eligible link" (a cluttered menu, never a missing grade sheet).
+  const navAssignments = assignments || (assignmentsFailed ? null : { sections: 0, offerings: 0 })
+
   async function login(email, password, remember = true) {
     const data = await api.post('/auth/login', { email, password, remember: Boolean(remember) })
     setToken(data.token, remember)
@@ -111,7 +132,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, assignments, login, logout, markPasswordChanged, applyProfileUpdate }}>
+    <AuthContext.Provider value={{ user, loading, assignments, navAssignments, login, logout, markPasswordChanged, applyProfileUpdate }}>
       {children}
     </AuthContext.Provider>
   )

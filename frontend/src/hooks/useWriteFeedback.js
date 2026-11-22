@@ -42,7 +42,9 @@ export function useWriteFeedback() {
   // Runs one write and reports it. Returns true only if it succeeded, so a
   // caller can close its form on success and leave it open with the error on
   // failure.
-  const runWrite = useCallback(async (key, action, successMessage) => {
+  // options.undo = { label?, run } puts an Undo button on the receipt. `run`
+  // performs the reverse write; it is reported like any other write.
+  const runWrite = useCallback(async (key, action, successMessage, options = {}) => {
     if (inFlight.current) return false
     inFlight.current = true
     setBusyKey(key)
@@ -52,7 +54,7 @@ export function useWriteFeedback() {
       await action()
       if (successMessage) {
         setNotice(successMessage)
-        showToast(successMessage)
+        showToast(successMessage, 'success', options.undo ? { action: { label: options.undo.label || 'Undo', onClick: options.undo.run } } : undefined)
       }
       return true
     } catch (err) {

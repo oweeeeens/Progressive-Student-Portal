@@ -1,0 +1,124 @@
+/* Help (pages/HelpPage.jsx). Two columns of topic panels on a wide screen,
+   one on a phone; "Your pages" spans both because it is the longest and the
+   one most people come for. */
+.help-page__intro {
+  margin: var(--space-4) 0;
+  max-width: 70ch;
+}
+.help-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+.help-topic h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-3);
+}
+.help-topic h2 svg {
+  color: var(--module, var(--color-primary));
+  flex-shrink: 0;
+}
+.help-topic p,
+.help-topic li {
+  max-width: 70ch;
+  line-height: 1.55;
+}
+.help-topic:first-child {
+  grid-column: 1 / -1;
+}
+
+/* Your pages: name on the left, what it is for on the right; stacked on a
+   phone. */
+.help-pages {
+  margin: 0;
+}
+.help-pages__item {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) 1fr;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border);
+}
+.help-pages__item:first-child {
+  border-top: none;
+}
+.help-pages dt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 600;
+}
+.help-pages dt a {
+  /* A 24px-tall target (WCAG 2.2 SC 2.5.8). */
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+.help-pages__group {
+  margin-top: var(--space-4);
+}
+.help-pages__group h3 {
+  margin: 0 0 var(--space-1);
+  padding-bottom: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.help-pages dd {
+  margin: 0;
+  color: var(--color-text-muted);
+  align-self: center;
+}
+@media (max-width: 560px) {
+  .help-pages__item {
+    grid-template-columns: 1fr;
+  }
+}
+
+.help-steps,
+.help-list {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-5);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.help-keys {
+  border-collapse: collapse;
+  margin-bottom: var(--space-4);
+}
+.help-keys th,
+.help-keys td {
+  padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  text-align: left;
+  font-weight: 400;
+  vertical-align: middle;
+}
+.help-topic kbd {
+  display: inline-block;
+  min-width: 1.75em;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted, var(--color-bg));
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: center;
+  color: var(--color-text);
+}
+.help-keys__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+  margin: 0;
+}

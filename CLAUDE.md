@@ -1428,6 +1428,83 @@ focus indicator on every one.
 
 Apply the navy/gold brand palette (see Brand Colors section above) throughout. Build page by page, verifying each before moving to the next.
 
+## HCI: Audited and Applied (2026-11-22)
+
+The group asked for HCI to be researched and applied across the System.
+
+**Frameworks:**
+- Nielsen's 10 usability heuristics;
+- Shneiderman's 8 golden rules;
+- Norman's principles;
+- WCAG 2.2 AA;
+- Fitts's and Hick's laws;
+- ISO 9241-11:2018's definition of usability.
+
+Each was read from its primary source.
+
+**Method: measured, not judged by eye.** A Playwright + axe-core sweep of
+177 page views covered every role at 1440, 390 and 320 px. It measured:
+- WCAG violations;
+- target size per SC 2.5.8, with its spacing exception;
+- a keyboard pass;
+- overflow.
+
+A heuristic review covered what a tool cannot see.
+- **Baseline:** 0 axe violations, a visible focus on all 2,299 stops, and 0
+  overflow.
+- **Every finding** is rated on Nielsen's 0–4 severity scale.
+
+**What changed** (each verified in the browser and against the database):
+- **Undo on deactivation** (Nielsen 3, Shneiderman 6).
+  - Applies to sections, subjects, class offerings, accounts and student
+    records.
+  - The receipt toast carries Undo: `showToast(msg, variant, { action })`,
+    and `runWrite(..., { undo: { run } })`.
+  - It runs the same reactivate call as the row's button, stays 10 s and
+    pauses on hover/focus.
+  - **Official acts get no Undo, on purpose:** submit, verify and finalize a
+    grade, and save attendance. They keep a confirm that names the
+    consequence.
+- **Help** (`/help`, `pages/HelpPage.jsx`) for every role.
+  - The link is in the top bar, in the same place on every page (WCAG 3.2.6
+    Consistent Help; Nielsen 10).
+  - "Your pages" is built from the sidebar's own list, now
+    `utils/navigation.js` (moved out of `Sidebar.jsx`), so the two cannot
+    disagree.
+  - Topics: the grade chain, how risk is decided, shortcuts, and who to ask.
+- **Shortcuts** (`hooks/useShortcuts.js`, Nielsen 7): `/` focuses the list's
+  search, `?` opens Help.
+  - Ignored while typing or with a dialog open.
+  - Can be turned off on Help, because WCAG 2.1.4 requires single-key
+    shortcuts to be switchable.
+- **Target size (WCAG 2.5.8):**
+  - **Bar-chart rows:** they were squeezed to 22 px by `flex-shrink`. They
+    now keep 28 px and the chart scrolls, with `justify-content: safe center`
+    so the first rows stay reachable.
+  - **Sort headers:** 14 → 24 px, taken from the header's own padding.
+  - **Touch checkboxes:** were 13 × 44 px, now 24 × 24 px.
+- **No flicker in the menu.** AuthContext's `navAssignments` tells "loading"
+  apart from "failed".
+  - **While loading:** links only appear, never vanish.
+  - **If the count fails:** the menu still fails open.
+- **Search boxes** have a real `aria-label`, not only a placeholder.
+- **Menus work from the keyboard** (`hooks/useMenuKeyboard.js`, the ARIA
+  menu-button pattern): opening focuses the first item, the arrow keys,
+  Home and End move, Escape returns focus, and Tab closes the menu.
+  - **Before:** the row ⋮ menu is portalled to `<body>`, so Tab left it
+    open and went on through the table. Edit, Deactivate and Reset password
+    were unreachable by keyboard.
+
+**Deliberately not done:**
+- **44 px on every touch target:** WCAG 2.5.5 is AAA, and the project
+  targets AA. Primary controls are already 44 px under
+  `@media (pointer: coarse)`.
+- **Changes for Hick's law:** the menus are already grouped and earned by
+  assignment, and pickers open on the answer.
+
+The report for the manuscript, with references, mapping tables and the
+before/after figures, is a Word document produced from this work.
+
 ## Responsive Design (phone and desktop)
 
 The portal is used on phones, so every page is built to work at **320px**

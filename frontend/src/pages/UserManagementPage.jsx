@@ -204,7 +204,28 @@ function AllAccountsTab() {
       await api.patch(`/users/${account.id}/active`, { isActive: !account.is_active })
       // A receipt naming who changed, rather than only the row's pill
       // flipping after the reload.
-      showToast(`${account.full_name} has been ${account.is_active ? 'deactivated' : 'reactivated'}.`)
+      showToast(
+        `${account.full_name} has been ${account.is_active ? 'deactivated' : 'reactivated'}.`,
+        'success',
+        // A deactivation offers Undo: the same reactivate the row's own
+        // button makes (Nielsen #3, Shneiderman #6).
+        account.is_active
+          ? {
+              action: {
+                label: 'Undo',
+                onClick: () =>
+                  api
+                    .patch(`/users/${account.id}/active`, { isActive: true })
+                    .then(() => {
+                      showToast(`${account.full_name} has been reactivated.`)
+                      load()
+                      loadStats()
+                    })
+                    .catch((err) => setError(err.message)),
+              },
+            }
+          : undefined
+      )
       load()
       loadStats()
     } catch (err) {

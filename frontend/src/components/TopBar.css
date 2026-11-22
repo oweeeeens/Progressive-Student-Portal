@@ -204,3 +204,34 @@
     height: 44px;
   }
 }
+
+/* Help: a labelled link, not a bare icon — "?" alone is easy to miss and
+   says nothing to someone who does not know the convention. The label
+   gives way on a phone, where the icon keeps its accessible name. Sized to
+   the 24px minimum target (WCAG 2.2 SC 2.5.8). */
+.top-bar__help {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-decoration: none;
+}
+.top-bar__help:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+@media (max-width: 720px) {
+  .top-bar__help-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}

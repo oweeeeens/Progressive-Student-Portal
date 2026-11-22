@@ -54,7 +54,7 @@ const IMPORTS = [
 ]
 
 export function ImportHubPage() {
-  const { user, assignments } = useAuth()
+  const { user, navAssignments: assignments } = useAuth()
   const available = IMPORTS.filter((imp) => imp.allowed(user?.role, assignments))
 
   return (

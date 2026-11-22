@@ -1292,10 +1292,23 @@ th {
   .top-bar__profile {
     min-height: 44px;
   }
-  input,
+  .top-bar__help {
+    min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
+  }
+  input:not([type='checkbox']):not([type='radio']),
   select,
   textarea {
     min-height: 44px;
+  }
+  /* A checkbox stretched to 44px tall stayed 13px wide — a sliver to aim
+     at (the HCI audit measured it on Verify Grades). Square, at the WCAG
+     2.2 minimum, so the tick box itself is the bigger target. */
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 24px;
+    height: 24px;
   }
   /* Shortcut links on the dashboard are primary things to tap, and were
      32px. */
@@ -1980,7 +1993,12 @@ th {
   gap: var(--space-1);
   background: none;
   border: none;
-  padding: 0;
+  /* A 24px-tall target (WCAG 2.2 SC 2.5.8; it measured 14px), taken from
+     the header's own padding by the negative margin, so the header row is
+     no taller than before. */
+  min-height: 24px;
+  padding: 5px 0;
+  margin: -5px 0;
   font-family: inherit;
   font-size: inherit;
   font-weight: 600;
@@ -2268,6 +2286,10 @@ svg[data-chart-density='compact'] .chart-reference-label {
   min-height: var(--bar-chart-min-height, 180px);
   max-height: var(--chart-max-body-height);
   overflow-y: auto;
+  /* `safe`: once the rows overflow and the body scrolls, plain `center`
+     pushed the first rows above the scroll start, where no scrolling can
+     reach them. */
+  justify-content: safe center;
 }
 /* label | bar | value — the three-column read the form is built around. */
 .bar-chart__row {
@@ -2281,6 +2303,10 @@ svg[data-chart-density='compact'] .chart-reference-label {
   align-items: center;
   gap: var(--space-3);
   height: var(--chart-row-height);
+  /* Never squeezed: a flex column shrinks its children before it scrolls,
+     so a 10-row chart drew 22px rows — under the 24px minimum target
+     (WCAG 2.2 SC 2.5.8, measured by the HCI audit) — instead of scrolling. */
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
   outline: none;
   transition: background 0.15s ease;
@@ -3909,6 +3935,10 @@ textarea[aria-invalid='true']:focus-visible {
   min-height: var(--bar-chart-min-height, 180px);
   max-height: var(--chart-max-body-height);
   overflow-y: auto;
+  /* `safe`: once the rows overflow and the body scrolls, plain `center`
+     pushed the first rows above the scroll start, where no scrolling can
+     reach them. */
+  justify-content: safe center;
 }
 .change-bar-chart__row {
   display: grid;
@@ -3917,6 +3947,10 @@ textarea[aria-invalid='true']:focus-visible {
   align-items: center;
   gap: var(--space-3);
   height: var(--chart-row-height);
+  /* Never squeezed: a flex column shrinks its children before it scrolls,
+     so a 10-row chart drew 22px rows — under the 24px minimum target
+     (WCAG 2.2 SC 2.5.8, measured by the HCI audit) — instead of scrolling. */
+  flex-shrink: 0;
   border-radius: var(--radius-sm);
   outline: none;
   transition: background 0.15s ease;
@@ -5586,6 +5620,16 @@ textarea[aria-invalid='true']:focus-visible {
   margin: 0;
   vertical-align: middle;
 }
+/* On a touch screen the tick boxes are the 24px minimum target (WCAG 2.2
+   SC 2.5.8) — the `width: auto` above outranked the general touch rule and
+   left them 13px wide. */
+@media (pointer: coarse) {
+  .table-card td.data-table__select-cell input,
+  .table-card th.data-table__select-head input {
+    width: 24px;
+    height: 24px;
+  }
+}
 
 /* --- Your profile ------------------------------------------------------- */
 
@@ -5932,6 +5976,21 @@ textarea[aria-invalid='true']:focus-visible {
 }
 .toast__message {
   flex: 1;
+}
+.toast__action {
+  flex-shrink: 0;
+  min-height: 28px;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.toast__action:hover {
+  background: var(--color-primary-light);
 }
 .toast__close {
   flex-shrink: 0;

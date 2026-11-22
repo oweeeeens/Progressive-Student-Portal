@@ -271,7 +271,15 @@ export function StudentDetailPage() {
         danger: true,
       })
       if (!ok) return
-      const done = await runWrite('active', () => api.delete(`/students/${id}`), `${name} has been deactivated.`)
+      const done = await runWrite('active', () => api.delete(`/students/${id}`), `${name} has been deactivated.`, {
+        // Undo is the same reactivate the button below makes.
+        undo: {
+          run: async () => {
+            const back = await runWrite('active', () => api.post(`/students/${id}/reactivate`), `${name} has been reactivated.`)
+            if (back) load({ quiet: true })
+          },
+        },
+      })
       if (done) load({ quiet: true })
     } else {
       // Reactivating stays one click (CLAUDE.md UI standard 12).

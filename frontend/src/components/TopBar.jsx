@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Maximize, Minimize, Sun, Moon, PanelLeftClose, PanelLeftOpen, Menu, KeyRound, IdCard, UserCog, ChevronDown } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Maximize, Minimize, Sun, Moon, PanelLeftClose, PanelLeftOpen, Menu, KeyRound, IdCard, UserCog, ChevronDown, CircleHelp } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { roleLabel } from '../utils/roleLabel'
+import { useMenuKeyboard } from '../hooks/useMenuKeyboard'
 import './TopBar.css'
 
 function getInitials(fullName) {
@@ -27,6 +28,11 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar, isPhone = false, dra
   // navigation — and for a student it is deliberately a single item (Home).
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const accountMenuRef = useRef(null)
+  const accountListRef = useRef(null)
+  const accountButtonRef = useRef(null)
+  // The ARIA menu-button keys: focus the first item on open, arrows to move,
+  // Escape back to the button (hooks/useMenuKeyboard.js).
+  useMenuKeyboard(accountListRef, accountButtonRef, accountMenuOpen, () => setAccountMenuOpen(false))
 
   useEffect(() => {
     const handleChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
@@ -133,6 +139,13 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar, isPhone = false, dra
       </div>
 
       <div className="top-bar__actions">
+        {/* Help, in the same place on every page (WCAG 2.2 SC 3.2.6
+            "Consistent Help"; Nielsen #10). A link, not a button: it goes
+            somewhere. "?" opens it from the keyboard. */}
+        <Link to="/help" className="top-bar__help" aria-keyshortcuts="?" title="Help (press ?)">
+          <CircleHelp size={16} strokeWidth={1.75} aria-hidden="true" />
+          <span className="top-bar__help-label">Help</span>
+        </Link>
         <button
           type="button"
           className="top-bar__icon-btn"
@@ -162,6 +175,7 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar, isPhone = false, dra
           <button
             type="button"
             className="top-bar__profile"
+            ref={accountButtonRef}
             onClick={() => setAccountMenuOpen((open) => !open)}
             aria-haspopup="menu"
             aria-expanded={accountMenuOpen}
@@ -176,7 +190,7 @@ export function TopBar({ sidebarCollapsed, onToggleSidebar, isPhone = false, dra
           </button>
 
           {accountMenuOpen && (
-            <div className="account-menu" role="menu">
+            <div className="account-menu" role="menu" ref={accountListRef} aria-label="Account">
               {/* Repeated inside the menu because the button's own label is
                   hidden on narrow screens, where the avatar is all there is. */}
               <div className="account-menu__identity">

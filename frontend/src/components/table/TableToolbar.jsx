@@ -21,7 +21,17 @@ export function TableToolbar({
       {onSearchChange && (
         <div className="search-field">
           <Search size={16} strokeWidth={1.75} />
-          <input type="search" placeholder={searchPlaceholder} value={search} onChange={(e) => onSearchChange(e.target.value)} />
+          {/* A real name, not only a placeholder (which disappears once typing
+              starts), and the "/" shortcut that jumps here (hooks/useShortcuts.js). */}
+          <input
+            type="search"
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            aria-keyshortcuts="/"
+            data-shortcut-search=""
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+          />
         </div>
       )}
       {filters}

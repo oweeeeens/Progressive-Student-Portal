@@ -164,7 +164,25 @@ export function SectionsPage() {
         load()
         loadStats()
       },
-      `${row.name} ${deactivating ? 'deactivated' : 'reactivated'}.`
+      `${row.name} ${deactivating ? 'deactivated' : 'reactivated'}.`,
+      // A deactivation's receipt offers Undo, which is the same reactivate
+      // call the row's own button makes (Nielsen #3, Shneiderman #6).
+      deactivating
+        ? {
+            undo: {
+              run: () =>
+                runWrite(
+                  row.id,
+                  async () => {
+                    await api.post(`/sections/${row.id}/reactivate`)
+                    load()
+                    loadStats()
+                  },
+                  `${row.name} reactivated.`
+                ),
+            },
+          }
+        : undefined
     )
   }
 

@@ -25,6 +25,10 @@ const ToastContext = createContext(null)
 // over the page. The timer pauses on hover and focus, so this is a floor
 // rather than a hard limit.
 const DEFAULT_DURATION_MS = 5000
+// A receipt that carries an Undo (Nielsen #3 "user control and freedom",
+// Shneiderman's "permit easy reversal") stays twice as long: the person has
+// to read it AND decide. It still pauses on hover and focus (WCAG 2.2.1).
+const ACTION_DURATION_MS = 10000
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
@@ -37,7 +41,9 @@ export function ToastProvider({ children }) {
     setToasts((current) => current.filter((t) => t.id !== id))
   }, [])
 
-  const showToast = useCallback((message, variant = 'success') => {
+  // options.action = { label, onClick } adds one button to the receipt —
+  // used for "Undo" after a reversible change such as a deactivation.
+  const showToast = useCallback((message, variant = 'success', options = {}) => {
     if (!message) return
     nextId.current += 1
     const id = nextId.current
@@ -45,7 +51,7 @@ export function ToastProvider({ children }) {
       // A cap, because a bulk action can finish several writes at once and a
       // column of toasts taller than the screen is its own problem. Oldest
       // goes first — the newest is the one the person is waiting on.
-      const next = [...current, { id, message, variant }]
+      const next = [...current, { id, message, variant, action: options.action || null }]
       return next.slice(-3)
     })
   }, [])
@@ -55,7 +61,7 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <ToastStack toasts={toasts} onDismiss={dismiss} duration={DEFAULT_DURATION_MS} />
+      <ToastStack toasts={toasts} onDismiss={dismiss} duration={DEFAULT_DURATION_MS} actionDuration={ACTION_DURATION_MS} />
     </ToastContext.Provider>
   )
 }

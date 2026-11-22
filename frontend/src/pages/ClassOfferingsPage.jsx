@@ -171,7 +171,25 @@ export function ClassOfferingsPage() {
         load()
         loadStats()
       },
-      `${row.subject_name} in ${row.section_name} ${deactivating ? 'deactivated' : 'reactivated'}.`
+      `${row.subject_name} in ${row.section_name} ${deactivating ? 'deactivated' : 'reactivated'}.`,
+      // A deactivation's receipt offers Undo, which is the same reactivate
+      // call the row's own button makes (Nielsen #3, Shneiderman #6).
+      deactivating
+        ? {
+            undo: {
+              run: () =>
+                runWrite(
+                  row.id,
+                  async () => {
+                    await api.post(`/class-offerings/${row.id}/reactivate`)
+                    load()
+                    loadStats()
+                  },
+                  `${row.subject_name} in ${row.section_name} reactivated.`
+                ),
+            },
+          }
+        : undefined
     )
   }
 

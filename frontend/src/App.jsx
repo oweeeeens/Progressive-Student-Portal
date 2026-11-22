@@ -22,6 +22,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 import { InterventionsPage } from './pages/InterventionsPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { HelpPage } from './pages/HelpPage'
 import { CreateAccountPage } from './pages/CreateAccountPage'
 import { UserManagementPage } from './pages/UserManagementPage'
 import { SchoolYearsPage } from './pages/SchoolYearsPage'
@@ -99,6 +100,8 @@ function App() {
                     bookmark from before it existed still lands somewhere
                     sensible. */}
                 <Route path="/profile" element={<ProfilePage />} />
+                {/* Help: every role, the same link in the top bar on every page. */}
+                <Route path="/help" element={<HelpPage />} />
                 <Route path="/my-profile/*" element={<Navigate to="/profile" replace />} />
                 <Route path="/my-progress/*" element={<Navigate to="/" replace />} />
                 <Route path="/attendance/daily" element={<DailyAttendancePage />} />

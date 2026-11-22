@@ -7,6 +7,8 @@ const VARIANT_ICONS = { success: CheckCircle2, info: Info }
 // One receipt. Owns its own dismissal timer so that hovering or focusing it
 // pauses only that toast, not the whole stack.
 function Toast({ toast, onDismiss, duration }) {
+  // Pressing the action (e.g. Undo) runs it once and closes the receipt, so
+  // it cannot be pressed twice.
   const [paused, setPaused] = useState(false)
   const Icon = VARIANT_ICONS[toast.variant] || CheckCircle2
   useEffect(() => {
@@ -28,6 +30,18 @@ function Toast({ toast, onDismiss, duration }) {
     >
       <Icon className="toast__icon" size={18} strokeWidth={2} aria-hidden="true" />
       <span className="toast__message">{toast.message}</span>
+      {toast.action && (
+        <button
+          type="button"
+          className="toast__action"
+          onClick={() => {
+            onDismiss(toast.id)
+            toast.action.onClick()
+          }}
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button type="button" className="toast__close" onClick={() => onDismiss(toast.id)} aria-label="Dismiss">
         <X size={14} strokeWidth={2} />
       </button>
@@ -42,7 +56,7 @@ function Toast({ toast, onDismiss, duration }) {
 // context — so a fixed-position element rendered inside the page tree is on
 // unreliable ground here. Rendering at the end of <body> sidesteps the
 // question entirely.
-export function ToastStack({ toasts, onDismiss, duration }) {
+export function ToastStack({ toasts, onDismiss, duration, actionDuration = duration }) {
   if (typeof document === 'undefined') return null
 
   return createPortal(
@@ -52,7 +66,7 @@ export function ToastStack({ toasts, onDismiss, duration }) {
     // finish its sentence; these are receipts, not alarms.
     <div className="toast-stack" role="status" aria-live="polite" aria-atomic="false">
       {toasts.map((toast) => (
-        <Toast key={toast.id} toast={toast} onDismiss={onDismiss} duration={duration} />
+        <Toast key={toast.id} toast={toast} onDismiss={onDismiss} duration={toast.action ? actionDuration : duration} />
       ))}
     </div>,
     document.body

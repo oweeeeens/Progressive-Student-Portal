@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MoreVertical } from 'lucide-react'
+import { useMenuKeyboard } from '../../hooks/useMenuKeyboard'
 
 // The ONE row-action pattern: a kebab menu at the right end of every row
 // that has actions. Before this, one table used inline text links, another
@@ -99,6 +100,14 @@ export function RowMenu({ actions, label = 'Row actions' }) {
     }
   }, [open, place])
 
+  // Arrow keys, Home/End, Escape and Tab, and focus on the first item when
+  // it opens — the sheet lives at the end of <body>, so without this the
+  // keyboard could not reach it (hooks/useMenuKeyboard.js).
+  useMenuKeyboard(sheetRef, triggerRef, open, () => {
+    setOpen(false)
+    setPosition(null)
+  })
+
   const available = actions.filter(Boolean)
   if (available.length === 0) return null
 
@@ -147,6 +156,10 @@ export function RowMenu({ actions, label = 'Row actions' }) {
                 onClick={(e) => {
                   e.stopPropagation()
                   close()
+                  // Back on the trigger before the action runs: the item is
+                  // about to unmount, and a dialog the action opens returns
+                  // focus to whatever had it — which must not be nothing.
+                  triggerRef.current?.focus()
                   action.onSelect()
                 }}
               >
