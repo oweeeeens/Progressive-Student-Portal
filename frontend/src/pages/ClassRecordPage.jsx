@@ -205,7 +205,16 @@ export function ClassRecordPage() {
     setError(null)
     try {
       const result = await api.post('/class-record/submit', { classOfferingId: Number(classOfferingId), gradingPeriodId: Number(gradingPeriodId) })
-      showToast(`Submitted ${result.submitted} computed grade${result.submitted === 1 ? '' : 's'} to the principal.`)
+      // Grades already with the principal and unchanged keep their place in
+      // review (a verified grade stays verified), so they are named apart.
+      const unchanged = result.unchanged || 0
+      const plural = (n) => (n === 1 ? '' : 's')
+      showToast(
+        result.submitted === 0
+          ? `Nothing to resubmit: the ${unchanged} grade${plural(unchanged)} already in review ${unchanged === 1 ? 'is' : 'are'} unchanged.`
+          : `Submitted ${result.submitted} computed grade${plural(result.submitted)} to the principal.` +
+              (unchanged > 0 ? ` ${unchanged} unchanged grade${plural(unchanged)} already in review kept ${unchanged === 1 ? 'its' : 'their'} status.` : '')
+      )
       load()
     } catch (err) {
       setError(err.message)

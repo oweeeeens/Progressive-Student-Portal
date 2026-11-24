@@ -49,8 +49,11 @@ function statDetails(data) {
     none: {
       title: 'Not submitted',
       subtitle: c.none,
-      definition: 'Learner-and-period cells with no grade submitted yet.',
-      rules: ['Counted only for the periods this class runs in.'],
+      definition: 'Learner-and-period cells with no grade submitted yet, in terms that have already started.',
+      rules: [
+        'Counted only for the periods this class runs in.',
+        `A term that has not started yet is not counted (${c.notStarted ?? 0} empty cell${(c.notStarted ?? 0) === 1 ? '' : 's'} in terms still to come).`,
+      ],
     },
   }
 }
@@ -73,6 +76,9 @@ function columnsFor(periods) {
             <strong>{r.cells[i].value}</strong>
             <StatusPill label={GRADE_STATUS_LABELS[r.cells[i].status]} variant={GRADE_STATUS_VARIANTS[r.cells[i].status]} />
           </span>
+        ) : p.started === false ? (
+          // A term that has not begun has no grade by definition.
+          <span className="text-muted">Not started yet</span>
         ) : (
           <span className="text-muted">Not submitted</span>
         ),

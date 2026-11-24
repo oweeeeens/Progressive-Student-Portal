@@ -7,10 +7,13 @@ const ExcelJS = require('exceljs');
 const { addSheet, addInfoSheet, orBlank } = require('./workbookPrimitives');
 const { CLASS_TERM_LABELS } = require('../config/academicTerms');
 const { STATUS_LABELS, SEX_LABELS, filterRows } = require('./reportPdf');
+const { dateInSchoolTimezone } = require('../utils/schoolDate');
 
 const runsLabel = (s) => (s.subjectCategory === 'specialized' ? CLASS_TERM_LABELS.full_year : CLASS_TERM_LABELS[s.term] || CLASS_TERM_LABELS.full_year);
-const today = (d) => d.toISOString().slice(0, 10);
+// The school's local date (YYYY-MM-DD), not the UTC one.
+const today = (d) => dateInSchoolTimezone(d);
 
+// A blank workbook, stamped with who made it.
 function newWorkbook() {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Student Portal';
@@ -32,13 +35,14 @@ async function buildGradesheetWorkbook(data) {
     { item: 'Adviser', value: data.section.adviserName || '—' },
     { item: 'Learners', value: data.studentCount },
     { item: 'Generated on', value: today(data.generatedAt) },
-    { item: 'Note', value: 'Blank = not finalized yet. Average = average of the grades finalized so far.' },
+    { item: 'Note', value: 'Blank = not finalized yet. n/e = not enrolled in that class. Average = average of the grades finalized so far; Finalized counts only the classes the learner is enrolled in, and for a learner who has left, only the grades finalized before leaving.' },
   ]);
 
   for (const period of data.periods) {
     const columns = [
       { header: 'LRN', key: 'lrn', width: 16 },
       { header: 'Learner', key: 'name', width: 32 },
+      { header: 'Note', key: 'note', width: 26 },
       ...period.subjects.map((s, i) => ({ header: s.subjectName, key: `s${i}`, width: 16 })),
       { header: 'Average (finalized)', key: 'average', width: 18 },
       { header: 'Finalized', key: 'finalized', width: 12 },
@@ -46,9 +50,11 @@ async function buildGradesheetWorkbook(data) {
     const rows = period.rows.map((r) => ({
       lrn: r.lrn,
       name: r.name,
-      ...Object.fromEntries(r.grades.map((g, i) => [`s${i}`, orBlank(g)])),
+      note: r.note || '',
+      // 'n/e' is text, so Excel's SUM and AVERAGE skip it like a blank.
+      ...Object.fromEntries(r.grades.map((g, i) => [`s${i}`, r.notEnrolled?.[i] ? 'n/e' : orBlank(g)])),
       average: orBlank(r.average),
-      finalized: `${r.finalizedCount} of ${period.subjects.length}`,
+      finalized: `${r.finalizedCount} of ${r.expectedCount ?? period.subjects.length}`,
     }));
     addSheet(workbook, sheetName(period.periodName), columns, rows);
   }
@@ -100,7 +106,12 @@ function addClassGradesSheet(workbook, name, data) {
   const rows = data.rows.map((r) => ({
     lrn: r.lrn,
     name: r.name,
-    ...Object.fromEntries(r.cells.flatMap((c, i) => [[`g${i}`, c ? c.value : null], [`st${i}`, c ? STATUS_LABELS[c.status] : 'Not submitted']])),
+    ...Object.fromEntries(
+      r.cells.flatMap((c, i) => [
+        [`g${i}`, c ? c.value : null],
+        [`st${i}`, c ? STATUS_LABELS[c.status] : data.periods[i].started === false ? 'Not started' : 'Not submitted'],
+      ])
+    ),
     avg: orBlank(r.finalizedAverage),
   }));
   return addSheet(workbook, name, columns, rows);
@@ -201,7 +212,7 @@ async function buildMonitoringWorkbook(data) {
     { item: 'At risk (any factor)', value: t.atRisk.total },
     { item: 'Assessed', value: t.assessed },
     { item: 'Generated on', value: today(data.generatedAt) },
-    { item: 'Note', value: 'At risk = risk score above 0, as on Analytics. Missing = enrolled learners with no grade for the period.' },
+    { item: 'Note', value: 'At risk = risk score above 0, as on Analytics, counted under the section each learner is in now. Learners = active, enrolled learners. Missing = enrolled learners with no grade for the period.' },
   ]);
   addSheet(
     workbook,

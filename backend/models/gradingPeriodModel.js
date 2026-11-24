@@ -7,12 +7,19 @@
 // — see the is-active migration's comment for why.
 const { pool } = require('../config/db');
 
+// The grading period a date falls in. If two school years' periods overlap
+// (next year's Term 1 set up early, say), the CURRENT school year's period
+// wins, then the lowest id — every "which term are we in" reader (Monitoring,
+// Analytics, the dashboard, My Progress) asks about the current year, and
+// the old ORDER BY id alone could hand them an old year's period that holds
+// none of this year's data (found 2026-11-24).
 async function findByDate(date) {
   const result = await pool.query(
-    `SELECT id, school_year_id, name, sequence_number
-     FROM grading_periods
-     WHERE $1::date BETWEEN start_date AND end_date
-     ORDER BY id
+    `SELECT gp.id, gp.school_year_id, gp.name, gp.sequence_number
+     FROM grading_periods gp
+     JOIN school_years sy ON sy.id = gp.school_year_id
+     WHERE $1::date BETWEEN gp.start_date AND gp.end_date
+     ORDER BY sy.is_current DESC, gp.id
      LIMIT 1`,
     [date]
   );
@@ -21,9 +28,9 @@ async function findByDate(date) {
 
 // findByDate, but confined to one school year's periods.
 //
-// findByDate above searches every period in the table and breaks ties with
-// ORDER BY id, so when two school years have overlapping date ranges the
-// older one silently wins. Nothing in the schema prevents that overlap:
+// findByDate above searches every period in the table (preferring the
+// current school year), so for a row being STORED it is still the wrong
+// tool: the row's own school year must decide. Nothing in the schema prevents that overlap:
 // grading_periods only constrains UNIQUE (school_year_id, sequence_number),
 // never the dates. That is harmless for the "what period is today" readers,
 // but a write filed under the wrong year is permanent — so every caller
@@ -69,7 +76,7 @@ async function findCurrentWithSchoolYear(date) {
      FROM grading_periods gp
      JOIN school_years sy ON sy.id = gp.school_year_id
      WHERE $1::date BETWEEN gp.start_date AND gp.end_date
-     ORDER BY gp.id
+     ORDER BY sy.is_current DESC, gp.id
      LIMIT 1`,
     [date]
   );

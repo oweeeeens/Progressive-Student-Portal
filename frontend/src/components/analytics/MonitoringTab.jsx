@@ -24,7 +24,8 @@ function statDetails(data) {
     learners: {
       title: 'Learners',
       subtitle: t.learners,
-      definition: `Active learners in a section of school year ${data.period.schoolYear || ''}.`,
+      definition: `Active, enrolled learners in a section of school year ${data.period.schoolYear || ''} — the same learners the Enrolled Student List and the class rosters count.`,
+      rules: ['A learner marked dropped, transferred or graduated is not counted, and is no longer on any class roster.'],
       breakdown: [
         { label: 'Learners', value: t.learners },
         { label: 'Class enrollments (learner × class)', value: t.enrollments },
@@ -51,6 +52,7 @@ function statDetails(data) {
       title: 'At risk',
       subtitle: `${t.atRisk.total} of ${t.assessed}`,
       definition: 'Learners with any risk factor triggered (risk score above 0) in this period, out of those assessed — the same At Risk as everywhere on Analytics.',
+      rules: ['In the per-section table, each learner is counted under the section they are in now. The assessment does not record which section a learner was in at the time, so a learner who has since moved is shown under their new section.'],
       breakdown: [
         { label: 'High', value: t.atRisk.high },
         { label: 'Medium', value: t.atRisk.medium },

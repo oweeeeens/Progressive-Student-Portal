@@ -3,6 +3,9 @@
 // student list. Read-only, and every figure comes from the same tables the
 // rest of the system uses — no report keeps a copy of anything.
 const { pool } = require('../config/db');
+// The one definition of who is on a class roster (models/enrollmentModel.js),
+// so every count here matches the rosters the rest of the system shows.
+const { ON_ROSTER_SQL } = require('./enrollmentModel');
 
 // --- Adviser gradesheet -----------------------------------------------------
 
@@ -35,14 +38,53 @@ async function listSectionOfferings(sectionId) {
   return result.rows;
 }
 
-// The learners in the section now (active), in roll order.
-async function listSectionStudents(sectionId) {
+// Every learner who belongs on the section's gradesheet, in roll order:
+//   - the active learners in the section now, whatever their enrollment
+//     status (a dropped learner's finalized grades are still official);
+//   - AND active learners who were enrolled in one of the section's classes
+//     and have since moved to another section ('moved' rows). Their
+//     finalized grades from this section live on this section's classes, so
+//     without them those grades appeared on no gradesheet at all (found
+//     2026-11-24).
+// Each row carries where the learner is now, their status, and the other
+// sections of this school year they moved here FROM — so the report can say
+// why a row has blank terms instead of letting a blank read as "not
+// finalized yet".
+async function listGradesheetStudents(sectionId, schoolYearId) {
   const result = await pool.query(
-    `SELECT id, lrn, first_name, middle_name, last_name, sex
-     FROM students
-     WHERE current_section_id = $1 AND is_active = TRUE
-     ORDER BY last_name, first_name, id`,
-    [sectionId]
+    `SELECT s.id, s.lrn, s.first_name, s.middle_name, s.last_name, s.sex,
+            s.enrollment_status, s.current_section_id, cur.name AS current_section_name,
+            (SELECT string_agg(DISTINCT osec.name, ', ')
+               FROM class_enrollments oce
+               JOIN class_offerings oco ON oco.id = oce.class_offering_id
+               JOIN sections osec ON osec.id = oco.section_id
+              WHERE oce.student_id = s.id AND oce.status = 'moved'
+                AND oco.section_id <> $1 AND oco.school_year_id = $2) AS moved_from
+     FROM students s
+     LEFT JOIN sections cur ON cur.id = s.current_section_id
+     WHERE s.is_active = TRUE AND (
+       s.current_section_id = $1
+       OR EXISTS (
+         SELECT 1 FROM class_enrollments ce
+         JOIN class_offerings co ON co.id = ce.class_offering_id
+         WHERE ce.student_id = s.id AND co.section_id = $1 AND co.is_active = TRUE
+       )
+     )
+     ORDER BY s.last_name, s.first_name, s.id`,
+    [sectionId, schoolYearId]
+  );
+  return result.rows;
+}
+
+// Which of these classes each learner was ever enrolled in (current or
+// moved). A class a learner was never in is "not enrolled" on the
+// gradesheet, not "not finalized yet", and is left out of their count.
+async function listEnrollmentPairs(offeringIds, studentIds) {
+  if (offeringIds.length === 0 || studentIds.length === 0) return [];
+  const result = await pool.query(
+    `SELECT student_id, class_offering_id FROM class_enrollments
+     WHERE class_offering_id = ANY($1::int[]) AND student_id = ANY($2::int[])`,
+    [offeringIds, studentIds]
   );
   return result.rows;
 }
@@ -96,7 +138,10 @@ async function listOfferingGrades(offeringId) {
 // number of classes each is enrolled in (class_enrollments). Filters are
 // optional and combine; each is a query parameter, never interpolated.
 async function listEnrolledStudents({ gradeLevel, sectionId, strand, status } = {}) {
-  const clauses = ['s.is_active = TRUE', 'sy.is_current = TRUE'];
+  // Active sections only, matching listCurrentSections below — otherwise a
+  // learner in a deactivated section counts in the total but in no
+  // per-section row, and the rows stop adding up to the total.
+  const clauses = ['s.is_active = TRUE', 'sy.is_current = TRUE', 'sec.is_active = TRUE'];
   const params = [];
   // Enrollment status (enrolled / dropped / transferred / ...). The report
   // defaults to 'enrolled' in the controller; null means every status.
@@ -120,8 +165,12 @@ async function listEnrolledStudents({ gradeLevel, sectionId, strand, status } = 
     `SELECT s.id, s.lrn, s.first_name, s.middle_name, s.last_name, s.sex, s.enrollment_status,
             sec.id AS section_id, sec.name AS section_name, sec.grade_level, sec.strand,
             sy.label AS school_year, u.full_name AS adviser_name,
+            -- The same classes the registration form lists: current
+            -- enrollments in ACTIVE classes of the section's school year.
             (SELECT COUNT(*)::int FROM class_enrollments ce
-              WHERE ce.student_id = s.id AND ce.status = 'enrolled') AS subject_count
+               JOIN class_offerings co ON co.id = ce.class_offering_id
+              WHERE ce.student_id = s.id AND ce.status = 'enrolled'
+                AND co.is_active = TRUE AND co.school_year_id = sec.school_year_id) AS subject_count
      FROM students s
      JOIN sections sec ON sec.id = s.current_section_id
      JOIN school_years sy ON sy.id = sec.school_year_id
@@ -164,14 +213,15 @@ async function listSectionEnrollment(schoolYearId) {
   const result = await pool.query(
     `SELECT sec.id, sec.name, sec.grade_level, sec.strand, u.full_name AS adviser_name,
             (SELECT COUNT(*)::int FROM students s
-              WHERE s.current_section_id = sec.id AND s.is_active = TRUE) AS learners,
+              WHERE s.current_section_id = sec.id AND s.is_active = TRUE
+                AND s.enrollment_status = 'enrolled') AS learners,
             (SELECT COUNT(*)::int FROM class_offerings co
               WHERE co.section_id = sec.id AND co.is_active = TRUE) AS classes,
             (SELECT COUNT(*)::int FROM class_enrollments ce
                JOIN class_offerings co ON co.id = ce.class_offering_id
                JOIN students s ON s.id = ce.student_id
               WHERE co.section_id = sec.id AND co.is_active = TRUE
-                AND ce.status = 'enrolled' AND s.is_active = TRUE) AS enrollments
+                AND ${ON_ROSTER_SQL}) AS enrollments
      FROM sections sec
      LEFT JOIN users u ON u.id = sec.adviser_id
      WHERE sec.school_year_id = $1 AND sec.is_active = TRUE
@@ -196,7 +246,7 @@ async function listClassGradeStatus(schoolYearId, periodId) {
      CROSS JOIN LATERAL (
        SELECT COUNT(*)::int AS enrolled FROM class_enrollments ce
        JOIN students s ON s.id = ce.student_id
-       WHERE ce.class_offering_id = co.id AND ce.status = 'enrolled' AND s.is_active = TRUE
+       WHERE ce.class_offering_id = co.id AND ${ON_ROSTER_SQL}
      ) roster
      LEFT JOIN LATERAL (
        SELECT COUNT(*) FILTER (WHERE gr.status = 'submitted')::int AS submitted,
@@ -204,9 +254,9 @@ async function listClassGradeStatus(schoolYearId, periodId) {
               COUNT(*) FILTER (WHERE gr.status = 'finalized')::int AS finalized,
               COUNT(*) FILTER (WHERE gr.status = 'rejected')::int AS rejected
        FROM grades gr
-       JOIN class_enrollments ce ON ce.student_id = gr.student_id AND ce.class_offering_id = gr.class_offering_id AND ce.status = 'enrolled'
-       JOIN students s ON s.id = gr.student_id AND s.is_active = TRUE
-       WHERE gr.class_offering_id = co.id AND gr.grading_period_id = $2
+       JOIN class_enrollments ce ON ce.student_id = gr.student_id AND ce.class_offering_id = gr.class_offering_id
+       JOIN students s ON s.id = gr.student_id
+       WHERE gr.class_offering_id = co.id AND gr.grading_period_id = $2 AND ${ON_ROSTER_SQL}
      ) g ON TRUE
      WHERE co.school_year_id = $1 AND co.is_active = TRUE
      ORDER BY sec.grade_level, sec.name, subj.name`,
@@ -235,6 +285,7 @@ async function listAtRiskBySection(periodId) {
 
 // --- Shared -------------------------------------------------------------------
 
+// A school year's grading periods, in term order — the tables a report draws.
 async function listPeriods(schoolYearId) {
   const result = await pool.query(
     `SELECT id, name, sequence_number, start_date, end_date
@@ -247,7 +298,8 @@ async function listPeriods(schoolYearId) {
 module.exports = {
   getSectionHeader,
   listSectionOfferings,
-  listSectionStudents,
+  listGradesheetStudents,
+  listEnrollmentPairs,
   listFinalizedGrades,
   getOfferingHeader,
   listOfferingGrades,

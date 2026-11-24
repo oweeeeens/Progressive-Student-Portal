@@ -14,13 +14,26 @@
 //                      the learner's grades and scores stay on that class
 const { pool } = require('../config/db');
 
-// The roster of one class: active learners enrolled in it now.
+// Who is ON a class roster, as SQL (aliases: ce = class_enrollments,
+// s = students). Three conditions, all needed:
+//   - the enrollment row is current ('enrolled', not 'moved');
+//   - the learner's record is active;
+//   - the learner's enrollment status is 'enrolled'. A learner the registrar
+//     marks dropped, transferred or graduated keeps their section and their
+//     enrollment rows (their grades stay on the class), but is no longer
+//     enrolled — found 2026-11-24: until then they stayed on every roster,
+//     could still be graded, and counted as "missing" grades on Monitoring
+//     while the Enrolled Student List (rightly) left them out.
+// Exported so the reports count exactly the learners the rosters list.
+const ON_ROSTER_SQL = "ce.status = 'enrolled' AND s.is_active = TRUE AND s.enrollment_status = 'enrolled'"
+
+// The roster of one class: the learners on it now (ON_ROSTER_SQL).
 async function getEnrolledStudents(classOfferingId) {
   const result = await pool.query(
     `SELECT s.id, s.lrn, s.first_name, s.middle_name, s.last_name, s.sex
      FROM class_enrollments ce
      JOIN students s ON s.id = ce.student_id
-     WHERE ce.class_offering_id = $1 AND ce.status = 'enrolled' AND s.is_active = TRUE
+     WHERE ce.class_offering_id = $1 AND ${ON_ROSTER_SQL}
      ORDER BY s.last_name, s.first_name, s.id`,
     [classOfferingId]
   );
@@ -39,7 +52,7 @@ async function findNotEnrolled(classOfferingId, studentIds) {
        SELECT 1 FROM class_enrollments ce
        JOIN students s ON s.id = ce.student_id
        WHERE ce.class_offering_id = $1 AND ce.student_id = wanted.id
-         AND ce.status = 'enrolled' AND s.is_active = TRUE
+         AND ${ON_ROSTER_SQL}
      )`,
     [classOfferingId, ids]
   );
@@ -75,4 +88,4 @@ async function listOfferingsForStudent(studentId, { schoolYearId = null, include
   return result.rows;
 }
 
-module.exports = { getEnrolledStudents, findNotEnrolled, listOfferingsForStudent };
+module.exports = { ON_ROSTER_SQL, getEnrolledStudents, findNotEnrolled, listOfferingsForStudent };

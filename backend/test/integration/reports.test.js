@@ -29,8 +29,11 @@ before(async () => {
   server = await startTestServer();
   api = createClient(server.baseUrl);
   const { schoolYearId, periods } = await fixtures.createSchoolYearWithPeriods('RPT', [
-    { name: 'T1', sequenceNumber: 1, startDate: '2043-06-01', endDate: '2043-08-31' },
-    { name: 'T2', sequenceNumber: 2, startDate: '2043-09-01', endDate: '2043-11-30' },
+    // In the PAST, so both terms have started: an empty cell then means "not
+    // submitted", which is what these tests count (a term that has not
+    // started is counted apart — see panelHardening.test.js).
+    { name: 'T1', sequenceNumber: 1, startDate: '2021-06-01', endDate: '2021-08-31' },
+    { name: 'T2', sequenceNumber: 2, startDate: '2021-09-01', endDate: '2021-11-30' },
   ]);
   ctx.schoolYearId = schoolYearId;
   [ctx.t1, ctx.t2] = periods;
@@ -169,7 +172,7 @@ test('class grades: enrolled learners × the periods the class runs, each grade 
   assert.deepEqual(row(ctx.a1).cells, [{ value: 85, status: 'finalized' }, { value: 90, status: 'submitted' }]);
   assert.deepEqual(row(ctx.a2).cells, [{ value: 72, status: 'finalized' }, null]);
   assert.equal(row(ctx.a1).finalizedAverage, 85);
-  assert.deepEqual(res.body.statusCounts, { submitted: 1, principal_verified: 0, finalized: 2, rejected: 0, none: 1 });
+  assert.deepEqual(res.body.statusCounts, { submitted: 1, principal_verified: 0, finalized: 2, rejected: 0, none: 1, notStarted: 0 });
   assert.ok(!res.body.rows.some((r) => r.studentId === ctx.b1.id), 'only learners enrolled in the class');
 
   const yRes = await api.get(`/api/reports/class-grades?classOfferingId=${ctx.y.id}`, { token: ctx.teacher.token });

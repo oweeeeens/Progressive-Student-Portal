@@ -11,6 +11,16 @@ function average(values) {
   return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100;
 }
 
+// Whether a grading period has begun by `today` (the school's local date,
+// YYYY-MM-DD; DATE columns come back as the same kind of string). A term
+// that has not started yet has no grades by definition, so its empty cells
+// are "not started", never counted as "not submitted" or "not finalized" —
+// the reports must not invent a backlog the school does not have.
+function periodStarted(period, today) {
+  if (!today || !period.start_date) return true;
+  return String(period.start_date).slice(0, 10) <= today;
+}
+
 function toSubject(o) {
   return {
     offeringId: o.id,
@@ -22,40 +32,83 @@ function toSubject(o) {
   };
 }
 
-// ADVISER GRADESHEET — every learner in the section × every subject the
+// Why a learner on a gradesheet is not simply "in this section, enrolled".
+// Said in words on the row, so nobody has to guess what a blank term means.
+const STATUS_NOTES = { dropped: 'Dropped', transferred: 'Transferred out', graduated: 'Graduated', pending: 'Enrollment pending' };
+function gradesheetNote(student, sectionId) {
+  if (student.current_section_id !== sectionId) {
+    return student.current_section_name ? `Moved to ${student.current_section_name}` : 'No longer in a section';
+  }
+  if (student.enrollment_status && student.enrollment_status !== 'enrolled') {
+    return STATUS_NOTES[student.enrollment_status] || student.enrollment_status;
+  }
+  if (student.moved_from) return `Moved here from ${student.moved_from}`;
+  return null;
+}
+
+// ADVISER GRADESHEET — every learner of the section × every subject the
 // section takes in that grading period, FINALIZED grades only, one table per
 // period. A subject not taught in a period (a Grade 12 subject runs one
-// term) is simply not a column in that period's table, so a blank cell can
-// only mean "taught, not finalized yet".
-function buildGradesheet({ header, periods, offerings, students, grades }) {
+// term) is simply not a column in that period's table.
+//
+// A cell is one of three things, and they are kept apart:
+//   a number        the finalized grade (the official record);
+//   null            the learner is in that class, the grade is not finalized yet;
+//   notEnrolled     the learner was never in that class (they joined the
+//                   section later, or left before it was added) — shown as
+//                   "n/e", and not counted against their "N of M finalized".
+// Learners who have moved on are kept, labelled ("Moved to STEM B"), because
+// their finalized grades from this section are official and would otherwise
+// appear on no gradesheet.
+function buildGradesheet({ header, periods, offerings, students, grades, enrollments = null, today = null }) {
   const gradeOf = new Map(grades.map((g) => [`${g.student_id}|${g.class_offering_id}|${g.grading_period_id}`, Number(g.grade_value)]));
+  // Without enrollment data (older callers) every learner counts as enrolled
+  // in every class, which is the old behaviour.
+  const enrolledIn = enrollments ? new Set(enrollments.map((e) => `${e.student_id}|${e.class_offering_id}`)) : null;
+  const isEnrolled = (studentId, offeringId) => !enrolledIn || enrolledIn.has(`${studentId}|${offeringId}`);
 
   const periodTables = periods.map((period) => {
     const subjects = offerings.filter((o) =>
       offeringCoversPeriod({ term: o.term, subjectCategory: o.subject_category, periodSequenceNumber: period.sequence_number })
     );
+    const started = periodStarted(period, today);
     const rows = students.map((s) => {
-      const values = subjects.map((o) => gradeOf.get(`${s.id}|${o.id}|${period.id}`) ?? null);
+      const notEnrolled = subjects.map((o) => !isEnrolled(s.id, o.id));
+      const values = subjects.map((o, i) => (notEnrolled[i] ? null : gradeOf.get(`${s.id}|${o.id}|${period.id}`) ?? null));
       const finalized = values.filter((v) => v !== null);
+      // A learner who has LEFT (moved on, dropped, transferred) will never
+      // get the rest of their grades here, so only the grades finalized
+      // before they left count — otherwise the section's "N of M finalized"
+      // could never reach M.
+      const hasLeft = s.current_section_id !== undefined && (s.current_section_id !== header.id || (s.enrollment_status && s.enrollment_status !== 'enrolled'));
+      // Nothing is expected yet of a term that has not started.
+      const expectedCount = !started || hasLeft ? finalized.length : notEnrolled.filter((x) => !x).length;
       return {
         studentId: s.id,
         lrn: s.lrn,
         name: fullName(s),
+        note: gradesheetNote(s, header.id),
         grades: values,
+        notEnrolled,
         finalizedCount: finalized.length,
+        // How many grades are expected of the learner in this period: the
+        // subjects they are in, or — once they have left — the ones they finished.
+        expectedCount,
+        hasLeft,
         // The average of the grades finalized so far. It is labelled as
         // such everywhere, because a learner with two of seven subjects
         // finalized does not have a general average yet.
         average: average(finalized),
-        complete: subjects.length > 0 && finalized.length === subjects.length,
+        complete: expectedCount > 0 && finalized.length === expectedCount,
       };
     });
-    const cellCount = rows.length * subjects.length;
+    const cellCount = rows.reduce((sum, r) => sum + r.expectedCount, 0);
     const finalizedCells = rows.reduce((sum, r) => sum + r.finalizedCount, 0);
     return {
       periodId: period.id,
       periodName: period.name,
       sequenceNumber: period.sequence_number,
+      started,
       subjects: subjects.map(toSubject),
       rows,
       finalizedCells,
@@ -74,6 +127,8 @@ function buildGradesheet({ header, periods, offerings, students, grades }) {
     },
     subjects: offerings.map(toSubject),
     studentCount: students.length,
+    // Of those, the ones in the section and enrolled now.
+    currentCount: students.filter((s) => s.current_section_id === undefined || (s.current_section_id === header.id && (!s.enrollment_status || s.enrollment_status === 'enrolled'))).length,
     periods: periodTables,
     generatedAt: new Date(),
   };
@@ -82,18 +137,21 @@ function buildGradesheet({ header, periods, offerings, students, grades }) {
 // SUBJECT TEACHER'S CLASS GRADE REPORT — the learners enrolled in one class
 // × the grading periods the class runs in, with each grade and where it is
 // in the approval chain (submitted → verified → finalized, or rejected).
-function buildClassGrades({ header, periods, students, grades }) {
+function buildClassGrades({ header, periods, students, grades, today = null }) {
   const covered = periods.filter((p) =>
     offeringCoversPeriod({ term: header.term, subjectCategory: header.subject_category, periodSequenceNumber: p.sequence_number })
   );
   const gradeOf = new Map(grades.map((g) => [`${g.student_id}|${g.grading_period_id}`, g]));
-  const statusCounts = { submitted: 0, principal_verified: 0, finalized: 0, rejected: 0, none: 0 };
+  // none = a term that has started with no grade submitted yet;
+  // notStarted = an empty cell in a term that has not begun.
+  const statusCounts = { submitted: 0, principal_verified: 0, finalized: 0, rejected: 0, none: 0, notStarted: 0 };
 
   const rows = students.map((s) => {
     const cells = covered.map((p) => {
       const g = gradeOf.get(`${s.id}|${p.id}`);
       if (!g) {
-        statusCounts.none += 1;
+        if (periodStarted(p, today)) statusCounts.none += 1;
+        else statusCounts.notStarted += 1;
         return null;
       }
       statusCounts[g.status] += 1;
@@ -116,7 +174,7 @@ function buildClassGrades({ header, periods, students, grades }) {
       schoolYear: header.school_year,
       teacherName: header.teacher_name,
     },
-    periods: covered.map((p) => ({ periodId: p.id, periodName: p.name, sequenceNumber: p.sequence_number })),
+    periods: covered.map((p) => ({ periodId: p.id, periodName: p.name, sequenceNumber: p.sequence_number, started: periodStarted(p, today) })),
     rows,
     statusCounts,
     studentCount: students.length,

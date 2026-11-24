@@ -58,7 +58,7 @@ after(async () => {
     ownSchoolYear: false,
     userIds: ctx.userIds,
     studentIds: [ctx.s1.id, ctx.s2.id, ctx.s3.id, ctx.gone.id, ctx.dropped.id],
-    offeringIds: [ctx.offering.id],
+    offeringIds: [ctx.offering.id, ...(ctx.extraOffering ? [ctx.extraOffering.id] : [])],
     subjectIds: [ctx.subjectId],
     sectionIds: [ctx.g11.id, ctx.g12.id],
   });
@@ -127,4 +127,36 @@ test('exports: a PDF, and a workbook with the learners and the count per section
   const bySection = wb.getWorksheet('By Section');
   const last = bySection.getRow(bySection.rowCount);
   assert.deepEqual([last.getCell(2).value, last.getCell(4).value], ['Total', 3]);
+});
+
+// Found 2026-11-24: the count included classes that had been deactivated,
+// so the list said 2 subjects while the learner's registration form said 1.
+test('"subjects enrolled" counts only ACTIVE classes, the same as the registration form', async () => {
+  const subject = await fixtures.createTestSubject('enl-extra');
+  ctx.subjectExtra = subject.id;
+  ctx.extraOffering = await fixtures.createTestOffering({ subjectId: subject.id, sectionId: ctx.g11.id, teacherId: ctx.teacher.id, schoolYearId: ctx.yearId });
+  const count = async () => (await list(ctx.registrar.token)).body.students.find((s) => s.id === ctx.s1.id).subjectCount;
+  assert.equal(await count(), 2, 'enrolled in both classes of the section');
+  await pool.query('UPDATE class_offerings SET is_active = FALSE WHERE id = $1', [ctx.extraOffering.id]);
+  assert.equal(await count(), 1, 'a deactivated class is not counted');
+  const reg = await api.get(`/api/students/${ctx.s1.id}/registration`, { token: ctx.registrar.token });
+  assert.equal(reg.body.registration.subjects.length, 1, 'and the registration form agrees');
+  await pool.query('DELETE FROM class_enrollments WHERE class_offering_id = $1', [ctx.extraOffering.id]);
+  await pool.query('DELETE FROM class_offerings WHERE id = $1', [ctx.extraOffering.id]);
+  await pool.query('DELETE FROM subjects WHERE id = $1', [ctx.subjectExtra]);
+  ctx.extraOffering = null;
+});
+
+// Found 2026-11-24: a learner in a deactivated section counted in the total
+// but in no per-section row, so the rows stopped adding up to the total.
+test("a deactivated section's learners are not counted, so the section rows add up to the total", async () => {
+  await pool.query('UPDATE sections SET is_active = FALSE WHERE id = $1', [ctx.g12.id]);
+  try {
+    const res = await list(ctx.registrar.token);
+    assert.equal(res.status, 200);
+    assert.ok(!res.body.students.some((s) => s.id === ctx.s3.id), "the deactivated section's learner is not listed");
+    assert.equal(res.body.bySection.reduce((sum, s) => sum + s.count, 0), res.body.total);
+  } finally {
+    await pool.query('UPDATE sections SET is_active = TRUE WHERE id = $1', [ctx.g12.id]);
+  }
 });

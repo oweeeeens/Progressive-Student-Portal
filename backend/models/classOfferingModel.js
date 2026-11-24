@@ -21,7 +21,7 @@ async function getById(id) {
 // scores for (the server already lets the admin act on any class).
 async function listAllCurrent() {
   const result = await pool.query(
-    `SELECT co.id, co.term, subj.name AS subject_name, subj.category AS subject_category,
+    `SELECT co.id, co.term, co.section_id, subj.name AS subject_name, subj.category AS subject_category,
             sec.name AS section_name, sec.grade_level
      FROM class_offerings co
      JOIN subjects subj ON subj.id = co.subject_id

@@ -31,6 +31,9 @@ const {
   MINIMUM_REPORTABLE_GRADE,
 } = require('../config/gradingPolicy');
 
+// Who may READ a class record, by assignment: the class's teacher, the
+// section's adviser (who finalizes these grades), the principal (who
+// verifies them) and the admin.
 function canRead(user, offering) {
   return (
     user.role === 'admin' ||
@@ -40,6 +43,8 @@ function canRead(user, offering) {
   );
 }
 
+// Who may CHANGE a class record (items, scores, submit): the class's
+// teacher and the admin only — the adviser and principal read it.
 function canWrite(user, offering) {
   return user.role === 'admin' || offering.teacher_id === user.id;
 }
@@ -247,7 +252,9 @@ async function saveScores(req, res) {
 
 // POST /api/class-record/submit  Body: { classOfferingId, gradingPeriodId }
 // Recomputes every learner from the stored scores and submits each COMPLETE
-// term grade into the approval chain, with its breakdown as a snapshot.
+// term grade into the approval chain, with its breakdown as a snapshot. A
+// grade already in review whose value and breakdown are unchanged keeps its
+// status (see gradeModel.upsertSubmittedGrades).
 // Body may also carry `studentIds` to submit only some learners.
 // Incomplete learners are skipped and named; finalized grades are left
 // alone by gradeModel.upsertSubmittedGrades, exactly as before.
@@ -288,8 +295,14 @@ async function submitClassRecord(req, res) {
     })),
   });
 
+  // Grades already with the principal whose value and breakdown did not
+  // change are left alone by the upsert (their verification stands), so
+  // they are reported apart from the ones actually (re)submitted now.
+  const savedIds = new Set(saved.map((g) => g.student_id));
+  const unchanged = ready.filter((l) => !savedIds.has(l.studentId));
   res.status(201).json({
     submitted: saved.length,
+    unchanged: unchanged.length,
     grades: saved,
     skippedIncomplete: incomplete.map((l) => ({ studentId: l.studentId, name: `${l.lastName}, ${l.firstName}`, missing: l.computed.missing })),
     skippedFinalized: finalized.map((l) => ({ studentId: l.studentId, name: `${l.lastName}, ${l.firstName}` })),

@@ -27,8 +27,15 @@ const formatter = new Intl.DateTimeFormat('en-CA', {
 // 'en-CA' formats as YYYY-MM-DD, which is exactly the shape we want — but
 // the parts are read explicitly rather than trusting the locale's separator.
 function todayInSchoolTimezone() {
-  const parts = Object.fromEntries(formatter.formatToParts(new Date()).map((p) => [p.type, p.value]));
+  return dateInSchoolTimezone(new Date());
+}
+
+// Any moment as the school's local date, YYYY-MM-DD. Used for the dates
+// printed on and in the names of exported reports: toISOString() gives the
+// UTC date, which before 08:00 in Manila is still yesterday.
+function dateInSchoolTimezone(date) {
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((p) => [p.type, p.value]));
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-module.exports = { todayInSchoolTimezone, SCHOOL_TIMEZONE };
+module.exports = { todayInSchoolTimezone, dateInSchoolTimezone, SCHOOL_TIMEZONE };

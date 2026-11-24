@@ -20,8 +20,11 @@ import { defaultSelection } from '../utils/defaultSelection'
 // allows only the section's adviser (by assignment) or the admin.
 //
 // Only finalized grades — the official record — appear. A dash is a subject
-// taught in that period whose grade is not finalized yet; a subject not
-// taught in a period is simply not a column in that period's table.
+// taught in that period whose grade is not finalized yet; "n/e" is a class
+// the learner was never enrolled in (they joined the section later, or left
+// earlier); a subject not taught in a period is not a column at all.
+// Learners who have moved on stay listed, with a note, because their
+// finalized grades from this section are official.
 
 // The stat cards' explanations, from the data already on the page.
 function statDetails(data) {
@@ -31,8 +34,12 @@ function statDetails(data) {
     learners: {
       title: 'Learners',
       subtitle: data.studentCount,
-      definition: 'Active learners whose current section is this one.',
-      rules: ['A learner who moved to another section is listed on that section\'s gradesheet instead.'],
+      definition: 'Active learners of this section: those in it now, and those who were enrolled in its classes and have since moved.',
+      breakdown: [{ label: 'In the section and enrolled now', value: data.currentCount ?? data.studentCount }],
+      rules: [
+        'A learner who moved to another section stays listed here with a note, because their finalized grades from this section are official.',
+        'A learner who is dropped or transferred is labelled as such.',
+      ],
     },
     subjects: {
       title: 'Subjects',
@@ -56,13 +63,32 @@ function PeriodTable({ period }) {
   }
   const columns = [
     { key: 'n', header: '#', render: (r) => r.index },
-    { key: 'name', header: 'Learner', primary: true, plainText: (r) => r.name, render: (r) => <span className="cell-primary">{r.name}</span> },
+    {
+      key: 'name',
+      header: 'Learner',
+      primary: true,
+      plainText: (r) => (r.note ? `${r.name} (${r.note})` : r.name),
+      render: (r) => (
+        <span className="cell-primary">
+          {r.name}
+          {/* Why this row may have blanks: moved, dropped, transferred. */}
+          {r.note && <span className="text-muted"> · {r.note}</span>}
+        </span>
+      ),
+    },
     ...period.subjects.map((s, i) => ({
       key: `s${i}`,
       // Plain text: DataTable labels each cell with it on a phone.
       header: s.subjectCode || s.subjectName,
       align: 'center',
-      render: (r) => fieldValue(r.grades[i]),
+      render: (r) =>
+        r.notEnrolled?.[i] ? (
+          <span className="text-muted" title="Not enrolled in this class">
+            n/e
+          </span>
+        ) : (
+          fieldValue(r.grades[i])
+        ),
     })),
     {
       key: 'avg',
@@ -70,13 +96,14 @@ function PeriodTable({ period }) {
       align: 'center',
       render: (r) => (r.average === null ? fieldValue(null) : <strong>{r.average}</strong>),
     },
-    { key: 'fin', header: 'Finalized', align: 'center', render: (r) => `${r.finalizedCount} of ${period.subjects.length}` },
+    { key: 'fin', header: 'Finalized', align: 'center', render: (r) => `${r.finalizedCount} of ${r.expectedCount ?? period.subjects.length}` },
   ]
   return (
     <>
       <p className="help-text mb-3">
-        {period.finalizedCells} of {period.cellCount} grades finalized. — = taught this period, not finalized yet. Average is of the
-        grades finalized so far.
+        {period.started === false && <strong>{period.periodName} has not started yet, so no grade is expected. </strong>}
+        {period.finalizedCells} of {period.cellCount} grades finalized. — = taught this period, not finalized yet. n/e = not enrolled in
+        that class. A learner who has left counts only the grades finalized before leaving. Average is of the grades finalized so far.
       </p>
       <DataTable
         columns={columns}

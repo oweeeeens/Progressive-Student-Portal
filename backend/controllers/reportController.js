@@ -10,21 +10,27 @@ const reportModel = require('../models/reportModel');
 const enrollmentModel = require('../models/enrollmentModel');
 const { buildGradesheet, buildClassGrades, buildEnrolledList, buildMonitoring } = require('../services/reportBuilder');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
-const { todayInSchoolTimezone } = require('../utils/schoolDate');
+const { todayInSchoolTimezone, dateInSchoolTimezone } = require('../utils/schoolDate');
+const { VALID_ENROLLMENT_STATUS } = require('../utils/studentValidation');
 const { buildGradesheetPdf, buildClassGradesPdf, buildAllClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf } = require('../services/reportPdf');
 const { buildGradesheetWorkbook, buildClassGradesWorkbook, buildAllClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook } = require('../services/reportWorkbook');
 const classOfferingModel = require('../models/classOfferingModel');
 
-// The students.enrollment_status values (migration create-students).
-const ENROLLMENT_STATUSES = ['enrolled', 'pending', 'dropped', 'transferred', 'graduated'];
+// The students.enrollment_status values — the one list the student form
+// validates against (utils/studentValidation.js), not a copy of it.
+const ENROLLMENT_STATUSES = VALID_ENROLLMENT_STATUS;
 
 const PDF_TYPE = 'application/pdf';
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 // A filename-safe slug: "Grade 11 STEM A" → "grade-11-stem-a".
 const slug = (text) => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-const dateStamp = (d) => d.toISOString().slice(0, 10);
+// The school's local date for a filename: before 08:00 in Manila the UTC
+// date (toISOString) is still yesterday.
+const dateStamp = (d) => dateInSchoolTimezone(d);
 
+// A query value as a positive whole-number id, or null — so a malformed id
+// is answered with a 400, never passed to SQL.
 function positiveId(value) {
   const id = Number(value);
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -63,10 +69,15 @@ function gradesheet(format) {
     const [periods, offerings, students] = await Promise.all([
       reportModel.listPeriods(header.school_year_id),
       reportModel.listSectionOfferings(sectionId),
-      reportModel.listSectionStudents(sectionId),
+      reportModel.listGradesheetStudents(sectionId, header.school_year_id),
     ]);
-    const grades = await reportModel.listFinalizedGrades(offerings.map((o) => o.id), students.map((s) => s.id));
-    const data = buildGradesheet({ header, periods, offerings, students, grades });
+    const offeringIds = offerings.map((o) => o.id);
+    const studentIds = students.map((s) => s.id);
+    const [grades, enrollments] = await Promise.all([
+      reportModel.listFinalizedGrades(offeringIds, studentIds),
+      reportModel.listEnrollmentPairs(offeringIds, studentIds),
+    ]);
+    const data = buildGradesheet({ header, periods, offerings, students, grades, enrollments, today: todayInSchoolTimezone() });
     return sendReport(res, format, data, {
       pdf: buildGradesheetPdf,
       workbook: buildGradesheetWorkbook,
@@ -103,7 +114,7 @@ async function loadClassGrades(header) {
     enrollmentModel.getEnrolledStudents(header.id),
     reportModel.listOfferingGrades(header.id),
   ]);
-  return buildClassGrades({ header, periods, students, grades });
+  return buildClassGrades({ header, periods, students, grades, today: todayInSchoolTimezone() });
 }
 
 // ALL CLASSES — GET /api/reports/class-grades/all  (+ /export/pdf|excel)
@@ -118,13 +129,12 @@ function allClassGrades(format) {
     const sectionId = req.query.sectionId ? positiveId(req.query.sectionId) : null;
     if (req.query.sectionId && !sectionId) return res.status(400).json({ error: 'That section is not valid.' });
 
-    const offerings = isAdmin ? await classOfferingModel.listAllCurrent() : await classOfferingModel.listByTeacher(req.user.id);
-    const classes = [];
-    for (const offering of offerings) {
-      const header = await reportModel.getOfferingHeader(offering.id);
-      if (!header || (isAdmin && sectionId && header.section_id !== sectionId)) continue;
-      classes.push(await loadClassGrades(header));
-    }
+    let offerings = isAdmin ? await classOfferingModel.listAllCurrent() : await classOfferingModel.listByTeacher(req.user.id);
+    // Narrow to the section BEFORE loading anything, then load the classes
+    // side by side rather than one after another.
+    if (isAdmin && sectionId) offerings = offerings.filter((o) => o.section_id === sectionId);
+    const headers = await Promise.all(offerings.map((o) => reportModel.getOfferingHeader(o.id)));
+    const classes = await Promise.all(headers.filter(Boolean).map((header) => loadClassGrades(header)));
     const data = {
       scopeLabel: isAdmin ? (sectionId ? `All classes of ${classes[0]?.offering.sectionName || 'the section'}` : 'All classes') : `Classes taught by ${req.user.full_name}`,
       schoolYear: classes[0]?.offering.schoolYear || null,

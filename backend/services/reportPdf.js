@@ -46,26 +46,42 @@ function buildGradesheetPdf(data) {
     ],
     y
   );
-  y = drawMutedNote(doc, 'Only FINALIZED grades (the official record) are shown. — = not finalized yet. Average = the average of the grades finalized so far.', y);
+  y = drawMutedNote(doc, 'Only FINALIZED grades (the official record) are shown. — = not finalized yet. n/e = not enrolled in that class (joined the section later or left earlier). A learner who has left counts only the grades finalized before leaving. Average = the average of the grades finalized so far.', y);
 
   for (const period of data.periods) {
-    y = drawSectionHeading(doc, `${period.periodName} — ${period.finalizedCells} of ${period.cellCount} grades finalized`, y + 6);
+    y = drawSectionHeading(
+      doc,
+      period.started === false ? `${period.periodName} — not started yet` : `${period.periodName} — ${period.finalizedCells} of ${period.cellCount} grades finalized`,
+      y + 6
+    );
     if (period.subjects.length === 0 || period.rows.length === 0) {
       y = drawMutedNote(doc, period.subjects.length === 0 ? 'No subjects run in this grading period.' : 'No learners in this section.', y);
       continue;
     }
-    const fixed = [24, 170, 56];
+    // A Note column only when a row needs one (a learner who moved, or is
+    // no longer enrolled), so an ordinary section keeps the wider name column.
+    const withNotes = period.rows.some((r) => r.note);
+    const fixed = withNotes ? [24, 150, 96, 56] : [24, 170, 56];
     const each = (width - fixed.reduce((a, b) => a + b, 0)) / period.subjects.length;
+    const cell = (r) => r.grades.map((v, i) => (r.notEnrolled?.[i] ? 'n/e' : show(v)));
     y = drawTable(doc, {
       x: PAGE_MARGIN,
       y,
-      columnWidths: [fixed[0], fixed[1], ...period.subjects.map(() => each), fixed[2]],
-      headerRow: ['#', 'Learner', ...period.subjects.map(subjectLabel), 'Average'],
-      bodyRows: period.rows.map((r, i) => [String(i + 1), r.name, ...r.grades.map(show), show(r.average)]),
+      columnWidths: withNotes
+        ? [fixed[0], fixed[1], fixed[2], ...period.subjects.map(() => each), fixed[3]]
+        : [fixed[0], fixed[1], ...period.subjects.map(() => each), fixed[2]],
+      headerRow: withNotes
+        ? ['#', 'Learner', 'Note', ...period.subjects.map(subjectLabel), 'Average']
+        : ['#', 'Learner', ...period.subjects.map(subjectLabel), 'Average'],
+      bodyRows: period.rows.map((r, i) =>
+        withNotes
+          ? [String(i + 1), r.name, r.note || '', ...cell(r), show(r.average)]
+          : [String(i + 1), r.name, ...cell(r), show(r.average)]
+      ),
       fontSize: 8,
       rowHeight: 18,
       ellipsis: true,
-      leftAlign: [0, 1],
+      leftAlign: withNotes ? [0, 1, 2] : [0, 1],
     }) + 10;
   }
 
@@ -131,7 +147,7 @@ function drawClassGradesTable(doc, data, y, width) {
     bodyRows: data.rows.map((r, i) => [
       String(i + 1),
       r.name,
-      ...r.cells.map((c) => (c ? `${c.value} · ${SHORT_STATUS[c.status]}` : '—')),
+      ...r.cells.map((c, i) => (c ? `${c.value} · ${SHORT_STATUS[c.status]}` : data.periods[i].started === false ? 'not started' : '—')),
       show(r.finalizedAverage),
     ]),
     fontSize: 8,
@@ -268,6 +284,7 @@ function buildMonitoringPdf(data) {
   );
 
   y = drawSectionHeading(doc, 'Enrollment and at-risk learners per section', y);
+  y = drawMutedNote(doc, 'Learners = active, enrolled learners. At-risk learners are counted under the section they are in now.', y);
   y = drawTable(doc, {
     x: PAGE_MARGIN,
     y,

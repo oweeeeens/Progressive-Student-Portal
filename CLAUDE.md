@@ -672,6 +672,96 @@ after: the same lines, now on the right pages.
 
 **Tests:** `test/integration/reports.test.js`.
 
+## Panel Compliance Re-check (2026-11-24)
+
+The group asked for a final, thorough check of both evaluators' sheets
+before the first-week-of-December deadline.
+- **Every panel item works** and is reconciled against the database: every
+  section's gradesheet, every class report, every registration form, the
+  enrolled list's filters, and Monitoring for each period.
+- **A code review of the panel's code found real defects.** Each is fixed
+  and pinned by `test/integration/panelHardening.test.js` or
+  `enrolledList.test.js`. Each new test was checked to FAIL against the old
+  code.
+
+**What was fixed:**
+1. **Re-submitting no longer undoes the principal's verification.**
+   - **Before:** after one missing score was added, the teacher re-submitted
+     the class, and every principal-verified grade went back to Submitted
+     with `verified_by` erased.
+   - **Now:** `gradeModel.upsertSubmittedGrades` leaves a submitted or
+     verified grade untouched when its value and its breakdown are
+     unchanged (ignoring `computedAt`).
+   - The submit response adds `unchanged`, and the Class Record's toast says
+     so. A rejected grade is always resent.
+2. **A dropped, transferred or graduated learner is off every class roster.**
+   - **Before:** they kept their enrollment rows, so they stayed on the
+     Class Record, could be scored, and counted as "missing" grades on
+     Monitoring, while the Enrolled Student List (rightly) left them out.
+     On the dev data, 14 of Term 2's 25 "missing" grades were theirs.
+   - **Now:** there is one definition, `enrollmentModel.ON_ROSTER_SQL`
+     (current enrollment, active record, `enrollment_status = 'enrolled'`).
+     It is used by the roster readers, the Learner Outlook and every
+     Monitoring count.
+   - The rows themselves are untouched, so setting the learner back to
+     enrolled restores them.
+   - A teacher's read access to a learner they taught is unchanged.
+3. **The gradesheet keeps learners who moved.**
+   - **Before:** it listed only `current_section_id`, so a learner who moved
+     mid-year had their finalized grades from the old section on no
+     gradesheet at all.
+   - **Now:** `reportModel.listGradesheetStudents` adds learners with any
+     enrollment row in the section's classes. Each row carries a note:
+     "Moved to STEM B", "Moved here from ABM A", "Dropped" or "Transferred
+     out".
+   - A class the learner was never in shows "n/e" (not "not finalized"), and
+     is not counted against their "N of M".
+   - A learner who has left counts only the grades finalized before leaving,
+     so the section's total can reach 100%.
+   - The PDF adds a Note column when one is needed; Excel always has one.
+   - The enrollment dates cannot say who was in a class in Term 1: the
+     migration backfilled every row on 2026-11-18, mid-Term 2. That is why
+     this is decided by enrollment rows, not dates.
+4. **Enrolled Student List:**
+   - "Subjects enrolled" counts only active classes of the section's year,
+     the same as the registration form.
+   - Learners in a deactivated section are not counted, so the per-section
+     rows add up to the total.
+5. **"Which period is today" prefers the current school year.**
+   `gradingPeriodModel.findByDate` and `findCurrentWithSchoolYear` order by
+   `sy.is_current DESC` first, so an overlapping period from another year
+   can no longer take over Monitoring, Analytics or the dashboard.
+6. **Report dates use the school's timezone.** Filenames, "Generated on"
+   (PDF and Excel) and `pdfPrimitives.formatDate` all use the new
+   `utils/schoolDate.dateInSchoolTimezone`. Before 08:00 in Manila the UTC
+   date is still yesterday.
+7. **"All my classes" loads in parallel,** and the admin's section filter
+   is applied before loading.
+8. **A term that has not started is not a backlog.** Both grade reports
+   mark a period whose start date is after today (in the school's
+   timezone) as `started: false`. Its empty cells read "Not started yet",
+   are counted as `notStarted` rather than "Not submitted", and add nothing
+   to the gradesheet's "N of M finalized" (`reportBuilder.periodStarted`).
+   Before this, on 2026-11-24 a teacher's report showed 11 "Not submitted"
+   that were all Term 3 cells.
+9. **Monitoring says what it counts:** "Learners" means active, enrolled
+   learners, and at-risk learners are grouped by their current section,
+   because an assessment does not store the section a learner was in at the
+   time.
+
+**Measured:** 225 integration tests plus the unit suites, all green. A
+read-only reconciliation (`panel_reconcile.js` in the QA scratchpad) passes
+20 of 20 against the dev database; the walkthrough plans, the 54 new-account
+role checks and the full page sweep all pass.
+
+**Not built — the group's manuscript task:** the revised objectives
+(evaluator 1). They must cover:
+- each panel feature;
+- grades "computed" from the class record, not "encoded";
+- school enrollment stays on paper, while subject enrollment happens in the
+  System;
+- daily (SF2) attendance only.
+
 ## One Source of Truth for a Learner's Name and Email (2026-11-18)
 
 This came out of the panel's item 5 check, "no duplicated copies of student

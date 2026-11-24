@@ -3,6 +3,8 @@
 // current_section_id / grade_level / strand so analyticsCalculator.filterRows
 // can apply the page's filters and an adviser's section scope unchanged.
 const { pool } = require('../config/db');
+// Who is on a class roster: the one definition, shared with the Class Record.
+const { ON_ROSTER_SQL } = require('./enrollmentModel');
 
 const LEARNER_COLUMNS = `s.id AS student_id, s.first_name, s.last_name, s.current_section_id,
   sec.name AS section_name, sec.grade_level, sec.strand`;
@@ -58,15 +60,16 @@ async function getClassRecordDataForPeriod(periodId) {
     pool.query(
       `SELECT ${LEARNER_COLUMNS}
        FROM students s JOIN sections sec ON sec.id = s.current_section_id
-       WHERE s.is_active = TRUE AND s.id IN (
-         SELECT student_id FROM class_enrollments
-         WHERE status = 'enrolled' AND class_offering_id = ANY($1::int[]))`,
+       WHERE s.id IN (
+         SELECT ce.student_id FROM class_enrollments ce JOIN students s ON s.id = ce.student_id
+         WHERE ${ON_ROSTER_SQL} AND ce.class_offering_id = ANY($1::int[]))`,
       [offeringIds]
     ),
     // Each class's roster: who is enrolled in which class.
     pool.query(
-      `SELECT class_offering_id, student_id FROM class_enrollments
-       WHERE status = 'enrolled' AND class_offering_id = ANY($1::int[])`,
+      `SELECT ce.class_offering_id, ce.student_id
+       FROM class_enrollments ce JOIN students s ON s.id = ce.student_id
+       WHERE ${ON_ROSTER_SQL} AND ce.class_offering_id = ANY($1::int[])`,
       [offeringIds]
     ),
     // Grades already FINALIZED this term: official, so they are not part of

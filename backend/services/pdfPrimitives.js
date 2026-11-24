@@ -7,6 +7,7 @@
 // PDFKit is a low-level drawing API (no HTML/CSS, no layout engine), which
 // is why tables are drawn cell by cell and why callers track their own `y`
 // cursor down the page.
+const { SCHOOL_TIMEZONE } = require('../utils/schoolDate');
 const PDFDocument = require('pdfkit');
 const path = require('path');
 
@@ -32,8 +33,10 @@ const PAGE_BOTTOM = PAGE_HEIGHT - PAGE_MARGIN - 20;
 // ever split into separate repos, this path becomes the one thing to fix.
 const LOGO_PATH = path.join(__dirname, '..', '..', 'frontend', 'public', 'logo.png');
 
+// "November 24, 2026" in the SCHOOL's timezone, not the server's — a report
+// generated at 07:30 in Manila must not say it was made yesterday.
 function formatDate(date) {
-  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: SCHOOL_TIMEZONE });
 }
 
 // `landscape` for the wide reports (a gradesheet has a column per subject).

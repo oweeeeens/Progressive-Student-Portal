@@ -69,7 +69,21 @@ async function upsertSubmittedGrades({ classOfferingId, gradingPeriodId, recorde
                    verified_by = NULL, verified_at = NULL,
                    rejected_by = NULL, rejected_at = NULL, rejection_note = NULL,
                    finalized_by = NULL, finalized_at = NULL
+     -- Two kinds of row are left exactly as they are:
+     --   finalized   the official record; a teacher cannot take it back.
+     --   unchanged   a grade already submitted or principal-verified whose
+     --               value AND breakdown are the same as before (the
+     --               breakdown's computedAt stamp aside). Re-submitting the
+     --               class after adding one missing score used to send every
+     --               verified grade back to Submitted and erase who verified
+     --               it, so the principal had to verify them all again
+     --               (found 2026-11-24). A rejected grade is always resent.
      WHERE grades.status <> 'finalized'
+       AND NOT (
+         grades.status IN ('submitted', 'principal_verified')
+         AND grades.grade_value = EXCLUDED.grade_value
+         AND (grades.computation - 'computedAt') IS NOT DISTINCT FROM (EXCLUDED.computation - 'computedAt')
+       )
      RETURNING id, student_id, grade_value, status`,
     params
   );
