@@ -515,7 +515,7 @@ export function StudentHomePage() {
           <CalendarCheck size={18} strokeWidth={1.75} />
           <span>
             <strong>My Attendance</strong>
-            <span>Your daily record, the month calendar, and attendance per subject</span>
+            <span>Your daily record (SF2) and the month calendar</span>
           </span>
           <ChevronRight size={16} strokeWidth={2} />
         </Link>
