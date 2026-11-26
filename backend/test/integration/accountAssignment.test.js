@@ -119,10 +119,18 @@ test('an adviser created with a section and classes has them the moment they sig
   assert.ok(!holderSections.body.sections.some((s) => s.id === ctx.sectionA.id));
 });
 
-test('only the admin may link; a registrar can still create the bare account', async () => {
-  const refused = await register(ctx.registrar.token, { role: 'adviser', advisorySectionId: ctx.sectionB.id });
-  assert.equal(refused.status, 403);
-  assert.match(refused.body.error, /admin/i);
+// Since 2026-11-26 the registrar edits Academic Setup, so they may link too
+// (linking writes the same columns). Their own section here, so the other
+// tests' sections keep their holders.
+test('the registrar may link an account at creation, and still create a bare one', async () => {
+  // A section always has an adviser; linking the new account MOVES it to them.
+  const own = await fixtures.createTestSection({ schoolYearId: ctx.currentYearId, adviserId: ctx.holder.id, label: 'acct-reg' });
+  ctx.sectionIds.push(own.id);
+  const linked = await register(ctx.registrar.token, { role: 'adviser', advisorySectionId: own.id });
+  assert.equal(linked.status, 201, JSON.stringify(linked.body));
+  assert.equal(linked.body.linked.section.id, own.id);
+  const holder = await pool.query('SELECT adviser_id FROM sections WHERE id = $1', [own.id]);
+  assert.equal(holder.rows[0].adviser_id, linked.body.user.id, 'the database records the new adviser');
 
   const bare = await register(ctx.registrar.token, { role: 'adviser' });
   assert.equal(bare.status, 201);
@@ -161,7 +169,9 @@ test('editing an existing account can link it to a section, and the pickers list
   const listed = targets.body.sections.find((s) => s.id === ctx.sectionB.id);
   assert.ok(listed && listed.adviser_name, 'each section is listed with its current adviser');
   assert.ok(!targets.body.sections.some((s) => s.id === ctx.pastSection.id), 'past-year sections are not offered');
-  assert.equal((await api.get('/api/users/assignable-targets', { token: ctx.registrar.token })).status, 403);
+  // The registrar reads the pickers too (2026-11-26); an adviser does not.
+  assert.equal((await api.get('/api/users/assignable-targets', { token: ctx.registrar.token })).status, 200);
+  assert.equal((await api.get('/api/users/assignable-targets', { token: ctx.holder.token })).status, 403);
 
   const edited = await api.patch(`/api/users/${id}`, { token: ctx.admin.token, body: { advisorySectionId: ctx.sectionB.id } });
   assert.equal(edited.status, 200, JSON.stringify(edited.body));

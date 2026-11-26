@@ -70,7 +70,26 @@ const CREATABLE_ROLES = [
   'student',
 ];
 
+// Academic Setup — school years, grading periods, sections, subjects, class
+// offerings. The admin and the REGISTRAR change it (the registrar since
+// 2026-11-26, at the group's request: they keep the school's records, and
+// sections and classes are where those records are placed). The principal
+// reads it. Every setup route, and the account-linking rule (linking an
+// adviser or teacher writes the same two columns setup does), reads these
+// two lists, so they cannot drift apart.
+const ACADEMIC_SETUP_EDITORS = ['admin', 'registrar'];
+const ACADEMIC_SETUP_READERS = ['admin', 'registrar', 'principal'];
+
+// Roles that read the grade reports (gradesheet, class grade report) for
+// EVERY section and class, not only what they advise or teach: the admin,
+// and the registrar (2026-11-26), who keeps the school's records. Reports
+// are read-only.
+const ALL_GRADE_REPORT_READERS = ['admin', 'registrar'];
+
 module.exports = {
+  ACADEMIC_SETUP_EDITORS,
+  ACADEMIC_SETUP_READERS,
+  ALL_GRADE_REPORT_READERS,
   JWT_SECRET,
   JWT_EXPIRES_IN,
   REMEMBER_ME_EXPIRES_IN,

@@ -4,6 +4,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs'
 import { api } from '../api/client'
 import { Alert } from '../components/Alert'
 import { useAuth } from '../context/AuthContext'
+import { canManageAcademicSetup } from '../utils/permissions'
 import { useConfirm } from '../hooks/useConfirm'
 import { AssignmentPicker, EMPTY_ASSIGNMENT, describeTakeovers, assignmentPayload } from '../components/AssignmentPicker'
 
@@ -32,7 +33,10 @@ const LINKABLE_ROLES = ['adviser', 'subject_teacher']
 
 export function CreateAccountPage() {
   const { user: currentUser } = useAuth()
-  const isAdmin = currentUser?.role === 'admin'
+  // Linking an adviser or teacher to a section and classes writes the same
+  // columns Academic Setup does, so whoever may edit Academic Setup may link
+  // (the admin and the registrar; config/auth.js on the server).
+  const canLink = canManageAcademicSetup(currentUser?.role)
   const [assignment, setAssignment] = useState(EMPTY_ASSIGNMENT)
   const [targets, setTargets] = useState(null)
   const [confirm, confirmDialog] = useConfirm()
@@ -101,7 +105,7 @@ export function CreateAccountPage() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
-    const linking = isAdmin && LINKABLE_ROLES.includes(role)
+    const linking = canLink && LINKABLE_ROLES.includes(role)
     // Taking a section or class away from someone else is not a quiet
     // change: their menu loses it. Name who, and ask first.
     const takeovers = linking ? describeTakeovers(targets, assignment, null) : []
@@ -326,11 +330,11 @@ export function CreateAccountPage() {
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </label>
             {LINKABLE_ROLES.includes(role) &&
-              (isAdmin ? (
+              (canLink ? (
                 <AssignmentPicker value={assignment} onChange={setAssignment} onTargetsLoaded={setTargets} />
               ) : (
                 <p className="form-note">
-                  An admin links this account to the section it advises and the classes it teaches (User Management →
+                  The admin or the registrar links this account to the section it advises and the classes it teaches (User Management →
                   Edit, or Academic Setup). Until then its attendance and grade pages say there is nothing assigned.
                 </p>
               ))}

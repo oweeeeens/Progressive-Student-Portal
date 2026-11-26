@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Users, CheckCircle2, Clock, CircleDashed, BookOpen } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { seesAllGradeReports } from '../utils/permissions'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Alert } from '../components/Alert'
 import { StatCard, StatRow } from '../components/StatCard'
@@ -101,7 +102,9 @@ function ClassTable({ data }) {
 
 export function ClassGradesReportPage() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  // The admin and the registrar read every section's and class's report;
+  // everyone else reads only what they advise or teach (utils/permissions.js).
+  const seesAll = seesAllGradeReports(user?.role)
   const [offerings, setOfferings] = useState(null)
   const [offeringId, setOfferingId] = useState('')
   const [data, setData] = useState(null)
@@ -117,21 +120,21 @@ export function ClassGradesReportPage() {
   // The admin chooses from every current class; a teacher opens on their own.
   useEffect(() => {
     api
-      .get(isAdmin ? '/class-offerings/recordable' : '/class-offerings/mine')
+      .get(seesAll ? '/class-offerings/current' : '/class-offerings/mine')
       .then((res) => {
         setOfferings(res.classOfferings)
-        setOfferingId((current) => current || defaultSelection(res.classOfferings, !isAdmin))
+        setOfferingId((current) => current || defaultSelection(res.classOfferings, !seesAll))
       })
       .catch((err) => setError(`Couldn't load your classes: ${err.message}`))
-    if (isAdmin) {
+    if (seesAll) {
       api
         .get('/sections')
         .then((res) => setSections(res.sections))
         .catch((err) => setError(`Couldn't load the sections: ${err.message}`))
     }
-  }, [isAdmin])
+  }, [seesAll])
 
-  const allQuery = isAdmin && allSectionId ? `?sectionId=${allSectionId}` : ''
+  const allQuery = seesAll && allSectionId ? `?sectionId=${allSectionId}` : ''
   const reportPath = offeringId === ALL ? `/reports/class-grades/all${allQuery}` : `/reports/class-grades?classOfferingId=${offeringId}`
 
   useEffect(() => {
@@ -170,8 +173,8 @@ export function ClassGradesReportPage() {
           <label>
             <BookOpen size={16} strokeWidth={1.75} /> Class
             <select value={offeringId} onChange={(e) => setOfferingId(e.target.value)}>
-              {(isAdmin || !offeringId) && <option value="">— Choose a class —</option>}
-              {(isAdmin || (offerings || []).length > 1) && <option value={ALL}>{isAdmin ? 'All classes' : 'All my classes'}</option>}
+              {(seesAll || !offeringId) && <option value="">— Choose a class —</option>}
+              {(seesAll || (offerings || []).length > 1) && <option value={ALL}>{seesAll ? 'All classes' : 'All my classes'}</option>}
               {(offerings || []).map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.section_name} – {o.subject_name}
@@ -179,7 +182,7 @@ export function ClassGradesReportPage() {
               ))}
             </select>
           </label>
-          {isAdmin && offeringId === ALL && (
+          {seesAll && offeringId === ALL && (
             <label>
               Section
               <select value={allSectionId} onChange={(e) => setAllSectionId(e.target.value)}>
@@ -199,10 +202,10 @@ export function ClassGradesReportPage() {
       <NoAssignmentNotice kind="class" />
       {error && <Alert>{error}</Alert>}
       {exportError && <Alert>{exportError}</Alert>}
-      {offerings && offerings.length === 0 && !isAdmin && (
+      {offerings && offerings.length === 0 && !seesAll && (
         <p className="help-text">You do not teach a class this school year, so there is no class report to show.</p>
       )}
-      {isAdmin && !offeringId && <p className="help-text">Choose a class to see its grade report.</p>}
+      {seesAll && !offeringId && <p className="help-text">Choose a class to see its grade report.</p>}
       {loading && <SkeletonTable rows={8} columns={5} />}
 
       {data && (
@@ -244,7 +247,7 @@ export function ClassGradesReportPage() {
                 </h2>
                 <p className="help-text mb-3">
                   {cls.studentCount} learners enrolled · {c.finalized} finalized · {c.submitted + c.principal_verified + c.rejected} in the
-                  approval chain · {c.none} not submitted{isAdmin ? ` · Teacher ${cls.offering.teacherName || '—'}` : ''}
+                  approval chain · {c.none} not submitted{seesAll ? ` · Teacher ${cls.offering.teacherName || '—'}` : ''}
                 </p>
                 <ClassTable data={cls} />
               </section>

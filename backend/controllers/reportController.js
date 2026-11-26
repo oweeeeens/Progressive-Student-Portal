@@ -3,8 +3,8 @@
 // export — so a downloaded file always says exactly what the screen said.
 //
 // Access is by ASSIGNMENT, like every other permission in this system:
-//   gradesheet       the section's adviser (sections.adviser_id) or the admin
-//   class grades     the class's teacher (class_offerings.teacher_id) or the admin
+//   gradesheet       the section's adviser (sections.adviser_id), the admin or the registrar
+//   class grades     the class's teacher (class_offerings.teacher_id), the admin or the registrar
 //   enrolled list    the registrar or the admin
 const reportModel = require('../models/reportModel');
 const enrollmentModel = require('../models/enrollmentModel');
@@ -12,6 +12,7 @@ const { buildGradesheet, buildClassGrades, buildEnrolledList, buildMonitoring } 
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const { todayInSchoolTimezone, dateInSchoolTimezone } = require('../utils/schoolDate');
 const { VALID_ENROLLMENT_STATUS } = require('../utils/studentValidation');
+const { ALL_GRADE_REPORT_READERS } = require('../config/auth');
 const { buildGradesheetPdf, buildClassGradesPdf, buildAllClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf } = require('../services/reportPdf');
 const { buildGradesheetWorkbook, buildClassGradesWorkbook, buildAllClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook } = require('../services/reportWorkbook');
 const classOfferingModel = require('../models/classOfferingModel');
@@ -63,8 +64,8 @@ function gradesheet(format) {
     if (!sectionId) return res.status(400).json({ error: 'Choose a section.' });
     const header = await reportModel.getSectionHeader(sectionId);
     if (!header) return res.status(404).json({ error: 'Section not found.' });
-    if (req.user.role !== 'admin' && header.adviser_id !== req.user.id) {
-      return res.status(403).json({ error: 'A gradesheet is for the section\'s own adviser (or the admin).' });
+    if (!ALL_GRADE_REPORT_READERS.includes(req.user.role) && header.adviser_id !== req.user.id) {
+      return res.status(403).json({ error: 'A gradesheet is for the section\'s own adviser (or the admin or registrar).' });
     }
     const [periods, offerings, students] = await Promise.all([
       reportModel.listPeriods(header.school_year_id),
@@ -93,8 +94,8 @@ function classGrades(format) {
     if (!offeringId) return res.status(400).json({ error: 'Choose a class.' });
     const header = await reportModel.getOfferingHeader(offeringId);
     if (!header) return res.status(404).json({ error: 'Class not found.' });
-    if (req.user.role !== 'admin' && header.teacher_id !== req.user.id) {
-      return res.status(403).json({ error: 'A class grade report is for the class\'s own teacher (or the admin).' });
+    if (!ALL_GRADE_REPORT_READERS.includes(req.user.role) && header.teacher_id !== req.user.id) {
+      return res.status(403).json({ error: 'A class grade report is for the class\'s own teacher (or the admin or registrar).' });
     }
     const data = await loadClassGrades(header);
     return sendReport(res, format, data, {
@@ -125,7 +126,8 @@ async function loadClassGrades(header) {
 // Anyone teaching nothing gets an empty list, never someone else's classes.
 function allClassGrades(format) {
   return async (req, res) => {
-    const isAdmin = req.user.role === 'admin';
+    // The admin and the registrar read every class; anyone else, their own.
+    const isAdmin = ALL_GRADE_REPORT_READERS.includes(req.user.role);
     const sectionId = req.query.sectionId ? positiveId(req.query.sectionId) : null;
     if (req.query.sectionId && !sectionId) return res.status(400).json({ error: 'That section is not valid.' });
 

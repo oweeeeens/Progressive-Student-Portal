@@ -10,13 +10,16 @@
 // gap, using the same two columns Academic Setup writes.
 //
 // The rules, kept in one place for both endpoints:
-//   - only the admin may link (Academic Setup is admin-only too);
+//   - only whoever may edit Academic Setup may link — the admin and the
+//     registrar (config/auth.js ACADEMIC_SETUP_EDITORS), since linking writes
+//     the same two columns Academic Setup does;
 //   - only the two teaching roles may hold a section or a class;
 //   - only active sections and classes in the CURRENT school year — the
 //     same filter as /sections/mine and /class-offerings/mine, so whatever
 //     is linked here is exactly what the person will see when they sign in;
 //   - a section has exactly one adviser, so linking one that already has an
 //     adviser MOVES it (the form confirms first, naming who loses it).
+const { ACADEMIC_SETUP_EDITORS } = require('../config/auth');
 const { pool } = require('../config/db');
 
 const ASSIGNABLE_ROLES = ['adviser', 'subject_teacher'];
@@ -36,8 +39,8 @@ function readRequestedAssignments(body) {
 // Checks who may link what, and loads each target with its current holder.
 // Returns { ok: true, section, offerings } or { ok: false, status, error }.
 async function validateAssignments(requested, { actorRole, targetRole }) {
-  if (actorRole !== 'admin') {
-    return { ok: false, status: 403, error: 'Only the admin can link an account to a section or class (Academic Setup is admin-only).' };
+  if (!ACADEMIC_SETUP_EDITORS.includes(actorRole)) {
+    return { ok: false, status: 403, error: 'Only the admin or the registrar can link an account to a section or class.' };
   }
   if (!ASSIGNABLE_ROLES.includes(targetRole)) {
     return { ok: false, status: 400, error: 'Only an adviser or subject teacher account can advise a section or teach a class.' };

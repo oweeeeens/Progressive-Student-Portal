@@ -1,5 +1,5 @@
-// Mounted at /api/attendance/daily. Write access is admin/registrar (both
-// blanket, by role) or the section's actual adviser (by assignment —
+// Mounted at /api/attendance/daily. Write access is the admin (blanket, by
+// role) or the section's actual adviser (by assignment —
 // sections.adviser_id, not the role column); the real check is in
 // assertCanWriteSection. No role gate here: it isn't literally 'adviser'
 // that earns write access, it's being that section's adviser_id, which

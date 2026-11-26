@@ -10,6 +10,8 @@ const {
 } = require('../controllers/subjectController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+// Who reads and who changes Academic Setup: one list each, config/auth.js.
+const { ACADEMIC_SETUP_EDITORS, ACADEMIC_SETUP_READERS } = require('../config/auth');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -18,10 +20,10 @@ router.use(requireAuth);
 router.get('/', listActiveSubjects);
 
 // Academic Setup — admin only.
-router.get('/admin', requireRole('admin', 'principal'), listSubjectsForAdmin);
-router.post('/', requireRole('admin'), createSubject);
-router.put('/:id', requireRole('admin'), updateSubject);
-router.post('/:id/deactivate', requireRole('admin'), deactivateSubject);
-router.post('/:id/reactivate', requireRole('admin'), reactivateSubject);
+router.get('/admin', requireRole(...ACADEMIC_SETUP_READERS), listSubjectsForAdmin);
+router.post('/', requireRole(...ACADEMIC_SETUP_EDITORS), createSubject);
+router.put('/:id', requireRole(...ACADEMIC_SETUP_EDITORS), updateSubject);
+router.post('/:id/deactivate', requireRole(...ACADEMIC_SETUP_EDITORS), deactivateSubject);
+router.post('/:id/reactivate', requireRole(...ACADEMIC_SETUP_EDITORS), reactivateSubject);
 
 module.exports = router;

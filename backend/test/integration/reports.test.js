@@ -122,10 +122,13 @@ test('gradesheet: finalized grades only, one table per period, Term-2-only subje
   assert.ok(!p1.rows.some((r) => r.studentId === ctx.b1.id));
 });
 
-test('gradesheet: only the section\'s own adviser, or the admin', async () => {
+test('gradesheet: the section\'s own adviser, the admin or the registrar', async () => {
   const url = `/api/reports/gradesheet?sectionId=${ctx.sectionA.id}`;
   assert.equal((await api.get(url, { token: ctx.admin.token })).status, 200);
-  for (const who of ['adviserB', 'teacher', 'principal', 'registrar', 'studentUser']) {
+  // The registrar reads every section's gradesheet (2026-11-26), and exports it.
+  assert.equal((await api.get(url, { token: ctx.registrar.token })).status, 200);
+  assert.equal((await download(`/api/reports/gradesheet/export/excel?sectionId=${ctx.sectionA.id}`, ctx.registrar.token)).status, 200);
+  for (const who of ['adviserB', 'teacher', 'principal', 'studentUser']) {
     assert.equal((await api.get(url, { token: ctx[who].token })).status, 403, who);
   }
   assert.equal((await api.get('/api/reports/gradesheet', { token: ctx.adviserA.token })).status, 400);
@@ -180,10 +183,13 @@ test('class grades: enrolled learners × the periods the class runs, each grade 
   assert.deepEqual(yRes.body.rows.find((r) => r.studentId === ctx.a2.id).cells, [{ value: 88, status: 'principal_verified' }]);
 });
 
-test('class grades: only the class\'s own teacher, or the admin', async () => {
+test('class grades: the class\'s own teacher, the admin or the registrar', async () => {
   const url = `/api/reports/class-grades?classOfferingId=${ctx.x.id}`;
   assert.equal((await api.get(url, { token: ctx.admin.token })).status, 200);
-  for (const who of ['teacherB', 'adviserA', 'principal', 'registrar', 'studentUser']) {
+  // The registrar reads every class's report (2026-11-26), and exports it.
+  assert.equal((await api.get(url, { token: ctx.registrar.token })).status, 200);
+  assert.equal((await download(`/api/reports/class-grades/export/pdf?classOfferingId=${ctx.x.id}`, ctx.registrar.token)).status, 200);
+  for (const who of ['teacherB', 'adviserA', 'principal', 'studentUser']) {
     assert.equal((await api.get(url, { token: ctx[who].token })).status, 403, who);
   }
   assert.equal((await api.get('/api/reports/class-grades?classOfferingId=abc', { token: ctx.teacher.token })).status, 400);

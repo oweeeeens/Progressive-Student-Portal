@@ -8,6 +8,8 @@ const {
 } = require('../controllers/gradingPeriodController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+// Who reads and who changes Academic Setup: one list each, config/auth.js.
+const { ACADEMIC_SETUP_EDITORS, ACADEMIC_SETUP_READERS } = require('../config/auth');
 
 const router = express.Router();
 
@@ -18,8 +20,8 @@ router.get('/current', requireAuth, getCurrentPeriod);
 router.get('/', requireAuth, listCurrent);
 
 // Academic Setup — admin only.
-router.get('/admin', requireAuth, requireRole('admin', 'principal'), listBySchoolYear);
-router.post('/', requireAuth, requireRole('admin'), createGradingPeriod);
-router.put('/:id', requireAuth, requireRole('admin'), updateGradingPeriod);
+router.get('/admin', requireAuth, requireRole(...ACADEMIC_SETUP_READERS), listBySchoolYear);
+router.post('/', requireAuth, requireRole(...ACADEMIC_SETUP_EDITORS), createGradingPeriod);
+router.put('/:id', requireAuth, requireRole(...ACADEMIC_SETUP_EDITORS), updateGradingPeriod);
 
 module.exports = router;

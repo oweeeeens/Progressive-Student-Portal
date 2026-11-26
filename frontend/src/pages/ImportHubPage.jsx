@@ -73,7 +73,7 @@ export function ImportHubPage() {
           <p>There is nothing for you to import.</p>
           <p>Imports are for the teacher of a class, the section adviser, and the registrar.</p>
           <p>
-            If you advise a section or teach a class and it is not showing, ask the admin to link your account to it
+            If you advise a section or teach a class and it is not showing, ask the admin or the registrar to link your account to it
             (User Management → Edit, or Academic Setup).
           </p>
         </div>

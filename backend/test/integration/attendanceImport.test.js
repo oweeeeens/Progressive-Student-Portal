@@ -583,7 +583,7 @@ test("an adviser cannot import into another adviser's section", async () => {
   assert.equal(commitRes.status, 403);
 });
 
-test('a registrar can import the daily register; a teacher who does not advise the section cannot', async () => {
+test('only the section\'s adviser imports the daily register — not the registrar, not a teacher who does not advise it', async () => {
   const buffer = await buildGridWorkbook({
     month: 'OCTOBER',
     year: 2032,
@@ -592,14 +592,23 @@ test('a registrar can import the daily register; a teacher who does not advise t
   });
   const anchors = { lrnColumn: 1, dayRow: 4, month: 10, year: 2032 };
 
-  // Daily is the registrar's to write, same as on the marking sheet.
+  // The adviser of the section may.
   const daily = await runToValidate({
-    token: ctx.registrar.token,
+    token: ctx.adviser.token,
     buffer,
     anchors,
     target: { sectionId: ctx.section.id },
   });
   assert.equal(daily.validate.status, 200, JSON.stringify(daily.validate.body));
+
+  // The registrar may not (2026-11-26): the SF2 is the homeroom's register,
+  // and the registrar advises no section.
+  const asRegistrar = await api.upload(`${BASE}/inspect`, {
+    token: ctx.registrar.token,
+    buffer,
+    fields: { ...anchors, sectionId: ctx.section.id },
+  });
+  assert.equal(asRegistrar.status, 403);
 
   // Teaching a class in the section is not the same as advising it: the
   // daily register is the adviser's, so a subject teacher is turned away at
@@ -861,12 +870,12 @@ test('the SF2 template is DepEd\'s official form, filled in for the section and 
 });
 
 test('only someone who may import into the section can download its SF2 template', async () => {
-  for (const token of [ctx.otherAdviser.token, ctx.teacher.token]) {
+  for (const token of [ctx.otherAdviser.token, ctx.teacher.token, ctx.registrar.token]) {
     const { status } = await downloadSf2({ token, sectionId: ctx.section.id, month: 11, year: 2032 });
     assert.equal(status, 403);
   }
-  const registrar = await downloadSf2({ token: ctx.registrar.token, sectionId: ctx.section.id, month: 11, year: 2032 });
-  assert.equal(registrar.status, 200);
+  const adviser = await downloadSf2({ token: ctx.adviser.token, sectionId: ctx.section.id, month: 11, year: 2032 });
+  assert.equal(adviser.status, 200);
   const badMonth = await downloadSf2({ token: ctx.adviser.token, sectionId: ctx.section.id, month: 13, year: 2032 });
   assert.equal(badMonth.status, 400);
 });

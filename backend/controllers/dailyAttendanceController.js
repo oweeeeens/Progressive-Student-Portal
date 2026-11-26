@@ -1,5 +1,11 @@
 // Handlers for the adviser's daily/homeroom attendance register (SF2).
-// Write access: admin, registrar, or the adviser who owns the section.
+// Write access: the adviser who owns the section, or the admin.
+//
+// The registrar USED to have a blanket write grant here too. Removed on
+// 2026-11-26 at the group's request: the SF2 is the homeroom's register and
+// taking attendance is the adviser's job — the registrar advises no section.
+// The registrar still READS attendance (the read scope below), because they
+// keep the student records.
 const dailyAttendanceModel = require('../models/dailyAttendanceModel');
 const sectionModel = require('../models/sectionModel');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
@@ -14,10 +20,10 @@ async function assertCanWriteSection(req, res, sectionId) {
     res.status(400).json({ error: 'sectionId does not refer to an existing section.' });
     return null;
   }
-  // admin/registrar have blanket write access by role; everyone else must
-  // actually be this section's adviser_id regardless of their role label —
-  // see gradeController's matching comments for the full reasoning.
-  if (!['admin', 'registrar'].includes(req.user.role) && section.adviser_id !== req.user.id) {
+  // The admin has blanket write access by role; everyone else must actually
+  // be this section's adviser_id regardless of their role label — see
+  // gradeController's matching comments for the full reasoning.
+  if (req.user.role !== 'admin' && section.adviser_id !== req.user.id) {
     res.status(403).json({ error: 'You can only record attendance for your own advisory section.' });
     return null;
   }

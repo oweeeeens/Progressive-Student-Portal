@@ -16,6 +16,13 @@ async function listRecordableClassOfferings(req, res) {
   res.json({ classOfferings: offerings });
 }
 
+// Every active class of the current school year, for reading reports (the
+// class grade report's picker for the admin and registrar). Read-only: it
+// grants nothing in the Class Record, which still uses /recordable.
+async function listCurrentClassOfferings(req, res) {
+  res.json({ classOfferings: await classOfferingModel.listAllCurrent() });
+}
+
 async function listMyClassOfferings(req, res) {
   const offerings = await classOfferingModel.listByTeacher(req.user.id);
   res.json({ classOfferings: offerings });
@@ -140,6 +147,7 @@ async function reactivateClassOffering(req, res) {
 }
 
 module.exports = {
+  listCurrentClassOfferings,
   listRecordableClassOfferings,
   listMyClassOfferings,
   getRoster,

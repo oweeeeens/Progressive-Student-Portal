@@ -13,16 +13,25 @@
 // Academic Setup — school years, sections, subjects, class offerings,
 // grading periods.
 //
-// The principal reads all of it and changes none of it. They hold the
-// school-wide position, so the structure of the school year is theirs to
-// see; restructuring it stays with the admin. Mirrors the split in
-// routes/schoolYearRoutes.js and the three `/admin` read endpoints.
+// The admin and the REGISTRAR change it (the registrar since 2026-11-26, at
+// the group's request: the registrar keeps the school's records, and the
+// sections and classes are where those records are placed). The principal
+// reads all of it and changes none of it. Mirrors the split in the setup
+// routes (routes/schoolYearRoutes.js and the `/admin` read endpoints).
 export function canViewAcademicSetup(role) {
-  return ['admin', 'principal'].includes(role)
+  return ['admin', 'principal', 'registrar'].includes(role)
 }
 
 export function canManageAcademicSetup(role) {
-  return role === 'admin'
+  return ['admin', 'registrar'].includes(role)
+}
+
+// Roles that read the grade reports for EVERY section and class, not only
+// their own: the admin, and the registrar (2026-11-26), who keeps the
+// school's records. Mirrors reportController's guards. Read-only — a report
+// has no write path.
+export function seesAllGradeReports(role) {
+  return ['admin', 'registrar'].includes(role)
 }
 
 // --- Imports (the Import Data page and its sidebar link) -------------------
@@ -56,9 +65,10 @@ export function canImportStudents(role) {
   return ['admin', 'registrar'].includes(role)
 }
 
-// SF2 attendance sheets → the daily register: whoever may mark it.
+// SF2 attendance sheets → the daily register: whoever may mark it — the
+// section's adviser or the admin. Not the registrar since 2026-11-26.
 export function canImportAttendance(role, has) {
-  return ['admin', 'registrar'].includes(role) || showsAdvisingWork(role, has)
+  return role === 'admin' || showsAdvisingWork(role, has)
 }
 
 // A subject's DepEd e-Class Record → its class record: whoever teaches it.

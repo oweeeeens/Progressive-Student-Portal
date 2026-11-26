@@ -62,11 +62,11 @@ The client requested removing digital enrollment entirely — they want to keep 
 
 ## User Roles & Access
 - **Admin** — manages accounts (registration is admin-only, no public self-signup)
-- **Principal** — verifies/approves grades submitted by subject teachers (see Grade Approval Workflow below). One school-wide position, so they also *read* school-wide: Analytics, the Academic Progress Tracking dashboard, student records, and **Academic Setup — read-only** (school years, sections, subjects, class offerings, grading periods). The structure of the school year is theirs to see; restructuring it stays with the admin, and those four pages hide their write controls rather than letting them fail with a permission error. They hold no advisory section and teach no class, so the attendance and grade-entry pages are not shown to them. Logging interventions stays with advisers and guidance counselors — the principal approves grades and reads the rollup; the per-learner follow-up is not theirs.
+- **Principal** — verifies/approves grades submitted by subject teachers (see Grade Approval Workflow below). One school-wide position, so they also *read* school-wide: Analytics, the Academic Progress Tracking dashboard, student records, and **Academic Setup — read-only** (school years, sections, subjects, class offerings, grading periods). The structure of the school year is theirs to see; restructuring it stays with the admin and the registrar, and those four pages hide their write controls rather than letting them fail with a permission error. They hold no advisory section and teach no class, so the attendance and grade-entry pages are not shown to them. Logging interventions stays with advisers and guidance counselors — the principal approves grades and reads the rollup; the per-learner follow-up is not theirs.
 - **Advisers** — see only students in their own advisory section; finalize grades into the official record (final step of the approval workflow)
 - **Subject teachers** — submit initial grades for the classes they actually teach (scoped by class/subject, not by advisory section — a teacher may teach students across multiple sections)
 - **Guidance counselors** — view flagged/at-risk students (Academic Progress Tracking, Analytics). **Read-only since 2026-11-12: they no longer log or see interventions** (see Part B, "adviser only")
-- **Registrar staff** — manage student records; create student/staff portal accounts once a student has enrolled on paper (see REMOVED: Enrollment Management above)
+- **Registrar staff** — manage student records; create student/staff portal accounts once a student has enrolled on paper (see REMOVED: Enrollment Management above). **Since 2026-11-26** they also **edit Academic Setup**, read **every gradesheet and class grade report**, and **no longer mark attendance** (see "Registrar Access" below).
 - ~~**ICT faculty**~~ — **removed 2026-11-11** with Announcements, the only thing the role did (see REMOVED above).
 - **Students / Parents** — view own records only (no separate parent role yet — out of scope for Phase 1, students role covers this access level)
 
@@ -220,7 +220,7 @@ CLAUDE.md's Code Quality Standards ask for per-module orientation notes. Each ba
 - **Bulk Attendance Import** — the school's existing DepEd SF2 spreadsheets: learners down the side, school days across the top, a mark per cell. A different shape from the student import, so it has its own grid parser (`services/attendanceGridParser.js`). Five steps, and a day that already has attendance takes an explicit overwrite-or-skip decision. Writes the daily register, so it triggers the same risk recalculation the marking sheet does — once per grading period, never once per date. Every imported mark records which import wrote it (`import_id`), and correcting a day by hand clears that attribution.
   - **The template is DepEd's own SF2 (2026-11-17).** "Download SF2
     template" (`GET /api/attendance/bulk-import/template?sectionId=&month=&year=`,
-    section adviser/admin/registrar) serves the "School Form 2 (SF2)" sheet
+    the section's adviser or the admin) serves the "School Form 2 (SF2)" sheet
     of DepEd's School Forms workbook, bundled **byte-identical** in
     `backend/templates/` (source and DO 4 s.2014 / DO 11 s.2018 in its
     README). `services/sf2Template.js` edits the XML directly (ExcelJS
@@ -762,6 +762,38 @@ role checks and the full page sweep all pass.
   System;
 - daily (SF2) attendance only.
 
+## Registrar Access (2026-11-26)
+
+The group noticed that the registrar had **Daily Attendance** although they
+advise no section, but lacked the records they actually keep. Changed at
+their request:
+
+- **No attendance marking.** The SF2 daily register is the homeroom's, so
+  marking it is the adviser's job.
+  - The blanket registrar grant is gone from
+    `dailyAttendanceController.assertCanWriteSection`, which also guards the
+    SF2 import and its template.
+  - The sidebar link and the Import Data card are gone too
+    (`navigation.canMarkDaily`, `permissions.canImportAttendance`).
+  - The registrar still **reads** attendance (the section roster, and a
+    learner's history on the record), because they keep the records.
+- **Academic Setup: view and edit,** like the admin: school years, grading
+  periods, sections, subjects, class offerings.
+  - Every setup route reads `config/auth.js` `ACADEMIC_SETUP_EDITORS` /
+    `ACADEMIC_SETUP_READERS`.
+  - The principal stays read-only.
+  - Linking an adviser or teacher at account creation follows the same rule,
+    because it writes the same columns.
+- **Grade reports:** every section's gradesheet and every class's grade
+  report, read-only, with exports (`config/auth.js`
+  `ALL_GRADE_REPORT_READERS`; frontend `permissions.seesAllGradeReports`).
+  - The class picker uses the new read-only `GET /class-offerings/current`.
+  - `/class-offerings/recordable` is unchanged, so the registrar records no
+    scores in the Class Record.
+- **Tests:** `test/integration/registrarAccess.test.js`, checked to fail on
+  the old code. `accountAssignment`, `attendanceImport`, `classGradesAll`
+  and `reports` were updated to the new rules.
+
 ## One Source of Truth for a Learner's Name and Email (2026-11-18)
 
 This came out of the panel's item 5 check, "no duplicated copies of student
@@ -1137,8 +1169,9 @@ and creating the account set neither. Now:
   - `POST /auth/register` and `PATCH /users/:id` take `advisorySectionId` and
     `classOfferingIds` and write them in the **same transaction** as the
     account (`services/staffAssignment.js`).
-  - **Admin only,** like Academic Setup. A registrar still creates the bare
-    account and is told an admin links it.
+  - **The admin or the registrar,** like Academic Setup: linking writes
+    the same two columns (`config/auth.js` `ACADEMIC_SETUP_EDITORS`; the
+    registrar since 2026-11-26).
   - **Current school year, active rows only:** the same filter as
     `/sections/mine`.
   - A section has one adviser, so picking a held one **moves** it, after a

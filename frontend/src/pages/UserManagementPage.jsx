@@ -15,6 +15,7 @@ import { api } from '../api/client'
 import { useConfirm } from '../hooks/useConfirm'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
+import { canManageAcademicSetup } from '../utils/permissions'
 import { StatusPill } from '../components/StatusPill'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { StatCard, StatRow } from '../components/StatCard'
@@ -141,7 +142,8 @@ function AllAccountsTab() {
     const original = (accounts || []).find((a) => a.id === editingId)
     const roleChanged = original && original.role !== editForm.role
     const emailChanged = original && original.email.trim().toLowerCase() !== editForm.email.trim().toLowerCase()
-    const linking = currentUser?.role === 'admin' && LINKABLE_ROLES.includes(editForm.role)
+    // Whoever may edit Academic Setup may link (the admin and the registrar).
+    const linking = canManageAcademicSetup(currentUser?.role) && LINKABLE_ROLES.includes(editForm.role)
     const takeovers = linking ? describeTakeovers(assignTargets, editAssignment, editingId) : []
     if (roleChanged || emailChanged || takeovers.length > 0) {
       const ok = await confirm({
@@ -431,11 +433,11 @@ function AllAccountsTab() {
             <>
               <p className="text-muted text-sm">
                 Linked now: <strong>{(accounts || []).find((a) => a.id === editingId)?.assignment_summary || 'nothing yet'}</strong>.
-                {currentUser?.role === 'admin'
+                {canManageAcademicSetup(currentUser?.role)
                   ? ' Pick below to add a section or classes, or to move them to this account.'
-                  : ' An admin links accounts to sections and classes.'}
+                  : ' The admin or the registrar links accounts to sections and classes.'}
               </p>
-              {currentUser?.role === 'admin' && editingId && (
+              {canManageAcademicSetup(currentUser?.role) && editingId && (
                 <AssignmentPicker
                   key={editingId}
                   value={editAssignment}

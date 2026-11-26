@@ -7,7 +7,7 @@ const userModel = require('../models/userModel');
 const studentModel = require('../models/studentModel');
 const passwordReset = require('../services/passwordReset');
 const { createStudentAccount } = require('../services/accountCreation');
-const { CREATABLE_ROLES } = require('../config/auth');
+const { CREATABLE_ROLES, ACADEMIC_SETUP_EDITORS } = require('../config/auth');
 const staffAssignment = require('../services/staffAssignment');
 const { pool } = require('../config/db');
 
@@ -164,8 +164,8 @@ async function updateAccount(req, res) {
 // whoever holds it now, so the form can say who would lose it. Admin only,
 // like the linking itself.
 async function listAssignableTargets(req, res) {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Only the admin can link accounts to sections and classes.' });
+  if (!ACADEMIC_SETUP_EDITORS.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Only the admin or the registrar can link accounts to sections and classes.' });
   }
   res.json(await staffAssignment.listAssignableTargets());
 }

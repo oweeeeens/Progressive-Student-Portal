@@ -24,7 +24,7 @@ import {
   BookOpen,
   BookMarked,
 } from 'lucide-react'
-import { canViewAcademicSetup, canImportAnything, showsAdvisingWork, showsTeachingWork } from './permissions'
+import { canViewAcademicSetup, canImportAnything, showsAdvisingWork, showsTeachingWork, seesAllGradeReports } from './permissions'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
 
@@ -60,7 +60,10 @@ const advises = (has) => has === null || has.sections > 0
 // teaching pages. Each of those pages then says "nothing assigned yet"
 // rather than the link silently vanishing (utils/permissions.js,
 // showsAdvisingWork / showsTeachingWork, explains why).
-const canMarkDaily = (role, has) => ['admin', 'registrar'].includes(role) || showsAdvisingWork(role, has)
+// The daily register is the homeroom's: the section's adviser, or the admin.
+// The registrar lost it on 2026-11-26 (they advise no section; the server
+// refuses their writes too) but still reads attendance on a student record.
+const canMarkDaily = (role, has) => role === 'admin' || showsAdvisingWork(role, has)
 const canEnterGrades = (role, has) => role === 'admin' || showsTeachingWork(role, has)
 const canFinalizeGrades = (role, has) => role === 'admin' || showsAdvisingWork(role, has)
 // Verify Grades stays role-based on purpose: there's no "principal
@@ -158,12 +161,13 @@ export function getNavSections(role, has) {
     // The panel's reports (2026-11-18). Each link follows the same rule as
     // the server: the gradesheet is for whoever advises a section, the class
     // report for whoever teaches a class, the enrolled list for the
-    // registrar — and the admin sees all of them.
+    // registrar. The admin and the registrar read every gradesheet and class
+    // report (seesAllGradeReports).
     {
       label: 'Reports',
       items: [
-        { to: '/reports/gradesheet', label: 'Gradesheet', icon: Sheet, show: role === 'admin' || showsAdvisingWork(role, has) },
-        { to: '/reports/class-grades', label: 'Class Grades', icon: ClipboardList, show: role === 'admin' || showsTeachingWork(role, has) },
+        { to: '/reports/gradesheet', label: 'Gradesheet', icon: Sheet, show: seesAllGradeReports(role) || showsAdvisingWork(role, has) },
+        { to: '/reports/class-grades', label: 'Class Grades', icon: ClipboardList, show: seesAllGradeReports(role) || showsTeachingWork(role, has) },
         { to: '/reports/enrolled-students', label: 'Enrolled Students', icon: Users, show: ['admin', 'registrar'].includes(role) },
       ],
     },

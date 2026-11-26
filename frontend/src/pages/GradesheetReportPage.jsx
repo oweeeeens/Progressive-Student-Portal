@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Users, BookOpen, CheckCircle2, Layers } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { seesAllGradeReports } from '../utils/permissions'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Alert } from '../components/Alert'
 import { Tabs } from '../components/Tabs'
@@ -121,7 +122,9 @@ function PeriodTable({ period }) {
 
 export function GradesheetReportPage() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  // The admin and the registrar read every section's and class's report;
+  // everyone else reads only what they advise or teach (utils/permissions.js).
+  const seesAll = seesAllGradeReports(user?.role)
   const [sections, setSections] = useState(null)
   const [sectionId, setSectionId] = useState('')
   const [currentPeriodId, setCurrentPeriodId] = useState(null)
@@ -134,17 +137,17 @@ export function GradesheetReportPage() {
   // The admin chooses from every section; an adviser opens on their own.
   useEffect(() => {
     api
-      .get(isAdmin ? '/sections' : '/sections/mine')
+      .get(seesAll ? '/sections' : '/sections/mine')
       .then((res) => {
         setSections(res.sections)
-        setSectionId((current) => current || defaultSelection(res.sections, !isAdmin))
+        setSectionId((current) => current || defaultSelection(res.sections, !seesAll))
       })
       .catch((err) => setError(`Couldn't load your sections: ${err.message}`))
     api
       .get('/grading-periods/current')
       .then((res) => setCurrentPeriodId(res.gradingPeriod?.id ?? null))
       .catch(() => setCurrentPeriodId(null))
-  }, [isAdmin])
+  }, [seesAll])
 
   useEffect(() => {
     if (!sectionId) {
@@ -183,7 +186,7 @@ export function GradesheetReportPage() {
           <label>
             <Layers size={16} strokeWidth={1.75} /> Section
             <select value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
-              {(isAdmin || !sectionId) && <option value="">— Choose a section —</option>}
+              {(seesAll || !sectionId) && <option value="">— Choose a section —</option>}
               {(sections || []).map((s) => (
                 <option key={s.id} value={s.id}>
                   Grade {s.grade_level} – {s.name}
@@ -201,10 +204,10 @@ export function GradesheetReportPage() {
       </p>
       {error && <Alert>{error}</Alert>}
       {exportError && <Alert>{exportError}</Alert>}
-      {sections && sections.length === 0 && !isAdmin && (
+      {sections && sections.length === 0 && !seesAll && (
         <p className="help-text">You do not advise a section this school year, so there is no gradesheet to show.</p>
       )}
-      {isAdmin && !sectionId && <p className="help-text">Choose a section to see its gradesheet.</p>}
+      {seesAll && !sectionId && <p className="help-text">Choose a section to see its gradesheet.</p>}
       {loading && <SkeletonTable rows={8} columns={6} />}
 
       {data && (

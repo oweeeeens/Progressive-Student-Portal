@@ -229,7 +229,7 @@ export function HelpPage() {
             ) : (
               <>
                 <li>
-                  <strong>Missing a section or a class?</strong> Your advisory section and classes are linked to your account by the admin.
+                  <strong>Missing a section or a class?</strong> Your advisory section and classes are linked to your account by the admin or the registrar.
                 </li>
                 <li>
                   <strong>A learner’s details are wrong?</strong> The registrar keeps the student records.

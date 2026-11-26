@@ -27,8 +27,8 @@ const CONFLICT_DECISIONS = ['overwrite', 'skip'];
 
 // Only the daily (SF2) register is importable: the subject-level register
 // was removed on 2026-11-11 to keep the System to its title. Who may write
-// it is the marking sheet's own rule (the section's adviser, or the admin or
-// registrar), reused so the two paths cannot drift apart.
+// it is the marking sheet's own rule (the section's adviser, or the admin),
+// reused so the two paths cannot drift apart.
 async function assertCanWrite(req, res, { sectionId }) {
   if (!sectionId) {
     res.status(400).json({ error: 'sectionId is required for an attendance import.' });
@@ -279,7 +279,7 @@ async function commitImport(req, res) {
 // the section's learners, males first as the form prescribes. Built from
 // DepEd's own workbook (services/sf2Template.js), so the adviser fills in
 // the real form and imports it back unchanged. Same access as the import:
-// the section's adviser, the admin or the registrar.
+// the section's adviser or the admin.
 async function downloadTemplate(req, res) {
   const section = await assertCanWriteSection(req, res, Number(req.query.sectionId));
   if (!section) return;

@@ -72,11 +72,11 @@ test('a teacher gets every class they teach, each with its enrolled learners —
 });
 
 test('someone teaching nothing gets an empty list, never another teacher\'s classes', async () => {
-  for (const who of ['adviser', 'registrar']) {
-    const res = await all(ctx[who].token);
-    assert.equal(res.status, 200);
-    assert.deepEqual(res.body.classes, [], who);
-  }
+  const res = await all(ctx.adviser.token);
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.classes, []);
+  // The registrar is not "teaching nothing" here: since 2026-11-26 they read
+  // every class's report, like the admin (see the admin test below).
 });
 
 test('the admin sees every class, and can narrow to one section', async () => {

@@ -21,7 +21,7 @@ export function NoAssignmentNotice({ kind }) {
   if (kind === 'section' && assignments.sections === 0) {
     return (
       <Alert variant="info" title="You have no advisory section yet">
-        This page works on the section you advise. Ask the admin to link your account to your section (User Management
+        This page works on the section you advise. Ask the admin or the registrar to link your account to your section (User Management
         → Edit, or Academic Setup → Sections). It appears here as soon as they do.
       </Alert>
     )
@@ -29,7 +29,7 @@ export function NoAssignmentNotice({ kind }) {
   if (kind === 'class' && assignments.offerings === 0) {
     return (
       <Alert variant="info" title="You have no classes assigned yet">
-        This page works on the classes you teach. Ask the admin to link your account to your classes (User Management →
+        This page works on the classes you teach. Ask the admin or the registrar to link your account to your classes (User Management →
         Edit, or Academic Setup → Class Offerings). They appear here as soon as they do.
       </Alert>
     )
