@@ -41,6 +41,31 @@ const STATUS_VARIANTS = { submitted: 'warning', principal_verified: 'info', reje
 const COMPONENT_LABELS = { ww: 'Written/Oral Works', pt: 'Performance Tasks', ex: 'Examinations' }
 const PART_LABELS = { st1: 'Summative Test 1', st2: 'Summative Test 2', te: 'Term Exam' }
 const pct = (fraction) => `${Math.round(fraction * 100)}%`
+// The exam parts as DepEd's e-Class Record heads its columns.
+const PART_SHORT = { st1: 'ST1', st2: 'ST2', te: 'TE' }
+// A column's short heading, the way DepEd's e-Class Record numbers them:
+// 1, 2, 3 … under Written Works and Performance Tasks; ST1, ST2, TE under
+// Examinations. The full title stays on the button (tooltip and accessible
+// name) and in the key under the grid — a long title used to set the whole
+// column's width, which is what pushed the grid off the screen.
+const shortLabel = (group, item, index) => (group.key === 'ex' ? PART_SHORT[item.examPart] || item.title : String(index + 1))
+// Which components the grid shows: all, or one at a time for a long term.
+const VIEW_OPTIONS = [
+  { key: 'all', label: 'All' },
+  { key: 'ww', label: 'Written works' },
+  { key: 'pt', label: 'Performance tasks' },
+  { key: 'ex', label: 'Exams' },
+]
+// "Show computation" is remembered per browser — a personal preference, so
+// localStorage, guarded: storage can be blocked.
+const SHOW_CALC_KEY = 'studentPortal.classRecord.showComputation'
+function readShowCalc() {
+  try {
+    return localStorage.getItem(SHOW_CALC_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
 const fmt = (value) => (value === null || value === undefined ? '—' : Number(value).toFixed(2))
 
 // Scores as the inputs hold them: studentId -> { itemId: '17' }.
@@ -68,6 +93,12 @@ export function ClassRecordPage() {
   const [busy, setBusy] = useState(null)
   const [itemForm, setItemForm] = useState(null)
   const [itemFormError, setItemFormError] = useState(null)
+  // Compact entry (2026-11-26): the PS / WS columns are the System's
+  // arithmetic, not inputs, so they are off until asked for; the Initial
+  // and Term grade always show. And a long term can be entered one
+  // component at a time.
+  const [showCalc, setShowCalc] = useState(readShowCalc)
+  const [view, setView] = useState('all')
 
   const [confirm, confirmDialog] = useConfirm()
   const [showBreakdown, breakdownDialog] = useGradeBreakdown()
@@ -281,6 +312,39 @@ export function ClassRecordPage() {
     }
   }
 
+  function toggleShowCalc(on) {
+    setShowCalc(on)
+    try {
+      localStorage.setItem(SHOW_CALC_KEY, String(on))
+    } catch {
+      // Blocked storage: the choice lasts for this visit only.
+    }
+  }
+
+  // The groups the grid draws: the chosen component, or all of them. With
+  // the computation hidden, a component with no items yet has no column at
+  // all, so it is left out rather than drawn as an empty band.
+  const visibleGroups = groups.filter((g) => (view === 'all' || g.key === view) && (showCalc || g.items.length > 0))
+
+  // Spreadsheet keys: Enter moves down to the same item for the next
+  // learner, Shift+Enter up — a quiz is entered down the class list, as on
+  // paper and in Excel. Tab still moves across.
+  // A finalized learner's boxes are locked (disabled), so the move skips
+  // them and lands on the next learner whose score can still be typed.
+  function moveVertically(event, rowIndex, colKey) {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    const step = event.shiftKey ? -1 : 1
+    for (let row = rowIndex + step; row >= 0 && row < learners.length; row += step) {
+      const target = document.querySelector(`.class-record input[data-row="${row}"][data-col="${colKey}"]`)
+      if (target && !target.disabled) {
+        target.focus()
+        target.select()
+        return
+      }
+    }
+  }
+
   const ready = Boolean(classOfferingId && gradingPeriodId)
   const learners = record?.learners || []
   const completeCount = learners.filter((l) => previews[l.studentId]?.complete).length
@@ -384,13 +448,36 @@ export function ClassRecordPage() {
                   {completeCount} of {learners.length} learners have a complete set of scores
                 </span>
               </p>
+              <div className="class-record__toolbar">
+                <div className="class-record__view" role="group" aria-label="Components shown">
+                  {VIEW_OPTIONS.filter((o) => o.key === 'all' || groups.some((g) => g.key === o.key)).map((o) => (
+                    <button
+                      key={o.key}
+                      type="button"
+                      aria-pressed={view === o.key}
+                      className={`class-record__view-option${view === o.key ? ' is-selected' : ''}`}
+                      onClick={() => setView(o.key)}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+                <label className="class-record__calc-toggle">
+                  <input type="checkbox" checked={showCalc} onChange={(e) => toggleShowCalc(e.target.checked)} />
+                  Show computation (PS / WS)
+                </label>
+                <span className="help-text class-record__keys-hint">Enter moves down a column · Tab moves across</span>
+              </div>
+              {visibleGroups.length === 0 ? (
+                <p className="help-text">No items of this kind recorded for {record.period.name} yet.</p>
+              ) : (
               <div className="table-card class-record__scroll">
                 <table className="class-record">
                   <thead>
                     <tr>
                       <th rowSpan={2} className="class-record__name">Learner</th>
-                      {groups.map((g) => (
-                        <th key={g.key} colSpan={g.items.length + 2} className={`class-record__group class-record__group--${g.key}`}>
+                      {visibleGroups.map((g) => (
+                        <th key={g.key} colSpan={g.items.length + (showCalc ? 2 : 0)} className={`class-record__group class-record__group--${g.key}`}>
                           {g.label} <span className="text-muted">{pct(g.weight)}</span>
                         </th>
                       ))}
@@ -399,35 +486,43 @@ export function ClassRecordPage() {
                       <th rowSpan={2}>Status</th>
                     </tr>
                     <tr>
-                      {groups.map((g) => [
-                        ...g.items.map((item) => (
+                      {visibleGroups.map((g) => [
+                        ...g.items.map((item, index) => (
                           <th key={item.id} className="class-record__item" scope="col">
                             {canEdit ? (
-                              <button type="button" className="link-button" onClick={() => openEditItem(item)} title="Edit this item">
-                                {item.title} <Pencil size={11} strokeWidth={1.75} aria-hidden="true" />
+                              <button
+                                type="button"
+                                className="link-button"
+                                onClick={() => openEditItem(item)}
+                                title={`${item.title} — out of ${item.highestPossibleScore}. Click to edit.`}
+                                aria-label={`${item.title}, out of ${item.highestPossibleScore} — edit`}
+                              >
+                                {shortLabel(g, item, index)} <Pencil size={10} strokeWidth={1.75} aria-hidden="true" />
                               </button>
                             ) : (
-                              item.title
+                              <span title={item.title}>{shortLabel(g, item, index)}</span>
                             )}
-                            <span className="class-record__hps">
-                              {item.examPart ? `${PART_LABELS[item.examPart]} · ` : ''}of {item.highestPossibleScore}
-                            </span>
+                            <span className="class-record__hps">/{item.highestPossibleScore}</span>
                           </th>
                         )),
-                        <th key={`${g.key}-ps`} className="class-record__num class-record__calc">PS</th>,
-                        <th key={`${g.key}-ws`} className="class-record__num class-record__calc">WS</th>,
+                        ...(showCalc
+                          ? [
+                              <th key={`${g.key}-ps`} className="class-record__num class-record__calc">PS</th>,
+                              <th key={`${g.key}-ws`} className="class-record__num class-record__calc">WS</th>,
+                            ]
+                          : []),
                       ])}
                     </tr>
                   </thead>
                   <tbody>
-                    {learners.map((learner) => {
+                    {learners.map((learner, rowIndex) => {
                       const preview = previews[learner.studentId]
                       const locked = !canEdit || learner.grade?.status === 'finalized'
                       const name = `${learner.lastName}, ${learner.firstName}`
                       return (
                         <tr key={learner.studentId}>
                           <th scope="row" className="class-record__name">{name}</th>
-                          {groups.map((g) => {
+                          {visibleGroups.map((g) => {
                             const comp = preview.components.find((c) => c.key === g.key)
                             return [
                               ...g.items.map((item) => {
@@ -445,13 +540,23 @@ export function ClassRecordPage() {
                                       disabled={locked}
                                       aria-invalid={invalid || undefined}
                                       aria-label={`${name}, ${item.title}, out of ${item.highestPossibleScore}`}
+                                      data-row={rowIndex}
+                                      data-col={item.id}
+                                      onKeyDown={(e) => moveVertically(e, rowIndex, item.id)}
+                                      // A scroll over a focused number box must not change the
+                                      // score: blur it, so the wheel scrolls the page instead.
+                                      onWheel={(e) => e.currentTarget.blur()}
                                       onChange={(e) => setScore(learner.studentId, item.id, e.target.value)}
                                     />
                                   </td>
                                 )
                               }),
-                              <td key={`${g.key}-ps`} className="class-record__num class-record__calc">{fmt(comp?.percentageScore)}</td>,
-                              <td key={`${g.key}-ws`} className="class-record__num class-record__calc">{fmt(comp?.weightedScore)}</td>,
+                              ...(showCalc
+                                ? [
+                                    <td key={`${g.key}-ps`} className="class-record__num class-record__calc">{fmt(comp?.percentageScore)}</td>,
+                                    <td key={`${g.key}-ws`} className="class-record__num class-record__calc">{fmt(comp?.weightedScore)}</td>,
+                                  ]
+                                : []),
                             ]
                           })}
                           <td className="class-record__num">{fmt(preview.initialGrade)}</td>
@@ -481,6 +586,16 @@ export function ClassRecordPage() {
                   </tbody>
                 </table>
               </div>
+              )}
+              {/* The key to the numbered columns: which item each number is. */}
+              {visibleGroups.some((g) => g.items.length > 0) && (
+                <p className="class-record__key">
+                  {visibleGroups
+                    .filter((g) => g.items.length > 0)
+                    .map((g) => `${COMPONENT_LABELS[g.key]}: ${g.items.map((item, i) => `${shortLabel(g, item, i)} ${item.title}`).join(' · ')}`)
+                    .join('   |   ')}
+                </p>
+              )}
 
               {canEdit && (
                 <div className="sticky-action-bar">

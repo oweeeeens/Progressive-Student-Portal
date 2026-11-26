@@ -409,6 +409,24 @@ grade and its snapshot through the unchanged `gradeModel.upsertSubmittedGrades`.
   principal and admin. **Who can write:** the teacher and admin. All of
   this is by assignment.
 
+**Compact entry (2026-11-26).** The grid no longer needs sideways scrolling
+for an ordinary term. The group asked; the width came from the long item
+titles and the six PS/WS columns, not from the score boxes.
+- **Columns are numbered as in DepEd's e-Class Record:** 1, 2, 3 … under
+  WW and PT, and ST1, ST2, TE under Examinations, with "/HPS" below.
+  - The full title is in the button's tooltip and accessible name.
+  - A key under the grid names every column.
+- **PS / WS** sit behind a "Show computation" toggle, off by default and
+  remembered per browser. The Initial and Term grade always show.
+- **Narrow terms:** a segmented switch (All · Written works · Performance
+  tasks · Exams) shows one component at a time.
+- **Keys:** Enter / Shift+Enter move down and up a column, skipping locked
+  (finalized) learners; Tab moves across. The mouse wheel no longer changes
+  a focused score.
+- **Measured:** the demo class fits with no scroll at 1366 and 1440px. A
+  saved score round-trips to the database, and the shown PS/WS equal the
+  server's computation.
+
 **The breakdown is shown everywhere a grade is**
 (`components/GradeBreakdown.jsx`, the "View breakdown" action):
 - Verify Grades;
