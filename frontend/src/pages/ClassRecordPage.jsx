@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Pencil, Calculator, FileUp } from 'lucide-react'
+import { Plus, Pencil, Calculator, FileUp, Lock, Check, CheckCircle2, CircleDashed, TrendingDown, AlertTriangle, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { defaultSelection } from '../utils/defaultSelection'
@@ -99,6 +99,9 @@ export function ClassRecordPage() {
   // component at a time.
   const [showCalc, setShowCalc] = useState(readShowCalc)
   const [view, setView] = useState('all')
+  // The box being typed in, so its learner's row and its item's column can
+  // be lit (a crosshair): the teacher always sees whose score, on what.
+  const [focusCell, setFocusCell] = useState(null)
 
   const [confirm, confirmDialog] = useConfirm()
   const [showBreakdown, breakdownDialog] = useGradeBreakdown()
@@ -348,6 +351,49 @@ export function ClassRecordPage() {
   const ready = Boolean(classOfferingId && gradingPeriodId)
   const learners = record?.learners || []
   const completeCount = learners.filter((l) => previews[l.studentId]?.complete).length
+  // The pass mark comes from the server's policy (gradingPolicy.PASSING_GRADE);
+  // 75 is DepEd's, should an older server not send it.
+  const passingGrade = policy?.passingGrade ?? 75
+
+  // One cell's live state, from the draft against what the server last saved:
+  // missing (no score typed), invalid (outside 0..HPS) and dirty (unsaved).
+  function cellState(learner, item) {
+    const value = draft[learner.studentId]?.[item.id] ?? ''
+    const saved = learner.scores[item.id]
+    const savedValue = saved === undefined || saved === null ? null : Number(saved)
+    const nowValue = value === '' ? null : Number(value)
+    return {
+      value,
+      missing: value === '',
+      invalid: value !== '' && (Number.isNaN(nowValue) || nowValue < 0 || nowValue > item.highestPossibleScore),
+      dirty: nowValue !== savedValue,
+    }
+  }
+
+  // Per learner (over every item, not only the component on screen) and for
+  // the summary strip. A finalized learner's scores are locked, so their
+  // blanks are not work left to do and are not counted as missing.
+  const { rowStates, summary } = useMemo(() => {
+    const rows = {}
+    const totals = { missing: 0, invalid: 0, unsaved: 0, below: 0 }
+    for (const learner of learners) {
+      const finalized = learner.grade?.status === 'finalized'
+      let missing = 0
+      for (const item of items) {
+        const cell = cellState(learner, item)
+        if (cell.missing && !finalized) missing += 1
+        if (cell.invalid) totals.invalid += 1
+        if (cell.dirty) totals.unsaved += 1
+      }
+      rows[learner.studentId] = { missing }
+      totals.missing += missing
+      const term = previews[learner.studentId]?.termGrade
+      if (term !== null && term !== undefined && term < passingGrade) totals.below += 1
+    }
+    return { rowStates: rows, summary: totals }
+    // cellState reads draft and learners, both listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [learners, items, draft, previews, passingGrade])
 
   return (
     <div>
@@ -443,11 +489,49 @@ export function ClassRecordPage() {
             </div>
           ) : (
             <>
-              <p className="live-summary-bar">
-                <span>
-                  {completeCount} of {learners.length} learners have a complete set of scores
-                </span>
-              </p>
+              {/* What the grid says right now, as chips: each appears only when
+                  it applies, and every count comes from the same draft the
+                  boxes show, so the strip and the grid cannot disagree. */}
+              <ul className="class-record__summary" aria-live="polite" aria-label="Class record summary">
+                <li className={`cr-chip ${completeCount === learners.length ? 'cr-chip--good' : 'cr-chip--neutral'}`}>
+                  {completeCount === learners.length ? <CheckCircle2 size={14} strokeWidth={2} aria-hidden="true" /> : <Users size={14} strokeWidth={2} aria-hidden="true" />}
+                  <span>
+                    Complete <strong>{completeCount}</strong> of {learners.length}
+                  </span>
+                </li>
+                {summary.missing > 0 && (
+                  <li className="cr-chip cr-chip--warn">
+                    <CircleDashed size={14} strokeWidth={2} aria-hidden="true" />
+                    <span>
+                      <strong>{summary.missing}</strong> missing score{summary.missing === 1 ? '' : 's'}
+                    </span>
+                  </li>
+                )}
+                {summary.below > 0 && (
+                  <li className="cr-chip cr-chip--danger">
+                    <TrendingDown size={14} strokeWidth={2} aria-hidden="true" />
+                    <span>
+                      <strong>{summary.below}</strong> below {passingGrade}
+                    </span>
+                  </li>
+                )}
+                {summary.invalid > 0 && (
+                  <li className="cr-chip cr-chip--danger">
+                    <AlertTriangle size={14} strokeWidth={2} aria-hidden="true" />
+                    <span>
+                      <strong>{summary.invalid}</strong> invalid score{summary.invalid === 1 ? '' : 's'}
+                    </span>
+                  </li>
+                )}
+                {summary.unsaved > 0 && (
+                  <li className="cr-chip cr-chip--unsaved">
+                    <span className="cr-dot" aria-hidden="true" />
+                    <span>
+                      <strong>{summary.unsaved}</strong> unsaved change{summary.unsaved === 1 ? '' : 's'}
+                    </span>
+                  </li>
+                )}
+              </ul>
               <div className="class-record__toolbar">
                 <div className="class-record__view" role="group" aria-label="Components shown">
                   {VIEW_OPTIONS.filter((o) => o.key === 'all' || groups.some((g) => g.key === o.key)).map((o) => (
@@ -472,76 +556,141 @@ export function ClassRecordPage() {
                 <p className="help-text">No items of this kind recorded for {record.period.name} yet.</p>
               ) : (
               <div className="table-card class-record__scroll">
-                <table className="class-record">
+                <table className={`class-record${focusCell ? ' has-focus' : ''}`}>
                   <thead>
                     <tr>
                       <th rowSpan={2} className="class-record__name">Learner</th>
-                      {visibleGroups.map((g) => (
-                        <th key={g.key} colSpan={g.items.length + (showCalc ? 2 : 0)} className={`class-record__group class-record__group--${g.key}`}>
-                          {g.label} <span className="text-muted">{pct(g.weight)}</span>
+                      {visibleGroups.map((g, gi) => (
+                        <th
+                          key={g.key}
+                          colSpan={g.items.length + (showCalc ? 2 : 0)}
+                          className={`class-record__group class-record__group--${g.key} is-band-start${gi % 2 === 1 ? ' is-band-alt' : ''}`}
+                        >
+                          <span className="class-record__group-label">{g.label}</span>
+                          <span className="class-record__weight">{pct(g.weight)}</span>
                         </th>
                       ))}
-                      <th rowSpan={2} className="class-record__num">Initial grade</th>
-                      <th rowSpan={2} className="class-record__num">Term grade</th>
-                      <th rowSpan={2}>Status</th>
+                      <th colSpan={3} className="class-record__group class-record__group--result is-band-start is-result">
+                        <span className="class-record__group-label">Result</span>
+                      </th>
                     </tr>
                     <tr>
-                      {visibleGroups.map((g) => [
-                        ...g.items.map((item, index) => (
-                          <th key={item.id} className="class-record__item" scope="col">
-                            {canEdit ? (
-                              <button
-                                type="button"
-                                className="link-button"
-                                onClick={() => openEditItem(item)}
-                                title={`${item.title} — out of ${item.highestPossibleScore}. Click to edit.`}
-                                aria-label={`${item.title}, out of ${item.highestPossibleScore} — edit`}
-                              >
-                                {shortLabel(g, item, index)} <Pencil size={10} strokeWidth={1.75} aria-hidden="true" />
-                              </button>
-                            ) : (
-                              <span title={item.title}>{shortLabel(g, item, index)}</span>
-                            )}
-                            <span className="class-record__hps">/{item.highestPossibleScore}</span>
-                          </th>
-                        )),
-                        ...(showCalc
-                          ? [
-                              <th key={`${g.key}-ps`} className="class-record__num class-record__calc">PS</th>,
-                              <th key={`${g.key}-ws`} className="class-record__num class-record__calc">WS</th>,
-                            ]
-                          : []),
-                      ])}
+                      {visibleGroups.map((g, gi) => {
+                        const band = gi % 2 === 1 ? ' is-band-alt' : ''
+                        return [
+                          ...g.items.map((item, index) => (
+                            <th
+                              key={item.id}
+                              className={`class-record__item${band}${index === 0 ? ' is-band-start' : ''}${focusCell?.col === item.id ? ' is-focus-col' : ''}`}
+                              scope="col"
+                            >
+                              {canEdit ? (
+                                <button
+                                  type="button"
+                                  className="link-button"
+                                  onClick={() => openEditItem(item)}
+                                  title={`${item.title} — out of ${item.highestPossibleScore}. Click to edit.`}
+                                  aria-label={`${item.title}, out of ${item.highestPossibleScore} — edit`}
+                                >
+                                  {shortLabel(g, item, index)} <Pencil size={10} strokeWidth={1.75} aria-hidden="true" />
+                                </button>
+                              ) : (
+                                <span className="class-record__item-label" title={item.title}>{shortLabel(g, item, index)}</span>
+                              )}
+                              <span className="class-record__hps">/{item.highestPossibleScore}</span>
+                            </th>
+                          )),
+                          ...(showCalc
+                            ? [
+                                <th key={`${g.key}-ps`} className={`class-record__num class-record__calc${band}${g.items.length === 0 ? ' is-band-start' : ''}`}>PS</th>,
+                                <th key={`${g.key}-ws`} className={`class-record__num class-record__calc${band}`}>WS</th>,
+                              ]
+                            : []),
+                        ]
+                      })}
+                      <th className="class-record__num is-result is-band-start">Initial</th>
+                      <th className="class-record__num is-result class-record__term-col">Term grade</th>
+                      <th className="is-result">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {learners.map((learner, rowIndex) => {
                       const preview = previews[learner.studentId]
-                      const locked = !canEdit || learner.grade?.status === 'finalized'
+                      const finalized = learner.grade?.status === 'finalized'
+                      const locked = !canEdit || finalized
                       const name = `${learner.lastName}, ${learner.firstName}`
+                      const rowState = rowStates[learner.studentId]
+                      const below = preview.termGrade !== null && preview.termGrade < passingGrade
                       return (
-                        <tr key={learner.studentId}>
-                          <th scope="row" className="class-record__name">{name}</th>
-                          {visibleGroups.map((g) => {
+                        <tr
+                          key={learner.studentId}
+                          className={`${focusCell?.row === rowIndex ? 'is-focus-row' : ''}${finalized ? ' is-locked' : ''}`.trim() || undefined}
+                        >
+                          <th scope="row" className="class-record__name">
+                            <div className="class-record__name-inner">
+                            <span className="class-record__name-text">{name}</span>
+                            {finalized ? (
+                              <span className="cr-row-badge cr-row-badge--locked" title="Finalized — the scores behind this grade are locked">
+                                <Lock size={12} strokeWidth={2} aria-hidden="true" />
+                                <span className="sr-only">Finalized, scores locked</span>
+                              </span>
+                            ) : rowState.missing > 0 ? (
+                              <span className="cr-row-badge cr-row-badge--missing" title={`${rowState.missing} score${rowState.missing === 1 ? '' : 's'} still missing`}>
+                                {rowState.missing} missing
+                              </span>
+                            ) : (
+                              <span className="cr-row-badge cr-row-badge--complete" title="Every item has a score">
+                                <Check size={12} strokeWidth={2.5} aria-hidden="true" />
+                                <span className="sr-only">All scores in</span>
+                              </span>
+                            )}
+                            </div>
+                          </th>
+                          {visibleGroups.map((g, gi) => {
+                            const band = gi % 2 === 1 ? ' is-band-alt' : ''
                             const comp = preview.components.find((c) => c.key === g.key)
                             return [
-                              ...g.items.map((item) => {
-                                const value = draft[learner.studentId]?.[item.id] ?? ''
-                                const invalid = value !== '' && (Number(value) < 0 || Number(value) > item.highestPossibleScore)
+                              ...g.items.map((item, index) => {
+                                const cell = cellState(learner, item)
+                                const classes = [
+                                  'class-record__score',
+                                  band,
+                                  index === 0 ? 'is-band-start' : '',
+                                  focusCell?.col === item.id ? 'is-focus-col' : '',
+                                  !locked && cell.missing ? 'is-missing' : '',
+                                  cell.invalid ? 'is-invalid' : '',
+                                  cell.dirty ? 'is-dirty' : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')
+                                  .replace(/\s+/g, ' ')
+                                  .trim()
+                                if (locked) {
+                                  // A finalized (or read-only) score is a figure,
+                                  // not a box: nothing here can be typed into.
+                                  return (
+                                    <td key={item.id} className={`${classes} is-readonly`}>
+                                      {cell.value === '' ? (<><span className="text-muted" aria-hidden="true">—</span><span className="sr-only">no score</span></>) : cell.value}
+                                    </td>
+                                  )
+                                }
+                                const hints = [cell.missing ? 'no score yet' : '', cell.invalid ? `must be 0 to ${item.highestPossibleScore}` : '', cell.dirty ? 'not saved yet' : ''].filter(Boolean)
                                 return (
-                                  <td key={item.id} className="class-record__score">
+                                  <td key={item.id} className={classes}>
                                     <input
                                       type="number"
                                       min="0"
                                       max={item.highestPossibleScore}
                                       step="any"
                                       inputMode="decimal"
-                                      value={value}
-                                      disabled={locked}
-                                      aria-invalid={invalid || undefined}
-                                      aria-label={`${name}, ${item.title}, out of ${item.highestPossibleScore}`}
+                                      value={cell.value}
+                                      aria-invalid={cell.invalid || undefined}
+                                      aria-label={`${name}, ${item.title}, out of ${item.highestPossibleScore}${hints.length ? ` (${hints.join(', ')})` : ''}`}
+                                      title={cell.invalid ? `Highest possible is ${item.highestPossibleScore}` : undefined}
                                       data-row={rowIndex}
                                       data-col={item.id}
+                                      onFocus={() => setFocusCell({ row: rowIndex, col: item.id })}
+                                      onBlur={() => setFocusCell((current) => (current?.row === rowIndex && current?.col === item.id ? null : current))}
                                       onKeyDown={(e) => moveVertically(e, rowIndex, item.id)}
                                       // A scroll over a focused number box must not change the
                                       // score: blur it, so the wheel scrolls the page instead.
@@ -553,26 +702,44 @@ export function ClassRecordPage() {
                               }),
                               ...(showCalc
                                 ? [
-                                    <td key={`${g.key}-ps`} className="class-record__num class-record__calc">{fmt(comp?.percentageScore)}</td>,
-                                    <td key={`${g.key}-ws`} className="class-record__num class-record__calc">{fmt(comp?.weightedScore)}</td>,
+                                    <td key={`${g.key}-ps`} className={`class-record__num class-record__calc${band}${g.items.length === 0 ? ' is-band-start' : ''}`}>{fmt(comp?.percentageScore)}</td>,
+                                    <td key={`${g.key}-ws`} className={`class-record__num class-record__calc${band}`}>{fmt(comp?.weightedScore)}</td>,
                                   ]
                                 : []),
                             ]
                           })}
-                          <td className="class-record__num">{fmt(preview.initialGrade)}</td>
-                          <td className="class-record__num class-record__grade">
+                          <td className="class-record__num is-result is-band-start class-record__initial">{fmt(preview.initialGrade)}</td>
+                          <td className="class-record__num is-result class-record__term-col">
                             {preview.termGrade === null ? (
-                              <span className="text-muted" title="Every item needs a score before a grade is computed">—</span>
+                              <span className="cr-grade cr-grade--none" title="Every item needs a score before a grade is computed">
+                                —<span className="sr-only">no grade yet</span>
+                              </span>
                             ) : isDirty ? (
-                              <strong>{preview.termGrade}</strong>
+                              <span
+                                className={`cr-grade ${below ? 'cr-grade--below' : 'cr-grade--pass'}`}
+                                title={below ? `Below ${passingGrade} — preview of unsaved scores` : 'Preview of unsaved scores'}
+                              >
+                                {preview.termGrade}
+                                {below && <span className="sr-only"> (below {passingGrade})</span>}
+                              </span>
                             ) : (
-                              <button type="button" className="link-button" onClick={() => showBreakdown(`${name} — how the grade was computed`, learner.computed)}>
+                              <button
+                                type="button"
+                                className={`cr-grade cr-grade--button ${below ? 'cr-grade--below' : 'cr-grade--pass'}`}
+                                title={below ? `Below ${passingGrade} — see how it was computed` : 'See how it was computed'}
+                                aria-label={`${preview.termGrade}${below ? `, below ${passingGrade}` : ''} — how ${name}'s grade was computed`}
+                                onClick={() => showBreakdown(`${name} — how the grade was computed`, learner.computed)}
+                              >
                                 {preview.termGrade}
                               </button>
                             )}
                           </td>
-                          <td>
-                            {learner.grade && <StatusPill label={STATUS_LABELS[learner.grade.status]} variant={STATUS_VARIANTS[learner.grade.status]} />}
+                          <td className="is-result class-record__status">
+                            {learner.grade ? (
+                              <StatusPill label={STATUS_LABELS[learner.grade.status]} variant={STATUS_VARIANTS[learner.grade.status]} />
+                            ) : (
+                              <span className="text-muted class-record__not-submitted">Not submitted</span>
+                            )}
                             {learner.changedSinceSubmission && !isDirty && (
                               <p className="grade-rejection-note">Scores changed since submitting ({learner.grade.value} on record) — submit again.</p>
                             )}
@@ -587,14 +754,24 @@ export function ClassRecordPage() {
                 </table>
               </div>
               )}
-              {/* The key to the numbered columns: which item each number is. */}
+              {/* The key to the numbered columns: which item each number is,
+                  one row of chips per component. */}
               {visibleGroups.some((g) => g.items.length > 0) && (
-                <p className="class-record__key">
+                <div className="class-record__key" aria-label="Column key">
                   {visibleGroups
                     .filter((g) => g.items.length > 0)
-                    .map((g) => `${COMPONENT_LABELS[g.key]}: ${g.items.map((item, i) => `${shortLabel(g, item, i)} ${item.title}`).join(' · ')}`)
-                    .join('   |   ')}
-                </p>
+                    .map((g) => (
+                      <p key={g.key} className="class-record__key-row">
+                        <span className="class-record__key-label">{COMPONENT_LABELS[g.key]}:</span>{' '}
+                        {g.items.map((item, i) => (
+                          <span key={item.id} className="class-record__key-item">
+                            <b>{shortLabel(g, item, i)}</b> {item.title}
+                            {i < g.items.length - 1 ? ' · ' : ''}
+                          </span>
+                        ))}
+                      </p>
+                    ))}
+                </div>
               )}
 
               {canEdit && (

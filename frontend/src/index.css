@@ -1213,6 +1213,17 @@ th {
   background: var(--color-primary-light);
   color: var(--color-primary);
 }
+/* Dark theme: the primary blue on its own dark tint is ~4:1, short of AA
+   for pill-sized text (found by axe on 2026-11-26). Lifted toward the text
+   colour, still reading as blue. */
+:root[data-theme='dark'] .pill--info {
+  color: color-mix(in srgb, var(--color-primary) 60%, var(--color-text));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .pill--info {
+    color: color-mix(in srgb, var(--color-primary) 60%, var(--color-text));
+  }
+}
 /* Risk levels use the separate risk palette (see tokens above), not the
    brand-adjacent variants — kept visually distinct on purpose. */
 .pill--risk-low {
@@ -3530,6 +3541,10 @@ textarea[aria-invalid='true']:focus-visible {
    the true bottom edge; the matching padding re-adds visual breathing room. */
 .sticky-action-bar {
   position: sticky;
+  /* Above a table's own sticky cells (a pinned learner or grade column is
+     z-index 1), which otherwise paint over the bar as rows scroll under it.
+     Still below the top bar (15) and the drawer scrim (40). */
+  z-index: 5;
   bottom: calc(var(--space-6) * -1);
   margin: var(--space-5) calc(var(--space-6) * -1) calc(var(--space-6) * -1);
   padding: var(--space-4) var(--space-6);

@@ -427,6 +427,33 @@ titles and the six PS/WS columns, not from the score boxes.
   saved score round-trips to the database, and the shown PS/WS equal the
   server's computation.
 
+**The grid's visual redesign (2026-11-26).** The group said it looked
+lacking: a wall of identical white boxes that said nothing about the work.
+Only `ClassRecordPage.jsx` and `ClassRecord.css` changed, plus one policy
+field (`passingGrade`) from `gradingPolicy.PASSING_GRADE`.
+- **Structure:** each component is a band, with an amber rule on top, its
+  weight as a pill, a divider, and alternate bands tinted. A navy
+  "Result" zone holds Initial, Term grade and Status. The Term grade is
+  pinned to the right edge, as the learner is on the left. The focused
+  box lights its learner's row and its item's column.
+- **Live feedback, from the draft:**
+  - an empty box is dashed amber;
+  - an out-of-range score is red, with "Highest possible is N";
+  - an unsaved box has an amber dot;
+  - each learner shows a check, "N missing", or a lock if finalized. A
+    finalized row shows plain figures, not boxes.
+  - Chips above the grid say Complete x of y, missing, below 75, invalid
+    and unsaved, each only when it applies.
+- **The term grade is a pill:** success-tinted at 75 and up,
+  danger-tinted below. Never the risk-band colours.
+- **Colour is never the only signal:** every state is also in the box's
+  accessible name and a tooltip.
+- **`.sticky-action-bar` now has `z-index: 5`,** so pinned table cells no
+  longer paint over the Save bar.
+- **Checked:** the chip counts equal the grid and the server, a saved
+  score clears its dot, and the grid still fits at 1366 and 1440. axe
+  reports 0 violations in light and dark.
+
 **The breakdown is shown everywhere a grade is**
 (`components/GradeBreakdown.jsx`, the "View breakdown" action):
 - Verify Grades;

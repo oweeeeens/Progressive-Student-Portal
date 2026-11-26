@@ -67,16 +67,6 @@ thead .class-record__name {
   color: var(--color-text-muted);
 }
 
-/* Component group headers: the weight sits beside the name. */
-.class-record__group {
-  text-align: center;
-  border-left: 1px solid var(--color-border);
-}
-.class-record__group--ww,
-.class-record__group--pt,
-.class-record__group--ex {
-  color: var(--module-grades-ink);
-}
 
 /* Item columns are as narrow as their score box: a short heading ("1",
    "ST1") and "/20" under it, centred — the full title lives in the tooltip
@@ -104,17 +94,6 @@ thead .class-record__name {
   color: var(--color-text-muted);
 }
 
-.class-record__score input {
-  width: 3.4rem;
-  margin: 0;
-  padding: var(--space-1) var(--space-2);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.class-record__score input[aria-invalid='true'] {
-  border-color: var(--color-danger);
-  background: var(--color-danger-bg);
-}
 
 .class-record__num {
   text-align: right;
@@ -124,10 +103,6 @@ thead .class-record__name {
 .class-record__calc {
   background: var(--color-neutral-bg);
   color: var(--color-text-muted);
-}
-.class-record__grade {
-  font-size: var(--font-size-md);
-  font-weight: 600;
 }
 
 /* Add/edit item form inside the narrow modal: one column of fields. */
@@ -261,30 +236,30 @@ thead .class-record__name {
    time for a long term. A row of pressable buttons joined into one control. */
 .class-record__view {
   display: inline-flex;
+  gap: 2px;
+  padding: 3px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  background: var(--color-neutral-bg);
 }
 .class-record__view-option {
-  min-height: 32px;
+  min-height: 30px;
   padding: var(--space-1) var(--space-3);
   border: none;
-  border-radius: 0;
-  border-left: 1px solid var(--color-border);
-  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--color-text);
   font-size: var(--font-size-sm);
   font-weight: 500;
-}
-.class-record__view-option:first-child {
-  border-left: none;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
 }
 .class-record__view-option:hover:not(.is-selected) {
-  background: var(--color-primary-light);
+  background: var(--color-surface);
 }
 .class-record__view-option.is-selected {
   background: var(--color-primary);
-  color: var(--color-text-on-primary, #fff);
+  color: var(--color-text-on-primary);
+  box-shadow: var(--shadow-sm);
 }
 .class-record__calc-toggle {
   display: inline-flex;
@@ -297,13 +272,6 @@ thead .class-record__name {
 .class-record__keys-hint {
   margin: 0 0 0 auto;
 }
-/* Which item each numbered column is. */
-.class-record__key {
-  margin: var(--space-2) 0 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  white-space: pre-wrap;
-}
 @media (pointer: coarse) {
   .class-record__view-option {
     min-height: 44px;
@@ -312,5 +280,401 @@ thead .class-record__name {
 @media (max-width: 720px) {
   .class-record__keys-hint {
     display: none;
+  }
+}
+
+/* --- The grid, redesigned (2026-11-26) -------------------------------------
+   Structure: each DepEd component is its own band (a rule on top, a divider
+   on its left, alternate bands tinted) and the outcome sits in a "Result"
+   zone, so WW, PT, EX and the grade read as four blocks, not one wall of
+   boxes. Feedback: every box says whether it is missing, invalid or unsaved
+   as it is typed, and colour is never the only signal (each state is also
+   in the box's accessible name, a tooltip, and the chips above the grid).
+   Every colour here is a token: the Grades module amber, the semantic
+   success/warning/danger, and the brand navy for the result zone. The risk
+   band palette is never used — a term grade below 75 is not a risk level. */
+
+/* Bands. */
+.class-record .is-band-alt {
+  background-color: color-mix(in srgb, var(--module-grades-soft) 60%, var(--color-surface));
+}
+.class-record .is-band-start {
+  border-left: 2px solid color-mix(in srgb, var(--module-grades) 30%, var(--color-border));
+}
+.class-record .is-result {
+  background-color: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+}
+.class-record .is-result.is-band-start {
+  border-left-color: color-mix(in srgb, var(--color-primary) 30%, var(--color-border));
+}
+
+/* Component header: an amber rule on top, the name, and the weight as a pill. */
+.table-card .class-record thead th.class-record__group {
+  text-align: center;
+  border-top: 3px solid var(--module-grades);
+  color: var(--module-grades-ink);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.06em;
+}
+.table-card .class-record thead th.class-record__group--result {
+  border-top-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.class-record__group-label {
+  vertical-align: middle;
+}
+.class-record__weight {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--module-grades);
+  color: var(--color-text-on-primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+:root[data-theme='dark'] .class-record__weight {
+  color: var(--color-bg);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .class-record__weight {
+    color: var(--color-bg);
+  }
+}
+/* Header cells take the band's tint, not the table-card header wash. */
+.table-card .class-record thead th.is-band-alt {
+  background-color: color-mix(in srgb, var(--module-grades-soft) 80%, var(--color-surface));
+}
+.table-card .class-record thead th.is-result {
+  background-color: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  color: var(--color-primary);
+}
+:root[data-theme='dark'] .table-card .class-record thead th.is-result,
+:root[data-theme='dark'] .table-card .class-record thead th.class-record__group--result {
+  color: var(--color-text);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .table-card .class-record thead th.is-result,
+  :root:not([data-theme='light']) .table-card .class-record thead th.class-record__group--result {
+    color: var(--color-text);
+  }
+}
+
+/* Item headers: the number in the module's ink, "/20" as a quiet caption. */
+.class-record__item .link-button,
+.class-record__item-label {
+  color: var(--module-grades-ink);
+  font-weight: 700;
+}
+.class-record__item .link-button svg {
+  opacity: 0.55;
+}
+.class-record__item .link-button:hover svg {
+  opacity: 1;
+}
+
+/* Score boxes look like cells: flat, centred, tabular — still real inputs. */
+.class-record__score input {
+  width: 3.1rem;
+  min-height: 28px;
+  margin: 0;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  transition: border-color 120ms ease-out, background-color 120ms ease-out, box-shadow 120ms ease-out;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.class-record__score input::-webkit-outer-spin-button,
+.class-record__score input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.class-record__score input:hover {
+  border-color: var(--module-grades);
+}
+.class-record__score input:focus,
+.class-record__score input:focus-visible {
+  outline: none;
+  border-color: var(--module-grades);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--module-grades) 35%, transparent);
+}
+/* Missing: an empty box that still needs a score. */
+.class-record__score.is-missing input {
+  border-style: dashed;
+  border-color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning-bg) 70%, var(--color-surface));
+}
+/* Invalid: outside 0..highest possible score. */
+.class-record__score.is-invalid input,
+.class-record__score input[aria-invalid='true'] {
+  border-style: solid;
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-weight: 700;
+}
+/* Unsaved: a small amber dot in the cell's corner until the next save. */
+.class-record__score {
+  position: relative;
+  text-align: center;
+}
+/* Pinned to the box's top-right corner (the box is centred, 3.1rem wide),
+   not the cell's, which can be much wider than the box. */
+.class-record__score.is-dirty::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: calc(50% + 1.55rem - 5px);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--module-grades);
+  box-shadow: 0 0 0 2px var(--color-surface);
+  pointer-events: none;
+}
+/* Locked (finalized) or read-only: a figure, not an empty-looking box. */
+.class-record__score.is-readonly {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.class-record tr.is-locked .class-record__score.is-readonly {
+  color: var(--color-text-muted);
+}
+
+/* Crosshair: the focused box's learner row and item column, lightly lit.
+   An overlay image, so it sits over the band tint instead of replacing it. */
+.class-record tbody tr.is-focus-row > *,
+.class-record .is-focus-col {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--module-grades) 11%, transparent),
+    color-mix(in srgb, var(--module-grades) 11%, transparent)
+  );
+}
+.table-card .class-record thead th.is-focus-col {
+  box-shadow: inset 0 -3px 0 var(--module-grades);
+}
+.table-card .class-record tbody tr:hover > * {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--module-grades) 6%, transparent),
+    color-mix(in srgb, var(--module-grades) 6%, transparent)
+  );
+}
+.table-card .class-record tbody tr.is-focus-row > * {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--module-grades) 11%, transparent),
+    color-mix(in srgb, var(--module-grades) 11%, transparent)
+  );
+}
+.table-card .class-record tbody tr.is-focus-row th.class-record__name {
+  box-shadow: inset 3px 0 0 var(--module-grades), 1px 0 0 var(--color-border);
+}
+
+/* The learner cell: name, then the row's state at the far edge. */
+.table-card .class-record tbody th.class-record__name {
+  padding-right: var(--space-2);
+}
+.class-record__name-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.cr-row-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.cr-row-badge--complete {
+  min-width: 20px;
+  padding: 0;
+  justify-content: center;
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.cr-row-badge--missing {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+.cr-row-badge--locked {
+  min-width: 20px;
+  padding: 0;
+  justify-content: center;
+  background: var(--color-neutral-bg);
+  color: var(--color-text-muted);
+}
+
+/* The Result zone. The term grade is pinned to the right edge, so on a long
+   term (or a phone) the learner on the left and their grade on the right are
+   both always in view. Sticky cells need an opaque background. */
+.class-record__term-col {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  text-align: center !important;
+  box-shadow: -1px 0 0 var(--color-border);
+}
+.class-record tbody td.class-record__term-col {
+  background-color: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface));
+}
+.class-record__initial {
+  color: var(--color-text-muted);
+}
+.class-record__not-submitted {
+  font-size: var(--font-size-xs);
+}
+
+/* The term grade as a pill: pass in success, below 75 in danger, none muted. */
+.cr-grade {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.cr-grade--pass {
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: color-mix(in srgb, var(--color-success) 75%, var(--color-text));
+}
+.cr-grade--below {
+  background: var(--color-danger-bg);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+  color: color-mix(in srgb, var(--color-danger) 80%, var(--color-text));
+}
+.cr-grade--none {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+button.cr-grade--button {
+  margin: 0;
+  cursor: pointer;
+  box-shadow: none;
+  transition: box-shadow 120ms ease-out;
+}
+button.cr-grade--button:hover {
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 25%, transparent);
+}
+
+/* The summary strip: one chip per thing worth knowing, only when it applies. */
+.class-record__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+.cr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 2px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+}
+.cr-chip strong {
+  font-variant-numeric: tabular-nums;
+}
+.cr-chip--neutral svg {
+  color: var(--color-text-muted);
+}
+.cr-chip--good {
+  background: var(--color-success-bg);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+.cr-chip--good svg {
+  color: var(--color-success);
+}
+.cr-chip--warn {
+  background: var(--color-warning-bg);
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+}
+.cr-chip--warn svg {
+  color: var(--color-warning);
+}
+.cr-chip--danger {
+  background: var(--color-danger-bg);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+}
+.cr-chip--danger svg {
+  color: var(--color-danger);
+}
+.cr-chip--unsaved {
+  background: var(--module-grades-soft);
+  border-color: color-mix(in srgb, var(--module-grades) 35%, transparent);
+}
+.cr-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--module-grades);
+}
+
+/* Which item each numbered column is: a line per component. */
+.class-record__key {
+  display: grid;
+  gap: 2px;
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.class-record__key-row {
+  margin: 0;
+}
+.class-record__key-label {
+  font-weight: 600;
+  color: var(--module-grades-ink);
+}
+.class-record__key-item b {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--module-grades-soft);
+  color: var(--module-grades-ink);
+  text-align: center;
+  font-weight: 700;
+}
+
+@media (pointer: coarse) {
+  .class-record__score input {
+    min-height: 44px;
+    width: 3.4rem;
+  }
+  .class-record__score.is-dirty::after {
+    left: calc(50% + 1.7rem - 5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .class-record__score input,
+  .class-record__view-option,
+  button.cr-grade--button {
+    transition: none;
   }
 }

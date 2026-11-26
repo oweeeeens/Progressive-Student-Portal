@@ -29,6 +29,7 @@ const {
   TERM_EXAM_ONLY_GROUPS,
   TRANSMUTATION_TABLE,
   MINIMUM_REPORTABLE_GRADE,
+  PASSING_GRADE,
 } = require('../config/gradingPolicy');
 
 // Who may READ a class record, by assignment: the class's teacher, the
@@ -98,6 +99,8 @@ function describePolicy(offering) {
     examPartWeights: Object.fromEntries(Object.entries(EXAM_PARTS).map(([k, v]) => [k, v.weight])),
     transmutationTable: TRANSMUTATION_TABLE,
     minimumGrade: MINIMUM_REPORTABLE_GRADE,
+    // The pass mark the page shades a term grade against (75, DepEd).
+    passingGrade: PASSING_GRADE,
     mode: GRADING_MODE,
     source: 'DepEd Order No. 015, s. 2026, Annex D',
   };
