@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Pencil, MessageCircle } from 'lucide-react'
+import { Pencil, MessageCircle, FileText } from 'lucide-react'
 import { api } from '../api/client'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Alert } from '../components/Alert'
@@ -50,6 +50,22 @@ function RegistrationForm({ studentId, isOwnCopy }) {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  // The PDF download (GET .../registration/export/pdf — same access rule as
+  // this page). A failure is said, never swallowed.
+  const [pdfBusy, setPdfBusy] = useState(false)
+  const [pdfError, setPdfError] = useState(null)
+
+  async function downloadPdf() {
+    setPdfBusy(true)
+    setPdfError(null)
+    try {
+      await api.downloadFile(`/students/${studentId}/registration/export/pdf`)
+    } catch (err) {
+      setPdfError(`Couldn't make the PDF: ${err.message}`)
+    } finally {
+      setPdfBusy(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -85,16 +101,24 @@ function RegistrationForm({ studentId, isOwnCopy }) {
       <Breadcrumbs items={crumbs} />
       <div className="page-header">
         <h1>Registration Form</h1>
-        {data?.canEdit && (
+        {reg && (
           <div className="page-header__actions">
-            <button type="button" className="btn-primary" onClick={() => navigate(`/students/${studentId}/edit?returnTo=registration`)}>
-              <Pencil size={16} strokeWidth={1.75} /> Edit details
+            {/* For the registrar and the learner alike: a printable copy to
+                sign (learner, parent or guardian, registrar). */}
+            <button type="button" onClick={downloadPdf} disabled={pdfBusy}>
+              <FileText size={16} strokeWidth={1.75} /> {pdfBusy ? 'Preparing PDF…' : 'Export PDF'}
             </button>
+            {data.canEdit && (
+              <button type="button" className="btn-primary" onClick={() => navigate(`/students/${studentId}/edit?returnTo=registration`)}>
+                <Pencil size={16} strokeWidth={1.75} /> Edit details
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {error && <Alert>{error}</Alert>}
+      {pdfError && <Alert>{pdfError}</Alert>}
       {!error && !reg && <SkeletonTable rows={8} columns={2} />}
 
       {reg && (

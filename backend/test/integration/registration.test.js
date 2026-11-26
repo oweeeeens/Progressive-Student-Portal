@@ -129,3 +129,38 @@ test('an edit saved through the student form appears on the registration form', 
   assert.equal(reg.address, 'Molino IV, Bacoor City');
   assert.equal(reg.guardian_name, 'Maria Reg Test');
 });
+
+// --- The PDF (2026-11-26) ---------------------------------------------------------
+// GET /api/students/:id/registration/export/pdf: the same form, the same access
+// rule as the page. Its content is the page's data (studentController.loadRegistration);
+// here, who gets the file and who is refused.
+async function pdfOf(token, id = ctx.student.id) {
+  const res = await fetch(`${server.baseUrl}/api/students/${id}/registration/export/pdf`, { headers: { Authorization: `Bearer ${token}` } });
+  return { status: res.status, type: res.headers.get('content-type'), disposition: res.headers.get('content-disposition'), buffer: Buffer.from(await res.arrayBuffer()) };
+}
+
+test('the registration PDF downloads for the registrar, the admin and the learner themself', async () => {
+  for (const who of ['registrar', 'admin', 'learnerUser']) {
+    const pdf = await pdfOf(ctx[who].token);
+    assert.equal(pdf.status, 200, who);
+    assert.equal(pdf.type, 'application/pdf', who);
+    assert.equal(pdf.buffer.subarray(0, 4).toString(), '%PDF', who);
+    assert.ok(pdf.disposition.startsWith('attachment; filename="Registration-form-'), who);
+    assert.ok(pdf.disposition.includes(`-${ctx.student.lrn}-`) && pdf.disposition.endsWith('.pdf"'), `${who}: ${pdf.disposition}`);
+  }
+});
+
+test('the registration PDF is refused to an adviser, a teacher and another learner, like the page', async () => {
+  for (const who of ['adviser', 'teacher', 'otherLearnerUser']) {
+    assert.equal((await pdfOf(ctx[who].token)).status, 403, who);
+  }
+  assert.equal((await pdfOf(ctx.registrar.token, 99999999)).status, 404);
+  assert.equal((await pdfOf(ctx.registrar.token, 'abc')).status, 400);
+});
+
+test('dates of birth print as written, never shifted by the server\'s timezone', () => {
+  const { formatBirthDate } = require('../../services/registrationPdf');
+  assert.equal(formatBirthDate('2009-05-01'), 'May 1, 2009');
+  assert.equal(formatBirthDate('2008-12-31'), 'December 31, 2008');
+  assert.equal(formatBirthDate(null), '—');
+});

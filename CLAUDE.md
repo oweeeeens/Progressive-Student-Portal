@@ -557,6 +557,19 @@ strand, school year, adviser, and the enrolled subjects with their teachers.
 - **Editing reuses the one student form:** "Edit details" opens
   `/students/:id/edit?returnTo=registration`, and saving returns to the
   form.
+- **PDF (2026-11-26):** an "Export PDF" button on both pages.
+  - **Endpoint:** `GET /api/students/:id/registration/export/pdf`
+    (`services/registrationPdf.js`), with the same access rule.
+  - **Shared data:** the page and the PDF use one loader,
+    `studentController.loadRegistration`, so they cannot disagree.
+  - **Content:**
+    - learner information, enrollment, parent or guardian;
+    - the enrolled subjects with code, type, teacher and term;
+    - signature lines for the learner, the parent or guardian, and the
+      registrar.
+  - **Never on it:** learner-status flags.
+  - **Dates of birth** print from the stored string, never shifted by the
+    server's timezone.
 - **Two old bugs in that form were fixed while testing it:**
   - **Next skipped the Review step.** On the step before Review it
     re-rendered, mid-click, as the submit button, so the student was saved

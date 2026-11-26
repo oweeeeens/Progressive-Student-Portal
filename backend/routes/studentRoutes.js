@@ -11,6 +11,7 @@ const {
   getStudent,
   getStudentSubjects,
   getRegistration,
+  getRegistrationPdf,
   getLearnerStatusFields,
   getAcademicProgress,
   createStudent,
@@ -38,6 +39,7 @@ router.get('/:id', getStudent);
 router.get('/:id/subjects', getStudentSubjects);
 // The registration form: admin, registrar, or the learner themself (checked in the handler).
 router.get('/:id/registration', getRegistration);
+router.get('/:id/registration/export/pdf', getRegistrationPdf);
 // Principal included: they already see the school-wide rollup of exactly
 // this data on the Analytics dashboard, so withholding the per-student
 // version only broke the drill-down, it didn't protect anything.

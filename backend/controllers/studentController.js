@@ -4,7 +4,8 @@
 const studentModel = require('../models/studentModel');
 const enrollmentModel = require('../models/enrollmentModel');
 const { pool } = require('../config/db');
-const { todayInSchoolTimezone } = require('../utils/schoolDate');
+const { todayInSchoolTimezone, dateInSchoolTimezone } = require('../utils/schoolDate');
+const { buildRegistrationPdf } = require('../services/registrationPdf');
 const passwordReset = require('../services/passwordReset');
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const riskAssessmentModel = require('../models/riskAssessmentModel');
@@ -132,35 +133,63 @@ async function getStudentSubjects(req, res) {
 // Who may open it: the registrar and the admin (who keep the record and can
 // edit it), and the learner themself, read-only. Nobody else — an adviser or
 // teacher already has the student page; this is the registrar's document.
-async function getRegistration(req, res) {
+// The registration form's data and its access rule, shared by the page
+// (getRegistration) and the PDF (getRegistrationPdf) so the two can never
+// disagree. Answers the request itself on any refusal and returns null.
+//   who: the admin, the registrar, or the learner themself
+async function loadRegistration(req, res) {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid student id.' });
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: 'Invalid student id.' });
+    return null;
+  }
   const details = await studentModel.getRegistrationDetails(id);
   const isOwnRecord = req.user.role === 'student' && details && details.user_id === req.user.id;
   if (!['admin', 'registrar'].includes(req.user.role) && !isOwnRecord) {
-    return res.status(403).json({ error: 'Only the registrar, the admin, or the learner can open a registration form.' });
+    res.status(403).json({ error: 'Only the registrar, the admin, or the learner can open a registration form.' });
+    return null;
   }
-  if (!details) return res.status(404).json({ error: 'Student not found.' });
+  if (!details) {
+    res.status(404).json({ error: 'Student not found.' });
+    return null;
+  }
 
   // The classes of the section's own school year (a learner in a past
   // year's section still sees that year's form, not an empty one).
   const subjects = await enrollmentModel.listOfferingsForStudent(id, { schoolYearId: details.school_year_id });
   const { user_id: userId, school_year_id: schoolYearId, ...publicDetails } = details;
-  res.json({
-    registration: {
-      ...publicDetails,
-      has_portal_account: Boolean(userId),
-      subjects: subjects.map((s) => ({
-        id: s.id,
-        subject_code: s.subject_code,
-        subject_name: s.subject_name,
-        subject_category: s.subject_category,
-        teacher_name: s.teacher_name,
-        term: s.term,
-      })),
-    },
-    canEdit: ['admin', 'registrar'].includes(req.user.role),
-  });
+  return {
+    ...publicDetails,
+    has_portal_account: Boolean(userId),
+    subjects: subjects.map((s) => ({
+      id: s.id,
+      subject_code: s.subject_code,
+      subject_name: s.subject_name,
+      subject_category: s.subject_category,
+      teacher_name: s.teacher_name,
+      term: s.term,
+    })),
+  };
+}
+
+async function getRegistration(req, res) {
+  const registration = await loadRegistration(req, res);
+  if (!registration) return;
+  res.json({ registration, canEdit: ['admin', 'registrar'].includes(req.user.role) });
+}
+
+// GET /api/students/:id/registration/export/pdf — the same form as a PDF
+// (services/registrationPdf.js), with the same access rule as the page.
+async function getRegistrationPdf(req, res) {
+  const registration = await loadRegistration(req, res);
+  if (!registration) return;
+  const slug = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const filename = `Registration-form-${slug(registration.last_name)}-${registration.lrn}-${dateInSchoolTimezone(new Date())}.pdf`;
+  const doc = buildRegistrationPdf(registration);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  doc.pipe(res);
+  doc.end();
 }
 
 // A writer can only set learner-status fields they're allowed to SEE. In
@@ -309,6 +338,7 @@ async function getAcademicProgress(req, res) {
 
 module.exports = {
   getRegistration,
+  getRegistrationPdf,
   listStudents,
   getStats,
   getStudent,
