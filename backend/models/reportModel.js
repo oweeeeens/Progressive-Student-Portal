@@ -89,6 +89,38 @@ async function listEnrollmentPairs(offeringIds, studentIds) {
   return result.rows;
 }
 
+// The sections whose gradesheet a user who is NOT a school-wide reader may
+// open: the ones they advise, and the ones they teach an active class in —
+// current school year, active sections only, no duplicates. The gradesheet
+// page's picker and the server's own check both use this, so they cannot
+// disagree (reportController.gradesheet, gradesheetSections).
+async function listGradesheetSectionsForUser(userId) {
+  const result = await pool.query(
+    `SELECT DISTINCT sec.id, sec.name, sec.grade_level, sec.strand, sy.label AS school_year,
+            (sec.adviser_id = $1) AS advises
+     FROM sections sec
+     JOIN school_years sy ON sy.id = sec.school_year_id
+     WHERE sy.is_current = TRUE AND sec.is_active = TRUE
+       AND (sec.adviser_id = $1 OR EXISTS (
+         SELECT 1 FROM class_offerings co
+         WHERE co.section_id = sec.id AND co.teacher_id = $1 AND co.is_active = TRUE
+       ))
+     ORDER BY sec.grade_level, sec.name`,
+    [userId]
+  );
+  return result.rows;
+}
+
+// Whether a user teaches an ACTIVE class in a section (any school year) —
+// the subject teacher's way into that section's gradesheet.
+async function teachesActiveClassInSection(userId, sectionId) {
+  const result = await pool.query(
+    'SELECT 1 FROM class_offerings WHERE teacher_id = $1 AND section_id = $2 AND is_active = TRUE LIMIT 1',
+    [userId, sectionId]
+  );
+  return result.rowCount > 0;
+}
+
 // FINALIZED grades only — the official record — for these classes and
 // learners. Grades still in the approval chain are deliberately excluded.
 async function listFinalizedGrades(offeringIds, studentIds) {
@@ -299,6 +331,8 @@ module.exports = {
   getSectionHeader,
   listSectionOfferings,
   listGradesheetStudents,
+  listGradesheetSectionsForUser,
+  teachesActiveClassInSection,
   listEnrollmentPairs,
   listFinalizedGrades,
   getOfferingHeader,

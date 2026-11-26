@@ -34,6 +34,20 @@ export function seesAllGradeReports(role) {
   return ['admin', 'registrar'].includes(role)
 }
 
+// The ADVISER GRADESHEET is wider (2026-11-26): the principal and the
+// guidance counselor also open every section's, since they already read
+// grades school-wide. Mirrors config/auth.js SCHOOLWIDE_GRADESHEET_READERS.
+export function seesAllGradesheets(role) {
+  return ['admin', 'registrar', 'principal', 'guidance_counselor'].includes(role)
+}
+
+// Who gets the Gradesheet link: the school-wide readers, and anyone who
+// advises a section or teaches a class (they open those sections only —
+// the server decides which, GET /reports/gradesheet/sections).
+export function canOpenGradesheet(role, has) {
+  return seesAllGradesheets(role) || showsAdvisingWork(role, has) || showsTeachingWork(role, has)
+}
+
 // --- Imports (the Import Data page and its sidebar link) -------------------
 //
 // `has` is AuthContext's assignment counts ({ sections, offerings }), or null

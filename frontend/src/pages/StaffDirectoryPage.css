@@ -1,0 +1,25 @@
+/* Staff Directory (pages/StaffDirectoryPage.jsx). The name cell carries a
+   "Your adviser" / "Your teacher" pill for a learner, on the same line. */
+.staff-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Every list in the app is one line per cell, clipped with a tooltip, for a
+   steady scan rhythm. This one is the exception, deliberately: a person's
+   sections and classes are what the directory is for, so the Advises and
+   Teaches cells wrap, one subject per line, and the row grows to fit. */
+.staff-directory td[data-label='Advises'],
+.staff-directory td[data-label='Teaches'] {
+  white-space: normal;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+  line-height: 1.4;
+}
+.staff-teaches {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

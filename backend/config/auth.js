@@ -86,10 +86,19 @@ const ACADEMIC_SETUP_READERS = ['admin', 'registrar', 'principal'];
 // are read-only.
 const ALL_GRADE_REPORT_READERS = ['admin', 'registrar'];
 
+// The ADVISER GRADESHEET is wider than the class report (2026-11-26, at the
+// group's request). These roles open every section's gradesheet: the admin
+// and registrar, plus the principal and the guidance counselor, who already
+// read grades school-wide on Analytics. Everyone else opens only the
+// sections they advise or teach into (reportController.gradesheet) — the
+// Data Privacy Act's proportionality rule the system follows elsewhere.
+const SCHOOLWIDE_GRADESHEET_READERS = ['admin', 'registrar', 'principal', 'guidance_counselor'];
+
 module.exports = {
   ACADEMIC_SETUP_EDITORS,
   ACADEMIC_SETUP_READERS,
   ALL_GRADE_REPORT_READERS,
+  SCHOOLWIDE_GRADESHEET_READERS,
   JWT_SECRET,
   JWT_EXPIRES_IN,
   REMEMBER_ME_EXPIRES_IN,

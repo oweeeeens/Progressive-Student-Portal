@@ -4,13 +4,15 @@
 // decided by ASSIGNMENT (the section's adviser, the class's teacher), which
 // the controller checks against the specific section or class requested.
 const express = require('express');
-const { gradesheet, classGrades, allClassGrades, enrolledStudents } = require('../controllers/reportController');
+const { gradesheet, gradesheetSections, classGrades, allClassGrades, enrolledStudents } = require('../controllers/reportController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 router.use(requireAuth);
 
 // Adviser gradesheet: finalized grades, section × subjects, per grading period.
+// The sections this user may open a gradesheet for (the page's picker).
+router.get('/gradesheet/sections', gradesheetSections);
 router.get('/gradesheet', gradesheet('json'));
 router.get('/gradesheet/export/pdf', gradesheet('pdf'));
 router.get('/gradesheet/export/excel', gradesheet('excel'));

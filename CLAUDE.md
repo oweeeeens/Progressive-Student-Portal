@@ -597,7 +597,15 @@ page, and as PDF and Excel from **the same data object**
 **Access is by assignment, checked against the requested section or class.**
 
 - **Adviser Gradesheet** (`/reports/gradesheet`, `GET /api/reports/gradesheet?sectionId=`).
-  - **Who:** the section's adviser or the admin.
+  - **Who (widened 2026-11-26, at the group's request):**
+    - **every section:** the admin, registrar, principal and guidance
+      counselor (`config/auth.js` `SCHOOLWIDE_GRADESHEET_READERS`);
+    - **otherwise:** a section the user advises, or teaches an active class
+      in.
+    - `GET /api/reports/gradesheet/sections` lists exactly those sections,
+      for the page's picker, so the two cannot disagree.
+    - A learner opens none.
+    - **Tests:** `gradesheetAccess.test.js`.
   - **Content:** learners × subjects, **finalized grades only**, one table
     per grading period. A Term-limited subject appears only in its own
     term. Each learner gets an "average of the grades finalized so far" and
@@ -793,6 +801,31 @@ their request:
 - **Tests:** `test/integration/registrarAccess.test.js`, checked to fail on
   the old code. `accountAssignment`, `attendanceImport`, `classGradesAll`
   and `reports` were updated to the new rules.
+
+## Staff Directory (2026-11-26)
+
+The group asked for a list of the school's staff that everyone can view
+easily, students included, so a learner knows who their adviser and
+teachers are.
+- **Page:** `/staff` ("Staff Directory", `pages/StaffDirectoryPage.jsx`),
+  in a "School" sidebar group shown to every role.
+- **Endpoint:** `GET /api/staff-directory` (`staffDirectoryController`,
+  `models/staffDirectoryModel.js`), open to every signed-in user.
+- **Who is listed:** active principal, registrar, guidance counselor,
+  advisers and subject teachers, in that order. The admin is left out (a
+  system account, not a school position); learners and inactive accounts
+  are never listed.
+- **What it shows:** name, position, the current-year sections the person
+  advises, and the current-year active classes they teach. Search and a
+  position filter are on the page.
+- **Privacy (RA 10173, proportionality):**
+  - A **student never receives staff emails.** The field is removed on the
+    server, not hidden on the page.
+  - Staff see work emails.
+  - A learner's own adviser and teachers are marked ("Your adviser" / "Your
+    teacher") and listed first, from their section and their class
+    enrollments (`ON_ROSTER_SQL`).
+- **Tests:** `test/integration/staffDirectory.test.js`.
 
 ## One Source of Truth for a Learner's Name and Email (2026-11-18)
 

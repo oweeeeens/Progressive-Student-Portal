@@ -23,8 +23,9 @@ import {
   Layers,
   BookOpen,
   BookMarked,
+  Contact,
 } from 'lucide-react'
-import { canViewAcademicSetup, canImportAnything, showsAdvisingWork, showsTeachingWork, seesAllGradeReports } from './permissions'
+import { canViewAcademicSetup, canImportAnything, showsAdvisingWork, showsTeachingWork, seesAllGradeReports, canOpenGradesheet } from './permissions'
 
 const canWrite = (role) => role === 'admin' || role === 'registrar'
 
@@ -158,15 +159,25 @@ export function getNavSections(role, has) {
         { to: '/analytics', label: 'Analytics', icon: BarChart3, show: canSeeAnalytics(role, has) },
       ],
     },
+    // The school's people, for everyone — students included, so a learner
+    // knows who their adviser and teachers are (2026-11-26). A learner never
+    // receives staff emails (staffDirectoryController).
+    {
+      label: 'School',
+      items: [{ to: '/staff', label: 'Staff Directory', icon: Contact, show: Boolean(role) }],
+    },
     // The panel's reports (2026-11-18). Each link follows the same rule as
-    // the server: the gradesheet is for whoever advises a section, the class
-    // report for whoever teaches a class, the enrolled list for the
-    // registrar. The admin and the registrar read every gradesheet and class
-    // report (seesAllGradeReports).
+    // the server: the gradesheet is for whoever advises or teaches in a
+    // section, plus the principal, guidance, registrar and admin for every
+    // section (canOpenGradesheet); the class report for whoever teaches a
+    // class, plus the admin and registrar; the enrolled list for the
+    // registrar and admin.
     {
       label: 'Reports',
       items: [
-        { to: '/reports/gradesheet', label: 'Gradesheet', icon: Sheet, show: seesAllGradeReports(role) || showsAdvisingWork(role, has) },
+        // Since 2026-11-26 also the principal, guidance and subject teachers
+        // (the sections they teach into) — permissions.canOpenGradesheet.
+        { to: '/reports/gradesheet', label: 'Gradesheet', icon: Sheet, show: canOpenGradesheet(role, has) },
         { to: '/reports/class-grades', label: 'Class Grades', icon: ClipboardList, show: seesAllGradeReports(role) || showsTeachingWork(role, has) },
         { to: '/reports/enrolled-students', label: 'Enrolled Students', icon: Users, show: ['admin', 'registrar'].includes(role) },
       ],

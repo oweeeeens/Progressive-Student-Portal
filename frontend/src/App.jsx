@@ -23,6 +23,7 @@ import { InterventionsPage } from './pages/InterventionsPage'
 import { ChangePasswordPage } from './pages/ChangePasswordPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { HelpPage } from './pages/HelpPage'
+import { StaffDirectoryPage } from './pages/StaffDirectoryPage'
 import { CreateAccountPage } from './pages/CreateAccountPage'
 import { UserManagementPage } from './pages/UserManagementPage'
 import { SchoolYearsPage } from './pages/SchoolYearsPage'
@@ -102,6 +103,8 @@ function App() {
                 <Route path="/profile" element={<ProfilePage />} />
                 {/* Help: every role, the same link in the top bar on every page. */}
                 <Route path="/help" element={<HelpPage />} />
+                {/* Staff Directory: every role, students included. */}
+                <Route path="/staff" element={<StaffDirectoryPage />} />
                 <Route path="/my-profile/*" element={<Navigate to="/profile" replace />} />
                 <Route path="/my-progress/*" element={<Navigate to="/" replace />} />
                 <Route path="/attendance/daily" element={<DailyAttendancePage />} />

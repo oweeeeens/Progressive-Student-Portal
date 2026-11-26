@@ -122,13 +122,15 @@ test('gradesheet: finalized grades only, one table per period, Term-2-only subje
   assert.ok(!p1.rows.some((r) => r.studentId === ctx.b1.id));
 });
 
-test('gradesheet: the section\'s own adviser, the admin or the registrar', async () => {
+test('gradesheet: refused to an unrelated adviser, a teacher who does not teach in the section, and a learner', async () => {
   const url = `/api/reports/gradesheet?sectionId=${ctx.sectionA.id}`;
   assert.equal((await api.get(url, { token: ctx.admin.token })).status, 200);
   // The registrar reads every section's gradesheet (2026-11-26), and exports it.
   assert.equal((await api.get(url, { token: ctx.registrar.token })).status, 200);
   assert.equal((await download(`/api/reports/gradesheet/export/excel?sectionId=${ctx.sectionA.id}`, ctx.registrar.token)).status, 200);
-  for (const who of ['adviserB', 'teacher', 'principal', 'studentUser']) {
+  // Since 2026-11-26 the principal and a teacher who teaches in the section
+  // may open it too (gradesheetAccess.test.js); these may not.
+  for (const who of ['adviserB', 'teacherB', 'studentUser']) {
     assert.equal((await api.get(url, { token: ctx[who].token })).status, 403, who);
   }
   assert.equal((await api.get('/api/reports/gradesheet', { token: ctx.adviserA.token })).status, 400);

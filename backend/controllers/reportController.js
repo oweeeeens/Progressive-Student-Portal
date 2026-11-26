@@ -3,7 +3,8 @@
 // export — so a downloaded file always says exactly what the screen said.
 //
 // Access is by ASSIGNMENT, like every other permission in this system:
-//   gradesheet       the section's adviser (sections.adviser_id), the admin or the registrar
+//   gradesheet       every section: admin, registrar, principal, guidance counselor;
+//                    otherwise a section the user advises or teaches an active class in
 //   class grades     the class's teacher (class_offerings.teacher_id), the admin or the registrar
 //   enrolled list    the registrar or the admin
 const reportModel = require('../models/reportModel');
@@ -12,7 +13,7 @@ const { buildGradesheet, buildClassGrades, buildEnrolledList, buildMonitoring } 
 const gradingPeriodModel = require('../models/gradingPeriodModel');
 const { todayInSchoolTimezone, dateInSchoolTimezone } = require('../utils/schoolDate');
 const { VALID_ENROLLMENT_STATUS } = require('../utils/studentValidation');
-const { ALL_GRADE_REPORT_READERS } = require('../config/auth');
+const { ALL_GRADE_REPORT_READERS, SCHOOLWIDE_GRADESHEET_READERS } = require('../config/auth');
 const { buildGradesheetPdf, buildClassGradesPdf, buildAllClassGradesPdf, buildEnrolledListPdf, buildMonitoringPdf } = require('../services/reportPdf');
 const { buildGradesheetWorkbook, buildClassGradesWorkbook, buildAllClassGradesWorkbook, buildEnrolledListWorkbook, buildMonitoringWorkbook } = require('../services/reportWorkbook');
 const classOfferingModel = require('../models/classOfferingModel');
@@ -64,8 +65,14 @@ function gradesheet(format) {
     if (!sectionId) return res.status(400).json({ error: 'Choose a section.' });
     const header = await reportModel.getSectionHeader(sectionId);
     if (!header) return res.status(404).json({ error: 'Section not found.' });
-    if (!ALL_GRADE_REPORT_READERS.includes(req.user.role) && header.adviser_id !== req.user.id) {
-      return res.status(403).json({ error: 'A gradesheet is for the section\'s own adviser (or the admin or registrar).' });
+    // School-wide readers open any section; anyone else, a section they
+    // advise or teach an active class in (2026-11-26).
+    const allowed =
+      SCHOOLWIDE_GRADESHEET_READERS.includes(req.user.role) ||
+      header.adviser_id === req.user.id ||
+      (await reportModel.teachesActiveClassInSection(req.user.id, sectionId));
+    if (!allowed) {
+      return res.status(403).json({ error: 'You can open the gradesheet of a section you advise or teach in.' });
     }
     const [periods, offerings, students] = await Promise.all([
       reportModel.listPeriods(header.school_year_id),
@@ -85,6 +92,17 @@ function gradesheet(format) {
       filename: `Gradesheet-grade-${header.grade_level}-${slug(header.name)}-${dateStamp(data.generatedAt)}`,
     });
   };
+}
+
+// GET /api/reports/gradesheet/sections — the sections this user may open a
+// gradesheet for: every current section for the school-wide readers, else
+// the ones they advise or teach into. The page's picker reads this, so it
+// never offers a section the server would refuse.
+async function gradesheetSections(req, res) {
+  const sections = SCHOOLWIDE_GRADESHEET_READERS.includes(req.user.role)
+    ? await reportModel.listCurrentSections()
+    : await reportModel.listGradesheetSectionsForUser(req.user.id);
+  res.json({ sections, schoolWide: SCHOOLWIDE_GRADESHEET_READERS.includes(req.user.role) });
 }
 
 // SUBJECT TEACHER'S CLASS GRADE REPORT — GET /api/reports/class-grades?classOfferingId=
@@ -220,4 +238,4 @@ function monitoring(format) {
   };
 }
 
-module.exports = { gradesheet, classGrades, allClassGrades, enrolledStudents, monitoring };
+module.exports = { gradesheet, gradesheetSections, classGrades, allClassGrades, enrolledStudents, monitoring };

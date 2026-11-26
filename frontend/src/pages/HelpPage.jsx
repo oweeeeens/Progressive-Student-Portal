@@ -36,6 +36,7 @@ const PAGE_PURPOSE = {
   '/analytics': 'The overall picture: risk levels and their causes, attendance, the learner outlook and how well interventions worked. Exports to PDF and Excel.',
   '/reports/gradesheet': 'A section’s finalized grades, learners by subjects, one table per term. Exports to PDF and Excel.',
   '/reports/class-grades': 'The grades of the learners in one class — or all your classes — with where each is in the approval chain.',
+  '/staff': 'Everyone who works at the school this year: position, the section they advise and the classes they teach.',
   '/reports/enrolled-students': 'The list of enrolled learners, filterable by grade, section and strand, with counts.',
   '/users': 'Every portal account: edit, reset a password, deactivate or reactivate.',
   '/users/new': 'Create an account. The system gives a temporary password, which the person must change at first sign-in.',

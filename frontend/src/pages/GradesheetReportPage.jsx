@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Users, BookOpen, CheckCircle2, Layers } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
-import { seesAllGradeReports } from '../utils/permissions'
+import { seesAllGradesheets } from '../utils/permissions'
+import { NoAssignmentNotice } from '../components/NoAssignmentNotice'
 import { Breadcrumbs } from '../components/Breadcrumbs'
 import { Alert } from '../components/Alert'
 import { Tabs } from '../components/Tabs'
@@ -11,7 +12,6 @@ import { StatDetail } from '../components/StatDetail'
 import { useStatExplainer } from '../hooks/useStatExplainer'
 import { DataTable, fieldValue } from '../components/table/DataTable'
 import { SkeletonTable } from '../components/Skeleton'
-import { NoAssignmentNotice } from '../components/NoAssignmentNotice'
 import { ReportExportButtons } from '../components/reports/ReportExportButtons'
 import { defaultSelection } from '../utils/defaultSelection'
 
@@ -122,9 +122,10 @@ function PeriodTable({ period }) {
 
 export function GradesheetReportPage() {
   const { user } = useAuth()
-  // The admin and the registrar read every section's and class's report;
-  // everyone else reads only what they advise or teach (utils/permissions.js).
-  const seesAll = seesAllGradeReports(user?.role)
+  // The admin, registrar, principal and guidance counselor open every
+  // section's gradesheet; everyone else, the sections they advise or teach
+  // into (utils/permissions.js; the server decides the list).
+  const seesAll = seesAllGradesheets(user?.role)
   const [sections, setSections] = useState(null)
   const [sectionId, setSectionId] = useState('')
   const [currentPeriodId, setCurrentPeriodId] = useState(null)
@@ -134,13 +135,17 @@ export function GradesheetReportPage() {
   const [exportError, setExportError] = useState(null)
   const { openFor, close, cardProps } = useStatExplainer('gradesheet-stat-detail')
 
-  // The admin chooses from every section; an adviser opens on their own.
+  // The sections this person may open, as the SERVER answers it, so the
+  // picker never offers one it would refuse. A school-wide reader chooses;
+  // anyone else opens on their own advisory section first, else the first
+  // section they teach into.
   useEffect(() => {
     api
-      .get(seesAll ? '/sections' : '/sections/mine')
+      .get('/reports/gradesheet/sections')
       .then((res) => {
         setSections(res.sections)
-        setSectionId((current) => current || defaultSelection(res.sections, !seesAll))
+        const own = res.sections.filter((s) => s.advises)
+        setSectionId((current) => current || defaultSelection(own.length ? own : res.sections, !seesAll))
       })
       .catch((err) => setError(`Couldn't load your sections: ${err.message}`))
     api
@@ -198,14 +203,22 @@ export function GradesheetReportPage() {
         </div>
       </div>
 
-      <NoAssignmentNotice kind="section" />
       <p className="help-text mb-3">
         Finalized grades only — the official record. Grades still with the principal or waiting to be finalized do not appear here.
       </p>
       {error && <Alert>{error}</Alert>}
       {exportError && <Alert>{exportError}</Alert>}
+      {/* Nothing to open: an unlinked adviser or teacher gets the standard
+          "nothing assigned yet" notice (the same one their other pages
+          show); anyone else, a plain sentence. Only when the list really is
+          empty, so a teacher who teaches into a section never sees it. */}
       {sections && sections.length === 0 && !seesAll && (
-        <p className="help-text">You do not advise a section this school year, so there is no gradesheet to show.</p>
+        <>
+          <NoAssignmentNotice kind={user?.role === 'subject_teacher' ? 'class' : 'section'} />
+          {!['adviser', 'subject_teacher'].includes(user?.role) && (
+            <p className="help-text">You do not advise or teach a section this school year, so there is no gradesheet to show.</p>
+          )}
+        </>
       )}
       {seesAll && !sectionId && <p className="help-text">Choose a section to see its gradesheet.</p>}
       {loading && <SkeletonTable rows={8} columns={6} />}
